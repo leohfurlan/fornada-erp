@@ -6,11 +6,12 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Plus, Search } from "lucide
 import { useIngredientes } from "@/hooks/use-estoque";
 import { EstoqueBadge } from "@/components/shared/estoque-badge";
 import { MoneyDisplay } from "@/components/shared/money-display";
-import { cn, formatDataHora, formatQuantidade } from "@/lib/utils";
+import { TabelaEstoqueDesktop } from "@/components/shared/tabela-estoque-desktop";
+import { formatDataHora, formatQuantidade } from "@/lib/utils";
 import { TIPOS_PRODUTO } from "@/lib/unidades";
 import type { Ingrediente } from "@/types";
 
-type SortKey = "codigo" | "nome" | "estoque_atual" | "quantidade_reservada" | "saldo" | "custo_medio" | "data_custo_atualizado" | "tipo";
+type SortKeyMobile = "codigo" | "nome" | "saldo" | "custo_medio" | "data_custo_atualizado";
 type SortDir = "asc" | "desc";
 
 export default function EstoquePage() {
@@ -18,36 +19,36 @@ export default function EstoquePage() {
   const [busca, setBusca] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<string>("");
   const [filtroStatus, setFiltroStatus] = useState<string>("");
-  const [sortKey, setSortKey] = useState<SortKey>("codigo");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  const filtradosOrdenados = useMemo(() => {
+  // Ordenação só para o layout mobile (desktop usa o controle da própria tabela)
+  const [sortKeyMobile, setSortKeyMobile] = useState<SortKeyMobile>("codigo");
+  const [sortDirMobile, setSortDirMobile] = useState<SortDir>("asc");
+
+  const filtrados = useMemo(() => {
     if (!ingredientes) return [];
     const buscaLower = busca.trim().toLowerCase();
-    const filtrados = ingredientes.filter((i) => {
+    return ingredientes.filter((i) => {
       if (filtroTipo && i.tipo !== filtroTipo) return false;
       if (filtroStatus && i.status_estoque !== filtroStatus) return false;
-      if (buscaLower && !i.nome.toLowerCase().includes(buscaLower) && String(i.codigo) !== buscaLower)
+      if (
+        buscaLower &&
+        !i.nome.toLowerCase().includes(buscaLower) &&
+        String(i.codigo) !== buscaLower
+      )
         return false;
       return true;
     });
+  }, [ingredientes, busca, filtroTipo, filtroStatus]);
 
+  // Ordenação mobile aplicada sobre a lista filtrada
+  const filtradosMobile = useMemo(() => {
     return [...filtrados].sort((a, b) => {
-      const av = a[sortKey];
-      const bv = b[sortKey];
+      const av = a[sortKeyMobile];
+      const bv = b[sortKeyMobile];
       const cmp = compararValores(av, bv);
-      return sortDir === "asc" ? cmp : -cmp;
+      return sortDirMobile === "asc" ? cmp : -cmp;
     });
-  }, [ingredientes, busca, filtroTipo, filtroStatus, sortKey, sortDir]);
-
-  const alternarOrdenacao = (chave: SortKey) => {
-    if (sortKey === chave) {
-      setSortDir(sortDir === "asc" ? "desc" : "asc");
-    } else {
-      setSortKey(chave);
-      setSortDir("asc");
-    }
-  };
+  }, [filtrados, sortKeyMobile, sortDirMobile]);
 
   if (error) {
     return (
@@ -77,7 +78,6 @@ export default function EstoquePage() {
         </Link>
       </div>
 
-      {/* Alerta de itens baixos */}
       {!!alertas?.length && (
         <div className="rounded-xl bg-orange-50 border border-orange-200 p-3 text-sm">
           <p className="font-medium text-orange-800">
@@ -137,34 +137,29 @@ export default function EstoquePage() {
         </div>
       ) : !ingredientes?.length ? (
         <EmptyState />
-      ) : filtradosOrdenados.length === 0 ? (
+      ) : filtrados.length === 0 ? (
         <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
           Nenhum item encontrado com esses filtros
         </div>
       ) : (
         <>
-          {/* DESKTOP: Tabela */}
+          {/* DESKTOP: Tabela com sort, resize, reorder e visibility */}
           <div className="hidden md:block">
-            <TabelaEstoque
-              ingredientes={filtradosOrdenados}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onOrdenar={alternarOrdenacao}
-            />
+            <TabelaEstoqueDesktop ingredientes={filtrados} />
           </div>
 
           {/* MOBILE: Cards expansíveis */}
           <div className="md:hidden">
             <OrdenacaoMobile
-              sortKey={sortKey}
-              sortDir={sortDir}
+              sortKey={sortKeyMobile}
+              sortDir={sortDirMobile}
               onMudar={(k, d) => {
-                setSortKey(k);
-                setSortDir(d);
+                setSortKeyMobile(k);
+                setSortDirMobile(d);
               }}
             />
             <div className="space-y-2 mt-3">
-              {filtradosOrdenados.map((i) => (
+              {filtradosMobile.map((i) => (
                 <CardEstoque key={i.id} item={i} />
               ))}
             </div>
@@ -181,7 +176,6 @@ function compararValores(a: unknown, b: unknown): number {
   if (a == null && b == null) return 0;
   if (a == null) return 1;
   if (b == null) return -1;
-  // Strings numéricas (Decimal da API) precisam comparação numérica
   if (typeof a === "string" && typeof b === "string") {
     const na = parseFloat(a);
     const nb = parseFloat(b);
@@ -212,108 +206,9 @@ function EmptyState() {
   );
 }
 
-// -------- Tabela Desktop --------
-
-interface HeaderCellProps {
-  label: string;
-  chave: SortKey;
-  sortKey: SortKey;
-  sortDir: SortDir;
-  onOrdenar: (k: SortKey) => void;
-  align?: "left" | "right" | "center";
-  className?: string;
-}
-
-function HeaderCell({ label, chave, sortKey, sortDir, onOrdenar, align = "left", className }: HeaderCellProps) {
-  const ativo = sortKey === chave;
-  return (
-    <th
-      className={cn(
-        "px-3 py-2 text-xs font-semibold text-muted-foreground select-none cursor-pointer hover:bg-muted/50",
-        align === "right" && "text-right",
-        align === "center" && "text-center",
-        className
-      )}
-      onClick={() => onOrdenar(chave)}
-    >
-      <span className={cn("inline-flex items-center gap-1", align === "right" && "flex-row-reverse")}>
-        {label}
-        {ativo ? (
-          sortDir === "asc" ? (
-            <ArrowUp className="h-3 w-3" />
-          ) : (
-            <ArrowDown className="h-3 w-3" />
-          )
-        ) : (
-          <ArrowUp className="h-3 w-3 opacity-20" />
-        )}
-      </span>
-    </th>
-  );
-}
-
-function TabelaEstoque({
-  ingredientes,
-  sortKey,
-  sortDir,
-  onOrdenar,
-}: {
-  ingredientes: Ingrediente[];
-  sortKey: SortKey;
-  sortDir: SortDir;
-  onOrdenar: (k: SortKey) => void;
-}) {
-  return (
-    <div className="overflow-x-auto rounded-xl border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/30">
-          <tr>
-            <HeaderCell label="Cód." chave="codigo" {...{ sortKey, sortDir, onOrdenar }} align="right" className="w-16" />
-            <HeaderCell label="Tipo" chave="tipo" {...{ sortKey, sortDir, onOrdenar }} className="w-28" />
-            <HeaderCell label="Descrição" chave="nome" {...{ sortKey, sortDir, onOrdenar }} />
-            <HeaderCell label="Estoque" chave="estoque_atual" {...{ sortKey, sortDir, onOrdenar }} align="right" />
-            <HeaderCell label="Reservado" chave="quantidade_reservada" {...{ sortKey, sortDir, onOrdenar }} align="right" />
-            <HeaderCell label="Saldo" chave="saldo" {...{ sortKey, sortDir, onOrdenar }} align="right" />
-            <HeaderCell label="Custo (R$)" chave="custo_medio" {...{ sortKey, sortDir, onOrdenar }} align="right" />
-            <HeaderCell label="Data custo" chave="data_custo_atualizado" {...{ sortKey, sortDir, onOrdenar }} align="right" className="w-32" />
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {ingredientes.map((i) => (
-            <tr key={i.id} className="hover:bg-muted/30">
-              <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
-                {String(i.codigo).padStart(3, "0")}
-              </td>
-              <td className="px-3 py-2 text-xs">
-                <span className="inline-block rounded-full bg-muted px-2 py-0.5">{tipoLabel(i.tipo)}</span>
-              </td>
-              <td className="px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{i.nome}</span>
-                  <EstoqueBadge status={i.status_estoque} />
-                </div>
-                <p className="text-xs text-muted-foreground">{i.unidade}</p>
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">{formatQuantidade(i.estoque_atual)}</td>
-              <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{formatQuantidade(i.quantidade_reservada)}</td>
-              <td className="px-3 py-2 text-right tabular-nums font-medium">{formatQuantidade(i.saldo)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                <MoneyDisplay value={i.custo_medio} size="sm" />
-              </td>
-              <td className="px-3 py-2 text-right text-xs text-muted-foreground">
-                {formatDataHora(i.data_custo_atualizado)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 // -------- Mobile: Ordenação + Cards --------
 
-const OPCOES_ORDENACAO: { key: SortKey; label: string }[] = [
+const OPCOES_ORDENACAO: { key: SortKeyMobile; label: string }[] = [
   { key: "codigo", label: "Código" },
   { key: "nome", label: "Descrição" },
   { key: "saldo", label: "Saldo" },
@@ -326,15 +221,15 @@ function OrdenacaoMobile({
   sortDir,
   onMudar,
 }: {
-  sortKey: SortKey;
+  sortKey: SortKeyMobile;
   sortDir: SortDir;
-  onMudar: (k: SortKey, d: SortDir) => void;
+  onMudar: (k: SortKeyMobile, d: SortDir) => void;
 }) {
   return (
     <div className="flex items-center gap-2">
       <select
         value={sortKey}
-        onChange={(e) => onMudar(e.target.value as SortKey, sortDir)}
+        onChange={(e) => onMudar(e.target.value as SortKeyMobile, sortDir)}
         className="flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
       >
         {OPCOES_ORDENACAO.map((o) => (
@@ -373,7 +268,11 @@ function CardEstoque({ item }: { item: Ingrediente }) {
             <EstoqueBadge status={item.status_estoque} />
           </div>
           <p className="text-xs text-muted-foreground">
-            Saldo: <span className="font-medium text-foreground">{formatQuantidade(item.saldo)} {item.unidade}</span> · {tipoLabel(item.tipo)}
+            Saldo:{" "}
+            <span className="font-medium text-foreground">
+              {formatQuantidade(item.saldo)} {item.unidade}
+            </span>{" "}
+            · {tipoLabel(item.tipo)}
           </p>
         </div>
         <div className="text-right shrink-0">
@@ -389,9 +288,18 @@ function CardEstoque({ item }: { item: Ingrediente }) {
 
       {aberto && (
         <div className="border-t bg-muted/20 px-4 py-3 space-y-2 text-sm">
-          <DetalheLinha label="Estoque" valor={`${formatQuantidade(item.estoque_atual)} ${item.unidade}`} />
-          <DetalheLinha label="Reservado" valor={`${formatQuantidade(item.quantidade_reservada)} ${item.unidade}`} />
-          <DetalheLinha label="Estoque mínimo" valor={`${formatQuantidade(item.estoque_minimo)} ${item.unidade}`} />
+          <DetalheLinha
+            label="Estoque"
+            valor={`${formatQuantidade(item.estoque_atual)} ${item.unidade}`}
+          />
+          <DetalheLinha
+            label="Reservado"
+            valor={`${formatQuantidade(item.quantidade_reservada)} ${item.unidade}`}
+          />
+          <DetalheLinha
+            label="Estoque mínimo"
+            valor={`${formatQuantidade(item.estoque_minimo)} ${item.unidade}`}
+          />
           <DetalheLinha label="Custo médio" valor={<MoneyDisplay value={item.custo_medio} size="sm" />} />
           <DetalheLinha label="Custo atualizado em" valor={formatDataHora(item.data_custo_atualizado)} />
         </div>
