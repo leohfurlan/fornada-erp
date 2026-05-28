@@ -316,3 +316,4 @@ function DetalheLinha({ label, valor }: { label: string; valor: React.ReactNode 
     </div>
   );
 }
+

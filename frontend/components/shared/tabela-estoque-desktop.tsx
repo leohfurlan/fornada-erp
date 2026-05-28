@@ -220,11 +220,12 @@ export function TabelaEstoqueDesktop({ ingredientes }: TabelaEstoqueDesktopProps
         <MenuColunas table={table} onResetar={resetar} />
       </div>
 
-      {/* Tabela */}
-      <div className="overflow-x-auto rounded-xl border">
+      {/* Tabela: w-full preenche o container; minWidth garante scroll horizontal
+          se as colunas somadas forem maiores que a tela. */}
+      <div className="overflow-x-auto rounded-xl border w-full">
         <table
-          className="text-sm"
-          style={{ width: table.getCenterTotalSize() }}
+          className="text-sm w-full"
+          style={{ minWidth: table.getCenterTotalSize() }}
         >
           <thead className="bg-muted/30">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -238,8 +239,11 @@ export function TabelaEstoqueDesktop({ ingredientes }: TabelaEstoqueDesktopProps
                       colSpan={header.colSpan}
                       style={{ width: header.getSize() }}
                       className="relative px-3 py-2 text-xs font-semibold text-muted-foreground select-none group"
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, header.column.id)}
+                      draggable={!header.column.getIsResizing()}
+                      onDragStart={(e) => {
+                        if (header.column.getIsResizing()) { e.preventDefault(); return; }
+                        handleDragStart(e, header.column.id);
+                      }}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => handleDrop(e, header.column.id, table)}
                     >
@@ -249,34 +253,47 @@ export function TabelaEstoqueDesktop({ ingredientes }: TabelaEstoqueDesktopProps
                           align === "right" && "flex-row-reverse text-right"
                         )}
                       >
-                        <GripVertical className="h-3 w-3 text-muted-foreground/40 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <GripVertical className="h-3 w-3 text-muted-foreground/40 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
-                          className="inline-flex items-center gap-1 hover:text-foreground"
+                          className="inline-flex items-center gap-1 hover:text-foreground truncate"
                         >
                           {flexRender(header.column.columnDef.header, header.getContext())}
                           {sorted === "asc" ? (
-                            <ArrowUp className="h-3 w-3" />
+                            <ArrowUp className="h-3 w-3 shrink-0" />
                           ) : sorted === "desc" ? (
-                            <ArrowDown className="h-3 w-3" />
+                            <ArrowDown className="h-3 w-3 shrink-0" />
                           ) : (
-                            <ArrowUpDown className="h-3 w-3 opacity-30" />
+                            <ArrowUpDown className="h-3 w-3 shrink-0 opacity-30" />
                           )}
                         </button>
                       </div>
 
-                      {/* Handle de resize */}
+                      {/* Handle de resize — 8px de área de toque, 2px visíveis.
+                          stopPropagation evita acionar o drag de reorder. */}
                       <div
-                        onMouseDown={header.getResizeHandler()}
-                        onTouchStart={header.getResizeHandler()}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          header.getResizeHandler()(e);
+                        }}
+                        onTouchStart={(e) => {
+                          e.stopPropagation();
+                          header.getResizeHandler()(e);
+                        }}
                         onClick={(e) => e.stopPropagation()}
+                        draggable={false}
                         className={cn(
-                          "absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none",
-                          "hover:bg-primary/40 transition-colors",
-                          header.column.getIsResizing() && "bg-primary"
+                          "absolute right-0 top-0 h-full w-2 cursor-col-resize select-none touch-none",
+                          "flex items-center justify-end pr-[1px]",
+                          header.column.getIsResizing() ? "opacity-100" : "opacity-0 group-hover:opacity-100",
                         )}
-                      />
+                      >
+                        <div className={cn(
+                          "w-0.5 h-4 rounded-full transition-colors",
+                          header.column.getIsResizing() ? "bg-primary" : "bg-muted-foreground/40"
+                        )} />
+                      </div>
                     </th>
                   );
                 })}
@@ -291,7 +308,7 @@ export function TabelaEstoqueDesktop({ ingredientes }: TabelaEstoqueDesktopProps
                   return (
                     <td
                       key={cell.id}
-                      style={{ width: cell.column.getSize() }}
+                      style={{ width: cell.column.getSize(), maxWidth: cell.column.getSize() }}
                       className={cn(
                         "px-3 py-2 tabular-nums",
                         align === "right" && "text-right",

@@ -50,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </header>
 
       {/* Conteúdo */}
-      <main className="flex-1 px-4 py-6 pb-24 max-w-2xl mx-auto w-full">{children}</main>
+      <main className="flex-1 px-4 py-6 pb-24 max-w-2xl md:max-w-5xl mx-auto w-full">{children}</main>
 
       {/* Nav inferior mobile */}
       <nav className="fixed bottom-0 left-0 right-0 border-t bg-background z-40">

@@ -72,11 +72,14 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - /app/.next
+      # .next NAO e mais volume anonimo: deixa o Next gravar direto em /app/.next
+      # dentro do bind mount, assim mudancas no host refletem imediatamente.
     environment:
-      # Use o IP local da maquina (192.168.x.x) para que o celular consiga acessar.
-      # NAO pode ser "localhost" porque do celular, localhost aponta pro celular.
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      # WATCHPACK_POLLING forca o Next.js a usar polling em vez de inotify.
+      # Necessario no Windows + WSL2 porque eventos de filesystem nao propagam
+      # do host Windows para dentro do container via inotify.
+      WATCHPACK_POLLING: "true"
     depends_on:
       - backend
     command: pnpm dev

@@ -20,6 +20,23 @@ switch ($Command) {
     "restart" {
         docker compose restart
     }
+    "update-ip" {
+        # Descobre o IP Wi-Fi atual e atualiza NEXT_PUBLIC_API_URL no .env.
+        # Use quando o DHCP trocar o IP da maquina (frontend para de bater na API).
+        $ip = (Get-NetIPAddress -AddressFamily IPv4 -PrefixOrigin Dhcp -ErrorAction SilentlyContinue |
+               Where-Object { $_.IPAddress -notlike "169.*" -and $_.IPAddress -notlike "127.*" } |
+               Select-Object -First 1).IPAddress
+        if (-not $ip) {
+            Write-Host "Nao foi possivel detectar o IP local." -ForegroundColor Red
+            exit 1
+        }
+        $envPath = Join-Path $PSScriptRoot ".env"
+        (Get-Content $envPath) -replace 'NEXT_PUBLIC_API_URL=.*', "NEXT_PUBLIC_API_URL=http://${ip}:8000" |
+            Set-Content $envPath
+        Write-Host "IP atualizado para $ip" -ForegroundColor Green
+        docker compose up -d --force-recreate frontend
+        Write-Host "Frontend reiniciado. Acesse: http://${ip}:3000" -ForegroundColor Cyan
+    }
     "reset-frontend" {
         # Limpa cache do Next.js quando aparecem erros de import de funcoes
         # que voce SABE que existem (cache stale). Mais leve que rebuild.
@@ -77,6 +94,7 @@ switch ($Command) {
         Write-Host "  .\fornada.ps1 shell-backend      # shell no container backend"
         Write-Host "  .\fornada.ps1 shell-db           # psql no banco"
         Write-Host "  .\fornada.ps1 reset-frontend     # limpa cache .next e reinicia (use se Next reclamar de imports)"
+        Write-Host "  .\fornada.ps1 update-ip          # atualiza IP no .env e reinicia frontend (use quando o DHCP mudar o IP)"
         Write-Host "  .\fornada.ps1 setup              # setup completo (primeira vez)"
     }
 }
