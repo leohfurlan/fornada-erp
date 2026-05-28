@@ -20,6 +20,13 @@ switch ($Command) {
     "restart" {
         docker compose restart
     }
+    "reset-frontend" {
+        # Limpa cache do Next.js quando aparecem erros de import de funcoes
+        # que voce SABE que existem (cache stale). Mais leve que rebuild.
+        docker compose exec frontend sh -c "rm -rf /app/.next/cache /app/.next/server /app/.next/static"
+        docker compose restart frontend
+        Write-Host "Cache do .next limpo e frontend reiniciado." -ForegroundColor Green
+    }
     "logs" {
         docker compose logs -f
     }
@@ -69,6 +76,7 @@ switch ($Command) {
         Write-Host "  .\fornada.ps1 typecheck-frontend # checagem de tipos TS"
         Write-Host "  .\fornada.ps1 shell-backend      # shell no container backend"
         Write-Host "  .\fornada.ps1 shell-db           # psql no banco"
+        Write-Host "  .\fornada.ps1 reset-frontend     # limpa cache .next e reinicia (use se Next reclamar de imports)"
         Write-Host "  .\fornada.ps1 setup              # setup completo (primeira vez)"
     }
 }
