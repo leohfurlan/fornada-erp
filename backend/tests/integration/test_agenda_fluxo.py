@@ -126,6 +126,60 @@ async def test_ciclo_de_vida_item_receita(
 
 
 @pytest.mark.asyncio
+async def test_pedido_concluido_some_da_fila(
+    db: AsyncSession, service: AgendaService, tenant_id, pedido
+):
+    """Item vinculado a pedido entregue/concluído não aparece na listagem."""
+    criado = await service.criar_item(
+        tenant_id,
+        CriarAgendaItemRequest(
+            titulo="Preparar encomenda",
+            tipo="pedido",
+            data=date(2026, 6, 4),
+            pedido_id=pedido.id,
+        ),
+    )
+    # Enquanto o pedido está aprovado, aparece.
+    semana = await service.listar_semana(tenant_id, date(2026, 6, 1))
+    assert [i.id for i in semana] == [criado.id]
+
+    # Pedido entregue → item sai da fila.
+    pedido.status = "entregue"
+    await db.flush()
+    assert await service.listar_semana(tenant_id, date(2026, 6, 1)) == []
+
+    # Status legado "finalizado" também esconde.
+    pedido.status = "finalizado"
+    await db.flush()
+    assert await service.listar_dia(tenant_id, date(2026, 6, 4)) == []
+
+    # Mas tarefas sem vínculo de pedido continuam visíveis no mesmo período.
+    tarefa = await service.criar_item(
+        tenant_id,
+        CriarAgendaItemRequest(titulo="Lavar formas", tipo="tarefa", data=date(2026, 6, 4)),
+    )
+    restantes = await service.listar_dia(tenant_id, date(2026, 6, 4))
+    assert [i.id for i in restantes] == [tarefa.id]
+
+
+@pytest.mark.asyncio
+async def test_pedido_cancelado_permanece_na_fila(
+    db: AsyncSession, service: AgendaService, tenant_id, pedido
+):
+    """Cancelado ≠ concluído: o item segue visível (não foi entregue)."""
+    criado = await service.criar_item(
+        tenant_id,
+        CriarAgendaItemRequest(
+            titulo="Encomenda", tipo="pedido", data=date(2026, 6, 4), pedido_id=pedido.id
+        ),
+    )
+    pedido.status = "cancelado"
+    await db.flush()
+    semana = await service.listar_semana(tenant_id, date(2026, 6, 1))
+    assert [i.id for i in semana] == [criado.id]
+
+
+@pytest.mark.asyncio
 async def test_item_pedido_traz_nome_cliente(
     db: AsyncSession, service: AgendaService, tenant_id, pedido
 ):

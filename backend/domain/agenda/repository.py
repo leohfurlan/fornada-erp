@@ -1,7 +1,7 @@
 from datetime import UTC, date, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -9,12 +9,17 @@ from domain.agenda.schemas import (
     AtualizarAgendaItemRequest,
     CriarAgendaItemRequest,
 )
+from domain.pedidos.state_machine import STATUS_ENTREGUE, STATUS_FINALIZADO
 from infrastructure.database.models import (
     AgendaItem,
     OrdemProducao,
     Pedido,
     Receita,
 )
+
+# Pedidos nesses status já saíram da fila de trabalho (concluídos/entregues),
+# então itens da agenda vinculados a eles não aparecem na listagem.
+STATUS_PEDIDO_FORA_DA_FILA: frozenset[str] = frozenset({STATUS_ENTREGUE, STATUS_FINALIZADO})
 
 
 class AgendaRepository:
@@ -61,9 +66,19 @@ class AgendaRepository:
     ) -> list[AgendaItem]:
         """Itens do tenant cuja data está no intervalo [data_inicio, data_fim].
 
+        Esconde itens vinculados a pedidos já concluídos/entregues — eles saíram
+        da fila de trabalho. Itens sem vínculo de pedido (tarefas, receitas) ou
+        vinculados a pedidos ainda ativos permanecem.
+
         Ordena por data e, dentro do dia, por hora_inicio com itens de dia
         inteiro (hora_inicio NULL) por último.
         """
+        # NOT EXISTS: verdadeiro para itens sem pedido_id (subquery não casa) e
+        # para itens cujo pedido está em status ativo. Exclui só os concluídos.
+        pedido_fora_da_fila = exists().where(
+            Pedido.id == AgendaItem.pedido_id,
+            Pedido.status.in_(STATUS_PEDIDO_FORA_DA_FILA),
+        )
         stmt = (
             select(AgendaItem)
             .options(
@@ -76,6 +91,7 @@ class AgendaRepository:
                 AgendaItem.data >= data_inicio,
                 AgendaItem.data <= data_fim,
                 AgendaItem.deleted_at.is_(None),
+                ~pedido_fora_da_fila,
             )
             .order_by(
                 AgendaItem.data.asc(),
