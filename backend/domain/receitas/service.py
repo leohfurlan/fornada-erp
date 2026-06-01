@@ -7,7 +7,11 @@ from domain.exceptions import NotFoundError, ValidationError
 from domain.receitas.calculos import (
     ConfiguracaoCustoCalculo,
     ItemIngredienteCalculo,
+    calcular_custo_por_hora_produzida,
     calcular_custo_total,
+    calcular_lucro_estimado,
+    calcular_lucro_por_minuto,
+    calcular_margem_real,
     calcular_preco_recomendado,
     minutos_para_horas,
 )
@@ -79,14 +83,17 @@ class ReceitaService:
                         f"Ingrediente {item.ingrediente_id} não encontrado no estoque"
                     )
 
+        campos_atualizaveis = data.model_dump(
+            exclude_unset=True,
+            exclude={"ingredientes", "etapas"},
+        )
         campos_simples = {
-            "nome": data.nome,
-            "categoria": data.categoria,
-            "rendimento": data.rendimento,
-            "rendimento_unidade": data.rendimento_unidade,
-            "margem_desejada": data.margem_desejada,
-            "modo_preparo": data.modo_preparo,
+            k: v for k, v in campos_atualizaveis.items() if k != "preco_de_venda_real"
         }
+        # preco_de_venda_real precisa permitir None explícito (limpar valor),
+        # então é tratado separadamente do filtro "valor is not None" do repo.
+        if "preco_de_venda_real" in campos_atualizaveis:
+            receita.preco_de_venda_real = campos_atualizaveis["preco_de_venda_real"]
 
         await self._repo.atualizar(
             receita,
@@ -109,6 +116,24 @@ class ReceitaService:
         )
         return await self._montar_response(receita, tenant_id)
 
+    async def duplicar(self, receita_id: UUID, tenant_id: UUID) -> ReceitaResponse:
+        """Duplica receita inteira (campos + ingredientes + etapas) com nome único."""
+        original = await self._repo.buscar_por_id(receita_id, tenant_id)
+        if not original:
+            raise NotFoundError("Receita", str(receita_id))
+
+        nova = await self._repo.duplicar(original, tenant_id)
+
+        logger.info(
+            "receita_duplicada",
+            tenant_id=str(tenant_id),
+            action="duplicate",
+            entity="receita",
+            entity_id=str(nova.id),
+            origem_id=str(receita_id),
+        )
+        return await self._montar_response(nova, tenant_id)
+
     async def deletar(self, receita_id: UUID, tenant_id: UUID) -> None:
         receita = await self._repo.buscar_por_id(receita_id, tenant_id)
         if not receita:
@@ -128,23 +153,36 @@ class ReceitaService:
         config = await self._buscar_config(tenant_id)
         usuario = await self._buscar_valor_hora(tenant_id)
 
-        itens_calculo = [
+        # Separa ingredientes "de receita" de embalagens — embalagem aparece
+        # como linha distinta no breakdown e o usuário enxerga o custo isolado.
+        itens_ingredientes = [
             ItemIngredienteCalculo(
                 nome=ri.ingrediente.nome,
                 quantidade=ri.quantidade,
                 custo_medio_por_unidade=ri.ingrediente.custo_medio,
             )
             for ri in receita.ingredientes
-            if ri.ingrediente
+            if ri.ingrediente and ri.ingrediente.tipo != "embalagem"
+        ]
+        itens_embalagem = [
+            ItemIngredienteCalculo(
+                nome=ri.ingrediente.nome,
+                quantidade=ri.quantidade,
+                custo_medio_por_unidade=ri.ingrediente.custo_medio,
+            )
+            for ri in receita.ingredientes
+            if ri.ingrediente and ri.ingrediente.tipo == "embalagem"
         ]
 
         tempo_total_min = sum(e.duracao_minutos for e in receita.etapas)
         tempo_ativo_min = sum(
             e.duracao_minutos for e in receita.etapas if e.tipo_mao_obra == "direta"
         )
+        tempo_passivo_min = tempo_total_min - tempo_ativo_min
 
         custo = calcular_custo_total(
-            ingredientes=itens_calculo,
+            ingredientes=itens_ingredientes,
+            embalagens=itens_embalagem,
             config=config,
             tempo_ativo_horas=minutos_para_horas(tempo_ativo_min),
             tempo_total_horas=minutos_para_horas(tempo_total_min),
@@ -152,6 +190,25 @@ class ReceitaService:
             rendimento=receita.rendimento,
         )
         preco_recomendado = calcular_preco_recomendado(custo.custo_por_unidade, receita.margem_desejada)
+
+        # Métricas que dependem do preço de venda real informado pela usuária.
+        lucro_estimado: Decimal | None = None
+        margem_real: Decimal | None = None
+        lucro_por_minuto: Decimal | None = None
+        if receita.preco_de_venda_real is not None and receita.preco_de_venda_real > 0:
+            lucro_estimado = calcular_lucro_estimado(
+                receita.preco_de_venda_real, custo.custo_por_unidade
+            )
+            margem_real = calcular_margem_real(
+                receita.preco_de_venda_real, custo.custo_por_unidade
+            )
+            lucro_por_minuto = calcular_lucro_por_minuto(
+                lucro_estimado, receita.rendimento, tempo_ativo_min
+            )
+
+        custo_por_hora_produzida = calcular_custo_por_hora_produzida(
+            custo.custo_total, minutos_para_horas(tempo_ativo_min)
+        )
 
         ingredientes_resp = [
             IngredienteReceitaResponse(
@@ -169,6 +226,7 @@ class ReceitaService:
 
         custo_resp = CustoDetalhadoResponse(
             custo_ingredientes=custo.custo_ingredientes,
+            custo_embalagem=custo.custo_embalagem,
             custo_operacional=custo.custo_operacional,
             custo_mao_obra_direta=custo.custo_mao_obra_direta,
             custo_total=custo.custo_total,
@@ -177,6 +235,11 @@ class ReceitaService:
             preco_recomendado=preco_recomendado,
             tempo_total_minutos=tempo_total_min,
             tempo_ativo_minutos=tempo_ativo_min,
+            tempo_passivo_minutos=tempo_passivo_min,
+            lucro_estimado=lucro_estimado,
+            margem_real=margem_real,
+            custo_por_hora_produzida=custo_por_hora_produzida,
+            lucro_por_minuto=lucro_por_minuto,
         )
 
         return ReceitaResponse(
@@ -187,6 +250,7 @@ class ReceitaService:
             rendimento=receita.rendimento,
             rendimento_unidade=receita.rendimento_unidade,
             margem_desejada=receita.margem_desejada,
+            preco_de_venda_real=receita.preco_de_venda_real,
             modo_preparo=receita.modo_preparo,
             foto_url=receita.foto_url,
             created_at=receita.created_at,

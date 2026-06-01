@@ -1,15 +1,39 @@
 import axios, { AxiosError } from "axios";
 import { useAuthStore } from "@/stores/use-auth-store";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+/**
+ * URL base do backend, resolvida dinamicamente.
+ *
+ * Estratégia: usar o mesmo host que o navegador está acessando o frontend,
+ * trocando a porta para 8000 (do backend). Assim funciona automaticamente:
+ *   - desktop em localhost:3000  → API em localhost:8000
+ *   - celular em 192.168.x.x:3000 → API em 192.168.x.x:8000
+ *   - qualquer outra rede sem alterar config.
+ *
+ * `NEXT_PUBLIC_API_URL` segue suportado como override (CI, produção, casos
+ * em que o backend está em outro host).
+ */
+function baseApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  // SSR/build sem janela — fallback seguro. Hooks só chamam a API no client,
+  // então essa branch raramente é exercida em produção.
+  return "http://localhost:8000";
+}
 
 export const api = axios.create({
-  baseURL: `${API_URL}/api/v1`,
   headers: { "Content-Type": "application/json" },
 });
 
-// Injeta o token de acesso em todas as requisições
+// Interceptor de request: resolve baseURL no momento da chamada (no client)
+// e anexa o JWT. baseURL precisa ser setado por request porque depende de
+// window.location, que não existe em build time.
 api.interceptors.request.use((config) => {
+  config.baseURL = `${baseApiUrl()}/api/v1`;
   const token = useAuthStore.getState().accessToken;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -61,7 +85,7 @@ api.interceptors.response.use(
     }
 
     try {
-      const response = await axios.post(`${API_URL}/api/v1/auth/refresh`, {
+      const response = await axios.post(`${baseApiUrl()}/api/v1/auth/refresh`, {
         refresh_token: refreshToken,
       });
       const { access_token, refresh_token } = response.data;

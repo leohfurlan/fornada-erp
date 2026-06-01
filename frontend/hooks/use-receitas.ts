@@ -50,6 +50,19 @@ export function useAtualizarReceita(id: string) {
   });
 }
 
+export function useDuplicarReceita() {
+  const queryClient = useQueryClient();
+  return useMutation<Receita, Error, string>({
+    mutationFn: async (id) => {
+      const { data } = await api.post(`/receitas/${id}/duplicar`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["receitas"] });
+    },
+  });
+}
+
 export function useDeletarReceita() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({

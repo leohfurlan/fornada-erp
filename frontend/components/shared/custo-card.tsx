@@ -4,15 +4,16 @@ import type { CustoDetalhado } from "@/types";
 
 interface CustoCardProps {
   custo: CustoDetalhado;
-  margemDesejada: string;
 }
 
-export function CustoCard({ custo, margemDesejada }: CustoCardProps) {
-  const margemReal =
-    parseFloat(custo.preco_recomendado) > 0
-      ? (parseFloat(custo.preco_recomendado) - parseFloat(custo.custo_por_unidade)) /
-        parseFloat(custo.preco_recomendado)
-      : 0;
+export function CustoCard({ custo }: CustoCardProps) {
+  const temEmbalagem = parseFloat(custo.custo_embalagem) > 0;
+  const temResultado =
+    custo.lucro_estimado !== null ||
+    custo.custo_por_hora_produzida !== null ||
+    custo.lucro_por_minuto !== null;
+  const lucroNegativo =
+    custo.lucro_estimado !== null && parseFloat(custo.lucro_estimado) < 0;
 
   return (
     <div className="rounded-xl border bg-card p-4 space-y-4">
@@ -24,6 +25,12 @@ export function CustoCard({ custo, margemDesejada }: CustoCardProps) {
           <span>Ingredientes</span>
           <MoneyDisplay value={custo.custo_ingredientes} />
         </div>
+        {temEmbalagem && (
+          <div className="flex justify-between text-muted-foreground">
+            <span>Embalagem</span>
+            <MoneyDisplay value={custo.custo_embalagem} />
+          </div>
+        )}
         <div className="flex justify-between text-muted-foreground">
           <span>Custo operacional</span>
           <MoneyDisplay value={custo.custo_operacional} />
@@ -54,10 +61,58 @@ export function CustoCard({ custo, margemDesejada }: CustoCardProps) {
         </div>
       </div>
 
-      {/* Tempo */}
-      <div className="flex gap-4 text-sm text-muted-foreground">
+      {/* Resultado — só aparece quando há preço de venda real ou tempo ativo */}
+      {temResultado && (
+        <div
+          className={`rounded-lg p-3 space-y-1.5 text-sm ${
+            lucroNegativo
+              ? "bg-destructive/10 border border-destructive/30"
+              : "bg-green-50 border border-green-200"
+          }`}
+        >
+          <p
+            className={`text-xs font-medium uppercase tracking-wide ${
+              lucroNegativo ? "text-destructive" : "text-green-800"
+            }`}
+          >
+            Resultado
+          </p>
+          {custo.lucro_estimado !== null && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Lucro estimado por unidade</span>
+              <MoneyDisplay
+                value={custo.lucro_estimado}
+                size="md"
+                className={lucroNegativo ? "text-destructive" : "text-green-700"}
+              />
+            </div>
+          )}
+          {custo.margem_real !== null && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Margem real</span>
+              <span className="font-medium">{formatPercent(custo.margem_real)}</span>
+            </div>
+          )}
+          {custo.custo_por_hora_produzida !== null && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Custo por hora de produção</span>
+              <MoneyDisplay value={custo.custo_por_hora_produzida} />
+            </div>
+          )}
+          {custo.lucro_por_minuto !== null && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Lucro por minuto de produção</span>
+              <MoneyDisplay value={custo.lucro_por_minuto} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tempo: total, ativo (atenção) e passivo (forno, descanso) */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
         <span>Tempo total: {formatMinutos(custo.tempo_total_minutos)}</span>
-        <span>Tempo ativo: {formatMinutos(custo.tempo_ativo_minutos)}</span>
+        <span>Ativo: {formatMinutos(custo.tempo_ativo_minutos)}</span>
+        <span>Passivo: {formatMinutos(custo.tempo_passivo_minutos)}</span>
       </div>
     </div>
   );

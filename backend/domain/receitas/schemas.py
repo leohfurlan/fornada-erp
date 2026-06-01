@@ -45,6 +45,7 @@ class CriarReceitaRequest(BaseModel):
     rendimento: Decimal
     rendimento_unidade: str
     margem_desejada: Decimal = Decimal("0.30")
+    preco_de_venda_real: Decimal | None = None
     modo_preparo: str | None = None
     ingredientes: list[IngredienteInput]
     etapas: list[EtapaInput]
@@ -63,6 +64,13 @@ class CriarReceitaRequest(BaseModel):
             raise ValueError("Margem deve estar entre 0% e 99%")
         return v
 
+    @field_validator("preco_de_venda_real")
+    @classmethod
+    def preco_nao_negativo(cls, v: Decimal | None) -> Decimal | None:
+        if v is not None and v < 0:
+            raise ValueError("Preço de venda não pode ser negativo")
+        return v
+
 
 class AtualizarReceitaRequest(BaseModel):
     nome: str | None = None
@@ -70,6 +78,7 @@ class AtualizarReceitaRequest(BaseModel):
     rendimento: Decimal | None = None
     rendimento_unidade: str | None = None
     margem_desejada: Decimal | None = None
+    preco_de_venda_real: Decimal | None = None
     modo_preparo: str | None = None
     ingredientes: list[IngredienteInput] | None = None
     etapas: list[EtapaInput] | None = None
@@ -98,6 +107,7 @@ class IngredienteReceitaResponse(BaseModel):
 
 class CustoDetalhadoResponse(BaseModel):
     custo_ingredientes: Decimal
+    custo_embalagem: Decimal
     custo_operacional: Decimal
     custo_mao_obra_direta: Decimal
     custo_total: Decimal
@@ -106,6 +116,12 @@ class CustoDetalhadoResponse(BaseModel):
     preco_recomendado: Decimal
     tempo_total_minutos: int
     tempo_ativo_minutos: int
+    tempo_passivo_minutos: int
+    # Nulos quando preco_de_venda_real ausente ou tempo ativo zero.
+    lucro_estimado: Decimal | None = None
+    margem_real: Decimal | None = None
+    custo_por_hora_produzida: Decimal | None = None
+    lucro_por_minuto: Decimal | None = None
 
 
 class ReceitaResponse(BaseModel):
@@ -116,6 +132,7 @@ class ReceitaResponse(BaseModel):
     rendimento: Decimal
     rendimento_unidade: str
     margem_desejada: Decimal
+    preco_de_venda_real: Decimal | None
     modo_preparo: str | None
     foto_url: str | None
     created_at: datetime

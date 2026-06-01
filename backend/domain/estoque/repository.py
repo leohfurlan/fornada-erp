@@ -2,11 +2,11 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.estoque.schemas import CriarIngredienteRequest
-from infrastructure.database.models import Ingrediente, MovimentacaoEstoque
+from infrastructure.database.models import Ingrediente, MovimentacaoEstoque, ReceitaIngrediente
 
 
 class EstoqueRepository:
@@ -58,6 +58,39 @@ class EstoqueRepository:
             select(Ingrediente)
             .where(Ingrediente.tenant_id == tenant_id, Ingrediente.deleted_at.is_(None))
             .order_by(Ingrediente.nome)
+        )
+        return list(result.scalars().all())
+
+    async def ingrediente_em_uso(self, ingrediente_id: UUID) -> bool:
+        """Verifica se o ingrediente está referenciado em alguma receita ativa."""
+        result = await self._db.execute(
+            select(ReceitaIngrediente.id)
+            .where(ReceitaIngrediente.ingrediente_id == ingrediente_id)
+            .limit(1)
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def soft_delete(self, ingrediente: Ingrediente) -> None:
+        ingrediente.deleted_at = datetime.now(UTC)
+        await self._db.flush()
+
+    async def listar_movimentacoes(
+        self,
+        ingrediente_id: UUID,
+        tenant_id: UUID,
+        limit: int,
+        offset: int,
+    ) -> list[MovimentacaoEstoque]:
+        result = await self._db.execute(
+            select(MovimentacaoEstoque)
+            .where(
+                MovimentacaoEstoque.ingrediente_id == ingrediente_id,
+                MovimentacaoEstoque.tenant_id == tenant_id,
+                MovimentacaoEstoque.deleted_at.is_(None),
+            )
+            .order_by(desc(MovimentacaoEstoque.created_at))
+            .limit(limit)
+            .offset(offset)
         )
         return list(result.scalars().all())
 

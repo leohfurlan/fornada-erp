@@ -5,11 +5,30 @@ import sentry_sdk
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
-from api.routers import auth, configuracoes, estoque, receitas
+from api.routers import (
+    auth,
+    configuracoes,
+    estoque,
+    estoque_pa,
+    pedidos,
+    producao,
+    receitas,
+    vendas,
+)
 from core.config import settings
 from core.logging import configure_logging
-from domain.exceptions import AuthError, ConflictError, FornadaError, NotFoundError, ValidationError
+from core.rate_limit import limiter
+from domain.exceptions import (
+    AuthError,
+    ConflictError,
+    EstoqueInsuficienteError,
+    EstoquePAInsuficienteError,
+    FornadaError,
+    NotFoundError,
+    ValidationError,
+)
 from infrastructure.cache.redis import close_redis
 
 configure_logging()
@@ -32,6 +51,17 @@ app = FastAPI(
     docs_url="/docs" if not settings.is_production else None,
     redoc_url=None,
 )
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={
+            "detail": "Muitas tentativas. Tente novamente em alguns instantes."
+        },
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -55,6 +85,10 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(receitas.router, prefix="/api/v1")
 app.include_router(estoque.router, prefix="/api/v1")
 app.include_router(configuracoes.router, prefix="/api/v1")
+app.include_router(pedidos.router, prefix="/api/v1")
+app.include_router(estoque_pa.router, prefix="/api/v1")
+app.include_router(producao.router, prefix="/api/v1")
+app.include_router(vendas.router, prefix="/api/v1")
 
 
 # Tratamento de erros de domínio — mensagens em português, sem jargão técnico
@@ -79,6 +113,24 @@ async def auth_handler(request: Request, exc: AuthError) -> JSONResponse:
 async def validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": exc.message}
+    )
+
+
+@app.exception_handler(EstoqueInsuficienteError)
+async def estoque_insuficiente_handler(
+    request: Request, exc: EstoqueInsuficienteError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT, content={"detail": exc.message}
+    )
+
+
+@app.exception_handler(EstoquePAInsuficienteError)
+async def estoque_pa_insuficiente_handler(
+    request: Request, exc: EstoquePAInsuficienteError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT, content={"detail": exc.message}
     )
 
 

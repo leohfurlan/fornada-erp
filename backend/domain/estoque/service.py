@@ -4,9 +4,10 @@ from uuid import UUID
 
 import structlog
 
-from domain.exceptions import NotFoundError
+from domain.exceptions import ConflictError, NotFoundError
 from domain.estoque.repository import EstoqueRepository
 from domain.estoque.schemas import (
+    AtualizarIngredienteRequest,
     CriarIngredienteRequest,
     EntradaEstoqueRequest,
     IngredienteResponse,
@@ -88,6 +89,67 @@ class EstoqueService:
     async def listar(self, tenant_id: UUID) -> list[IngredienteResponse]:
         ingredientes = await self._repo.listar(tenant_id)
         return [_to_response(i) for i in ingredientes]
+
+    async def atualizar_ingrediente(
+        self,
+        ingrediente_id: UUID,
+        tenant_id: UUID,
+        data: AtualizarIngredienteRequest,
+    ) -> IngredienteResponse:
+        """Atualiza campos descritivos. Não permite alterar estoque_atual/custo_medio."""
+        ingrediente = await self._repo.buscar_por_id(ingrediente_id, tenant_id)
+        if not ingrediente:
+            raise NotFoundError("Ingrediente", str(ingrediente_id))
+
+        for campo, valor in data.model_dump(exclude_unset=True).items():
+            if valor is not None:
+                setattr(ingrediente, campo, valor)
+
+        logger.info(
+            "ingrediente_atualizado",
+            tenant_id=str(tenant_id),
+            action="update",
+            entity="ingrediente",
+            entity_id=str(ingrediente_id),
+        )
+        return _to_response(ingrediente)
+
+    async def deletar_ingrediente(self, ingrediente_id: UUID, tenant_id: UUID) -> None:
+        """Soft delete. Bloqueia se ingrediente está em uso em alguma receita."""
+        ingrediente = await self._repo.buscar_por_id(ingrediente_id, tenant_id)
+        if not ingrediente:
+            raise NotFoundError("Ingrediente", str(ingrediente_id))
+
+        if await self._repo.ingrediente_em_uso(ingrediente_id):
+            raise ConflictError(
+                "Este ingrediente está sendo usado em uma ou mais receitas. "
+                "Remova-o das receitas antes de excluir."
+            )
+
+        await self._repo.soft_delete(ingrediente)
+
+        logger.info(
+            "ingrediente_deletado",
+            tenant_id=str(tenant_id),
+            action="delete",
+            entity="ingrediente",
+            entity_id=str(ingrediente_id),
+        )
+
+    async def listar_movimentacoes(
+        self,
+        ingrediente_id: UUID,
+        tenant_id: UUID,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[MovimentacaoResponse]:
+        """Histórico de movimentações de um ingrediente, mais recente primeiro."""
+        ingrediente = await self._repo.buscar_por_id(ingrediente_id, tenant_id)
+        if not ingrediente:
+            raise NotFoundError("Ingrediente", str(ingrediente_id))
+
+        movs = await self._repo.listar_movimentacoes(ingrediente_id, tenant_id, limit, offset)
+        return [MovimentacaoResponse.model_validate(m) for m in movs]
 
     async def registrar_entrada(
         self, tenant_id: UUID, data: EntradaEstoqueRequest

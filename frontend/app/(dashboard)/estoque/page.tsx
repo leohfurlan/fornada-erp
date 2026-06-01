@@ -2,19 +2,74 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Plus, Search } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, History, Pencil, Plus, Search } from "lucide-react";
 import { useIngredientes } from "@/hooks/use-estoque";
 import { EstoqueBadge } from "@/components/shared/estoque-badge";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { TabelaEstoqueDesktop } from "@/components/shared/tabela-estoque-desktop";
-import { formatDataHora, formatQuantidade } from "@/lib/utils";
+import { TabEstoquePA } from "@/components/shared/tab-estoque-pa";
+import { cn, formatDataHora, formatQuantidade } from "@/lib/utils";
 import { TIPOS_PRODUTO } from "@/lib/unidades";
 import type { Ingrediente } from "@/types";
 
 type SortKeyMobile = "codigo" | "nome" | "saldo" | "custo_medio" | "data_custo_atualizado";
 type SortDir = "asc" | "desc";
+type Tab = "ingredientes" | "pa";
 
 export default function EstoquePage() {
+  const searchParams = useSearchParams();
+  const tabInicial = (searchParams.get("tab") === "pa" ? "pa" : "ingredientes") as Tab;
+  const [tab, setTab] = useState<Tab>(tabInicial);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold">Estoque</h1>
+        {tab === "ingredientes" && (
+          <Link
+            href="/estoque/novo"
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+            Novo
+          </Link>
+        )}
+      </div>
+
+      <div className="flex border-b">
+        <button
+          type="button"
+          onClick={() => setTab("ingredientes")}
+          className={cn(
+            "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+            tab === "ingredientes"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Ingredientes
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("pa")}
+          className={cn(
+            "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+            tab === "pa"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Produtos prontos
+        </button>
+      </div>
+
+      {tab === "ingredientes" ? <TabIngredientes /> : <TabEstoquePA />}
+    </div>
+  );
+}
+
+function TabIngredientes() {
   const { data: ingredientes, isLoading, error } = useIngredientes();
   const [busca, setBusca] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<string>("");
@@ -67,17 +122,6 @@ export default function EstoquePage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">Estoque</h1>
-        <Link
-          href="/estoque/novo"
-          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shrink-0"
-        >
-          <Plus className="h-4 w-4" />
-          Novo
-        </Link>
-      </div>
-
       {!!alertas?.length && (
         <div className="rounded-xl bg-orange-50 border border-orange-200 p-3 text-sm">
           <p className="font-medium text-orange-800">
@@ -302,6 +346,23 @@ function CardEstoque({ item }: { item: Ingrediente }) {
           />
           <DetalheLinha label="Custo médio" valor={<MoneyDisplay value={item.custo_medio} size="sm" />} />
           <DetalheLinha label="Custo atualizado em" valor={formatDataHora(item.data_custo_atualizado)} />
+
+          <div className="flex gap-2 pt-2">
+            <Link
+              href={`/estoque/${item.id}/historico`}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium hover:bg-muted"
+            >
+              <History className="h-3.5 w-3.5" />
+              Histórico
+            </Link>
+            <Link
+              href={`/estoque/${item.id}/editar`}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium hover:bg-muted"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Editar
+            </Link>
+          </div>
         </div>
       )}
     </div>

@@ -75,7 +75,11 @@ services:
       # .next NAO e mais volume anonimo: deixa o Next gravar direto em /app/.next
       # dentro do bind mount, assim mudancas no host refletem imediatamente.
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      # NEXT_PUBLIC_API_URL fica em branco no dev: o frontend infere a URL
+      # do backend automaticamente do host do navegador (localhost:3000 →
+      # localhost:8000; 192.168.x.x:3000 → 192.168.x.x:8000). Configure no
+      # .env apenas se o backend estiver em outro host (prod, CI).
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
       # WATCHPACK_POLLING forca o Next.js a usar polling em vez de inotify.
       # Necessario no Windows + WSL2 porque eventos de filesystem nao propagam
       # do host Windows para dentro do container via inotify.

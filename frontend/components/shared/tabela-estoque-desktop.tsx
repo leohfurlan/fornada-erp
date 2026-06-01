@@ -12,7 +12,8 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, GripVertical, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, GripVertical, History, Pencil, RotateCcw } from "lucide-react";
 import { EstoqueBadge } from "@/components/shared/estoque-badge";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { TIPOS_PRODUTO } from "@/lib/unidades";
@@ -145,6 +146,32 @@ export function TabelaEstoqueDesktop({ ingredientes }: TabelaEstoqueDesktopProps
         size: 140,
         cell: ({ getValue }) => (
           <span className="text-xs text-muted-foreground">{formatDataHora(getValue() as string)}</span>
+        ),
+        meta: { align: "right" } as const,
+      },
+      {
+        id: "acoes",
+        header: "Ações",
+        size: 90,
+        enableSorting: false,
+        enableResizing: false,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1">
+            <Link
+              href={`/estoque/${row.original.id}/historico`}
+              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"
+              title="Histórico"
+            >
+              <History className="h-4 w-4" />
+            </Link>
+            <Link
+              href={`/estoque/${row.original.id}/editar`}
+              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"
+              title="Editar"
+            >
+              <Pencil className="h-4 w-4" />
+            </Link>
+          </div>
         ),
         meta: { align: "right" } as const,
       },

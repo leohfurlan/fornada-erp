@@ -42,3 +42,15 @@ class EstoqueInsuficienteError(FornadaError):
             f"disponível {disponivel}, necessário {necessario}"
         )
         super().__init__(msg, code="estoque_insuficiente")
+
+
+class EstoquePAInsuficienteError(FornadaError):
+    """Não há produto acabado suficiente em estoque para venda/entrega."""
+
+    def __init__(self, receita: str, disponivel: float, necessario: float) -> None:
+        msg = (
+            f"Sem estoque suficiente de {receita}: "
+            f"disponível {disponivel}, necessário {necessario}. "
+            f"Produza mais antes de continuar."
+        )
+        super().__init__(msg, code="estoque_pa_insuficiente")

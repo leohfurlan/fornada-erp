@@ -1,7 +1,132 @@
 # TODO — Fornada
 
-> Estado do projeto em **28/05/2026** confrontado com [PRD.md](PRD.md) e [CLAUDE.md](CLAUDE.md).
+> Estado do projeto em **30/05/2026** confrontado com [PRD.md](PRD.md) e [CLAUDE.md](CLAUDE.md).
 > Marcações: ✅ feito · 🟡 parcial · ⬜ pendente
+
+---
+
+## Sprint 3 — Concluída ✅
+
+### Mudança conceitual
+- ✅ Dois fluxos comerciais paralelos: **Encomenda** (Pedido existente) e **Pronta entrega** (Venda multicanal nova)
+- ✅ **Ordem de Produção (OP)** é a única responsável por mexer em ingredientes — Pedido foi simplificado
+- ✅ **Estoque de Produto Acabado (PA)** intermedia produção e saída (Venda ou Pedido entregue)
+
+### Estoque de Produto Acabado (base)
+- ✅ Tabelas `estoque_produto_acabado` e `movimentacoes_estoque_pa` (migration `9dd6076eb726`)
+- ✅ Domínio `domain/estoque_pa/` com `buscar_ou_criar` (idempotente), `incrementar`, `debitar`, `debitar_para_pedido` (atomic)
+- ✅ Exceção `EstoquePAInsuficienteError` + handler 409 em pt-BR
+- ✅ Rotas `GET/PATCH /estoque-pa`, `GET /estoque-pa/{receita_id}/movimentacoes`
+- ✅ Origens rastreadas: `op:N`, `venda:N`, `pedido:N`, `venda_cancelada:N`, `ajuste`
+
+### Refator Pedido
+- ✅ State machine simplificada: `orcamento → aprovado → entregue | cancelado`
+- ✅ `PedidosService` removeu `_reservar_estoque`, `_consumir_estoque`, `_estornar_reserva`, `_necessidade_por_ingrediente`
+- ✅ Dependência: `EstoquePAService` (não mais `EstoqueRepository` de ingrediente)
+- ✅ "Entregue" debita estoque PA (atomic — valida tudo antes); status legados `em_producao`/`finalizado` aceitos mas inalcançáveis
+
+### Ordens de Produção (PCP)
+- ✅ Tabela `ordens_producao` (migration `ff1a62e78ec2`) com `numero`, `receita_id`, `pedido_id` (opcional), `qtd_planejada`, `qtd_produzida` (nullable), `data_prevista`
+- ✅ State machine: `planejada → em_producao → finalizada | cancelada`
+- ✅ Side effects:
+  - `→ em_producao`: reserva ingredientes (lógica antes do `PedidosService`, agora vive aqui)
+  - `→ finalizada`: debita ingredientes pelo **planejado**, incrementa estoque PA pelo **produzido real** (apontamento)
+  - `→ cancelada` (de `em_producao`): estorna reserva
+- ✅ Rotas: CRUD + `PATCH /producao/ordens/{id}/status` com body `{status, qtd_produzida?}`
+- ✅ Movimentação de ingrediente registrada com `origem='producao:{numero}'`
+
+### Vendas (apontamento multicanal)
+- ✅ Tabelas `vendas` e `venda_itens` (migration `5773d636139d`)
+- ✅ Canais: `loja_fisica | whatsapp | ifood | instagram | outro`
+- ✅ Cliente **opcional** (venda avulsa sem cadastro)
+- ✅ Service atomic: valida saldo PA agregado por receita (mesma receita em 2 itens soma corretamente) antes de criar venda
+- ✅ Cancelamento: estorna estoque PA (com origem `venda_cancelada:N`) + soft delete
+
+### Frontend — telas e componentes
+- ✅ Types: `OrdemProducao`, `Venda`, `VendaItem`, `EstoquePA`, `MovimentacaoEstoquePA`, `StatusOP`, `CanalVenda`
+- ✅ Hooks: `use-producao`, `use-vendas`, `use-estoque-pa`
+- ✅ Componentes shared: `OpStatusBadge`, `CanalVendaBadge`, `TabEstoquePA`
+- ✅ **Tela `/producao`** — PCP com agrupamento por data (Atrasado/Hoje/Amanhã/Próximos 7 dias/Futuro/Sem data) + chips de filtro de status
+- ✅ **Tela `/producao/nova`** — form com preview de consumo de ingredientes calculado client-side
+- ✅ **Tela `/producao/[id]`** — botões contextuais (Iniciar produção, Apontar produção, Cancelar) + modal de apontamento com qtd_produzida + link cruzado para Pedido se vinculado
+- ✅ **Tela `/vendas`** — lista com chips de canal, badge multicolor por canal, total agregado do período
+- ✅ **Tela `/vendas/nova`** — mobile-first: chips grandes de canal, itens com saldo PA visível por receita, preço sugerido do `preco_recomendado`, cliente opcional, total live
+- ✅ **Tela `/vendas/[id]`** — detalhe com botão "Cancelar venda" que estorna estoque PA
+- ✅ **Tela `/estoque`** refatorada com **tabs** (Ingredientes / Produtos prontos)
+- ✅ **Tela `/estoque/pa/[receitaId]/historico`** — entradas/saídas com origem traduzida (op/venda/pedido)
+- ✅ Edição inline da `qtd_minima` no card de produto pronto
+- ✅ Pedido detalhe: status `em_producao`/`finalizado` removidos do `STATUS_LABEL` e filtros
+- ✅ Menu inferior reorganizado: **4 ações principais** (Início, Vendas, Produção, Pedidos) + dropdown **Mais** (Receitas, Estoque, Configurações)
+
+### Testes (Sprint 3)
+- ✅ **102 testes passando** (77 da Sprint 2 + 25 novos)
+- ✅ Cobertura crítica:
+  - `producao/state_machine.py`: **100%**
+  - `pedidos/state_machine.py`: **100%**
+  - `vendas/service.py`: **87%** (meta 80%) ✓
+  - `vendas/repository.py`: **88%**
+  - `producao/service.py`: **66%** (paths críticos cobertos; integração end-to-end)
+  - `receitas/calculos.py`: **100%** (mantida)
+- ✅ Suítes novas:
+  - `test_state_machine_producao.py` (unit)
+  - `test_state_machine_pedidos.py` reescrito para fluxo simplificado
+  - `test_producao_fluxo.py` — reservar → apontar com qtd≠planejada → ingredientes baixam, PA cresce; perda total (qtd=0) baixa ingredientes mas PA não cresce; cancelar em produção estorna reserva; bloqueio por estoque insuficiente
+  - `test_vendas_fluxo.py` — debita PA; múltiplos itens da mesma receita agregam na validação; cancelar estorna; isolamento de tenant
+  - `test_pedidos_fluxo.py` reescrito — entregar debita PA, sem saldo bloqueia atomicamente
+
+---
+
+## Sprint 2 — Concluída ✅
+
+### Estoque — operações completas
+- ✅ `PATCH /estoque/ingredientes/{id}` (editar nome, tipo, unidade, estoque mínimo)
+- ✅ `DELETE /estoque/ingredientes/{id}` (soft delete) com bloqueio se ingrediente em uso
+- ✅ `GET /estoque/ingredientes/{id}/movimentacoes` com paginação
+- ✅ Tela `/estoque/[id]/editar` (mobile-first + zona de risco para excluir)
+- ✅ Tela `/estoque/[id]/historico` (entradas/saídas com sinal +/−)
+- ✅ Botões "Editar" e "Histórico" na tabela desktop e no card mobile
+
+### Receitas — métricas de lucro + embalagem + duplicar
+- ✅ Campo `preco_de_venda_real` (model + schema + form + migration)
+- ✅ Custo de embalagem separado (ingredientes do tipo `embalagem` somam em `custo_embalagem`)
+- ✅ Novas métricas no `CustoDetalhado`: `lucro_estimado`, `margem_real`, `custo_por_hora_produzida`, `lucro_por_minuto`, `tempo_passivo_minutos`
+- ✅ `CustoCard` exibe seção "Resultado" condicional (verde se lucro positivo, vermelho se negativo)
+- ✅ Funções puras `calcular_custo_por_hora_produzida()` e `calcular_lucro_por_minuto()` em [calculos.py](backend/domain/receitas/calculos.py)
+- ✅ Duplicar receita: `POST /receitas/{id}/duplicar` + botão na tela de detalhe (redireciona para edição com sufixo "(cópia)" auto-incrementado)
+
+### Pedidos — domínio inteiro (eixo da sprint)
+- ✅ Tabelas `clientes`, `pedidos`, `pedido_itens` + migration
+- ✅ Domínio `domain/pedidos/` (schemas, repository, service, state_machine)
+- ✅ Máquina de estados: `orcamento → aprovado → em_producao → finalizado → entregue`, com `cancelado` saindo de qualquer não-terminal
+- ✅ Side effects no estoque:
+  - `→ em_producao`: incrementa `quantidade_reservada`, valida disponibilidade (raise `EstoqueInsuficienteError` se faltar)
+  - `→ finalizado`: debita `estoque_atual`, zera reserva, registra `MovimentacaoEstoque(tipo='saida', origem='pedido:N')`
+  - `→ cancelado` (de em_producao): estorna reserva
+- ✅ Rotas: CRUD de clientes e pedidos + `PATCH /pedidos/{id}/status`
+- ✅ Tela `/pedidos` (lista com chips de status, filtro por busca, badge de prazo ≤48h / atrasado)
+- ✅ Tela `/pedidos/novo` (form com itens dinâmicos, cliente inline novo, preço sugerido do `preco_recomendado` da receita)
+- ✅ Tela `/pedidos/[id]` (detalhe com botões de transição contextual baseados em `proximas_transicoes` vindo do backend)
+- ✅ Componente `PedidoStatusBadge` colorido por status
+- ✅ Entrada "Pedidos" no menu inferior mobile
+
+### Segurança / Observabilidade
+- ✅ Rate limiting com `slowapi`:
+  - `/auth/register`: 5/hora
+  - `/auth/login`: 10/minuto
+  - `/auth/refresh`: 20/minuto
+- ✅ Handler 429 em pt-BR ("Muitas tentativas...")
+- ✅ Limiter compartilhado em [core/rate_limit.py](backend/core/rate_limit.py)
+
+### Testes (CLAUDE.md §10)
+- ✅ 80 testes passando (`pytest --cov`)
+- ✅ Cobertura:
+  - `domain/receitas/calculos.py`: **100%** (meta 95%) ✓
+  - `domain/pedidos/state_machine.py`: **100%** ✓
+  - `domain/estoque/service.py`: **94%** (meta 80%) ✓
+  - `domain/estoque/repository.py`: **100%** ✓
+  - `domain/pedidos/service.py`: 66% (core flows cobertos; 80% fica para Sprint 3)
+- ✅ Suíte de integração para fluxo Pedidos: reservar → finalizar → cancelar com estorno → estoque insuficiente → isolamento de tenant
+- ✅ `conftest.py` ajustado para usar `NullPool` (evita "another operation in progress" entre testes async) e DB de teste isolado (`fornada_test`)
 
 ---
 

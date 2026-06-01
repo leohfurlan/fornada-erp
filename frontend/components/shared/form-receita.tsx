@@ -15,6 +15,7 @@ export interface ReceitaFormValues {
   rendimento: number;
   rendimento_unidade: string;
   margem_desejada: number; // como percentual (0-99), conversão p/ decimal acontece no submit
+  preco_de_venda_real: number; // 0 = sem preço informado (omitido no payload)
   modo_preparo: string;
   ingredientes: Array<{ ingrediente_id: string; quantidade: number; unidade: string }>;
   etapas: Array<{ nome: string; duracao_minutos: number; tipo_mao_obra: "direta" | "indireta"; ordem: number }>;
@@ -35,6 +36,7 @@ const defaultsForm: ReceitaFormValues = {
   rendimento: 0,
   rendimento_unidade: "",
   margem_desejada: 30,
+  preco_de_venda_real: 0,
   modo_preparo: "",
   ingredientes: [{ ingrediente_id: "", quantidade: 0, unidade: "" }],
   etapas: [{ nome: "", duracao_minutos: 30, tipo_mao_obra: "direta", ordem: 0 }],
@@ -152,27 +154,52 @@ export function FormReceita({
           </div>
         </div>
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Margem de lucro desejada</label>
-          <p className="text-xs text-muted-foreground">
-            Percentual de lucro que você quer ter no preço de venda
-          </p>
-          <div className="relative">
-            <Controller
-              name="margem_desejada"
-              control={control}
-              render={({ field }) => (
-                <DecimalInput
-                  value={field.value}
-                  onChange={field.onChange}
-                  placeholder="30"
-                  className="pr-8"
-                />
-              )}
-            />
-            <span className="absolute right-3 top-2.5 text-sm text-muted-foreground pointer-events-none">
-              %
-            </span>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Margem desejada</label>
+            <p className="text-xs text-muted-foreground">
+              Margem de lucro para o preço recomendado
+            </p>
+            <div className="relative">
+              <Controller
+                name="margem_desejada"
+                control={control}
+                render={({ field }) => (
+                  <DecimalInput
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="30"
+                    className="pr-8"
+                  />
+                )}
+              />
+              <span className="absolute right-3 top-2.5 text-sm text-muted-foreground pointer-events-none">
+                %
+              </span>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Preço de venda real</label>
+            <p className="text-xs text-muted-foreground">
+              Quanto você cobra de fato. Calcula lucro e margem real.
+            </p>
+            <div className="relative">
+              <Controller
+                name="preco_de_venda_real"
+                control={control}
+                render={({ field }) => (
+                  <DecimalInput
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="0,00"
+                    className="pl-9"
+                  />
+                )}
+              />
+              <span className="absolute left-3 top-2.5 text-sm text-muted-foreground pointer-events-none">
+                R$
+              </span>
+            </div>
           </div>
         </div>
       </section>

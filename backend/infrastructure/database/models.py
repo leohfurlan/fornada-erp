@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
     DECIMAL,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -140,6 +141,11 @@ class Receita(TenantMixin, TimestampMixin, Base):
     margem_desejada: Mapped[Decimal] = mapped_column(
         Numeric(5, 4), default=Decimal("0.30"), nullable=False
     )
+    # Preço de venda real informado pela confeiteira. Usado para calcular lucro
+    # estimado, margem real e lucro/min. Nulo quando ainda não decidido.
+    preco_de_venda_real: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2), nullable=True
+    )
     # Modo de preparo em texto livre (quebras de linha preservadas na exibição).
     # Suporta markdown leve no futuro; por ora texto puro com whitespace-pre-wrap.
     modo_preparo: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -181,6 +187,181 @@ class EtapaPadrao(TenantMixin, TimestampMixin, Base):
     nome: Mapped[str] = mapped_column(String(200), nullable=False)
     tipo_mao_obra: Mapped[str] = mapped_column(String(20), default="direta", nullable=False)
     duracao_minutos_default: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
+
+
+class EstoqueProdutoAcabado(TenantMixin, TimestampMixin, Base):
+    """Saldo de produto acabado (receita pronta para venda).
+
+    Um registro por (tenant_id, receita_id). Saldo é alimentado por OPs
+    finalizadas e debitado por Vendas e Pedidos entregues.
+    """
+
+    __tablename__ = "estoque_produto_acabado"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    receita_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("receitas.id"), nullable=False, index=True
+    )
+    qtd_disponivel: Mapped[Decimal] = mapped_column(
+        Numeric(12, 3), default=Decimal("0"), nullable=False
+    )
+    qtd_minima: Mapped[Decimal] = mapped_column(
+        Numeric(12, 3), default=Decimal("0"), nullable=False
+    )
+
+    receita: Mapped["Receita"] = relationship()
+
+
+class MovimentacaoEstoquePA(TenantMixin, TimestampMixin, Base):
+    """Trilha de auditoria do estoque de produto acabado."""
+
+    __tablename__ = "movimentacoes_estoque_pa"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    receita_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("receitas.id"), nullable=False, index=True
+    )
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False)  # entrada | saida | ajuste
+    quantidade: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+    # Origem: 'op:N' (ordem de produção), 'venda:N', 'pedido:N', 'ajuste'.
+    origem: Mapped[str] = mapped_column(String(50), nullable=False)
+
+
+class Cliente(TenantMixin, TimestampMixin, Base):
+    __tablename__ = "clientes"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    nome: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    telefone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    pedidos: Mapped[list["Pedido"]] = relationship(back_populates="cliente")
+
+
+class Pedido(TenantMixin, TimestampMixin, Base):
+    __tablename__ = "pedidos"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    # Número sequencial humano-friendly, único por tenant (1, 2, 3...).
+    # Atribuído pelo repository ao criar.
+    numero: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    cliente_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("clientes.id"), nullable=True, index=True
+    )
+    # orcamento | aprovado | em_producao | finalizado | entregue | cancelado
+    status: Mapped[str] = mapped_column(String(30), default="orcamento", nullable=False, index=True)
+    data_entrega: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    valor_total: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), default=Decimal("0"), nullable=False
+    )
+    observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    foto_referencia_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    cliente: Mapped["Cliente | None"] = relationship(back_populates="pedidos")
+    itens: Mapped[list["PedidoItem"]] = relationship(
+        back_populates="pedido", cascade="all, delete-orphan"
+    )
+
+
+class PedidoItem(TenantMixin, TimestampMixin, Base):
+    __tablename__ = "pedido_itens"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    pedido_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("pedidos.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    receita_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("receitas.id"), nullable=False
+    )
+    quantidade: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
+    preco_unitario: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    pedido: Mapped["Pedido"] = relationship(back_populates="itens")
+    receita: Mapped["Receita"] = relationship()
+
+
+class Venda(TenantMixin, TimestampMixin, Base):
+    """Venda imediata multicanal (loja, WhatsApp, iFood, Instagram, outro).
+
+    Diferente do Pedido (encomenda), a venda registra saída de produto
+    acabado já produzido. Cliente é opcional (loja física, venda avulsa).
+    """
+
+    __tablename__ = "vendas"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    numero: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    cliente_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("clientes.id"), nullable=True, index=True
+    )
+    canal: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    data_venda: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+    valor_total: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), default=Decimal("0"), nullable=False
+    )
+    observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    cliente: Mapped["Cliente | None"] = relationship()
+    itens: Mapped[list["VendaItem"]] = relationship(
+        back_populates="venda", cascade="all, delete-orphan"
+    )
+
+
+class VendaItem(TenantMixin, TimestampMixin, Base):
+    __tablename__ = "venda_itens"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    venda_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("vendas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    receita_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("receitas.id"), nullable=False
+    )
+    quantidade: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+    preco_unitario: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    venda: Mapped["Venda"] = relationship(back_populates="itens")
+    receita: Mapped["Receita"] = relationship()
+
+
+class OrdemProducao(TenantMixin, TimestampMixin, Base):
+    """Ordem de Produção (OP) — uma receita produzida em N unidades.
+
+    Sprint 3: substitui o fluxo de produção que estava embutido em Pedido.
+    Pode estar vinculada a um pedido específico (`pedido_id`) ou produzir
+    para estoque (sem `pedido_id`). Sempre uma receita por OP — agrupamento
+    de múltiplas produções no dia se dá por filtro de data, não por OP única.
+    """
+
+    __tablename__ = "ordens_producao"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    numero: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    receita_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("receitas.id"), nullable=False, index=True
+    )
+    # Quando preenchido, OP atende uma encomenda específica (rastreio cruzado).
+    pedido_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("pedidos.id"), nullable=True, index=True
+    )
+    qtd_planejada: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
+    # Preenchida no apontamento (transição → finalizada). Pode diferir de qtd_planejada.
+    qtd_produzida: Mapped[Decimal | None] = mapped_column(Numeric(12, 3), nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(20), default="planejada", nullable=False, index=True
+    )  # planejada | em_producao | finalizada | cancelada
+    data_prevista: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    receita: Mapped["Receita"] = relationship()
+    pedido: Mapped["Pedido | None"] = relationship()
 
 
 class ReceitaEtapa(TimestampMixin, Base):

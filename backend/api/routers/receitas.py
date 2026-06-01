@@ -3,11 +3,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_current_user, get_tenant_id
+from api.dependencies import get_tenant_id
 from domain.receitas.repository import ReceitaRepository
 from domain.receitas.schemas import AtualizarReceitaRequest, CriarReceitaRequest, ReceitaResponse
 from domain.receitas.service import ReceitaService
-from infrastructure.database.models import Usuario
 from infrastructure.database.session import get_db
 
 router = APIRouter(prefix="/receitas", tags=["Receitas"])
@@ -59,6 +58,23 @@ async def atualizar_receita(
 ) -> ReceitaResponse:
     """Atualiza uma receita. Ingredientes/etapas substituem a lista inteira se enviados."""
     result = await service.atualizar(receita_id, tenant_id, data)
+    await db.commit()
+    return result
+
+
+@router.post(
+    "/{receita_id}/duplicar",
+    response_model=ReceitaResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def duplicar_receita(
+    receita_id: UUID,
+    tenant_id: UUID = Depends(get_tenant_id),
+    service: ReceitaService = Depends(get_receita_service),
+    db: AsyncSession = Depends(get_db),
+) -> ReceitaResponse:
+    """Duplica uma receita com nome sufixado, ingredientes e etapas idênticos."""
+    result = await service.duplicar(receita_id, tenant_id)
     await db.commit()
     return result
 

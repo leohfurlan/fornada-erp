@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,6 +20,7 @@ class ReceitaRepository:
             rendimento=data.rendimento,
             rendimento_unidade=data.rendimento_unidade,
             margem_desejada=data.margem_desejada,
+            preco_de_venda_real=data.preco_de_venda_real,
             modo_preparo=data.modo_preparo,
         )
         self._db.add(receita)
@@ -129,6 +130,71 @@ class ReceitaRepository:
 
         receita.deleted_at = datetime.utcnow()
         await self._db.flush()
+
+    async def duplicar(self, original: Receita, tenant_id: UUID) -> Receita:
+        """Cria nova receita copiando campos simples + ingredientes + etapas.
+
+        Nome recebe sufixo " (cópia)" — se já existir, incrementa pra " (cópia 2)",
+        " (cópia 3)" etc.
+        """
+        novo_nome = await self._proximo_nome_copia(original.nome, tenant_id)
+
+        nova = Receita(
+            tenant_id=tenant_id,
+            nome=novo_nome,
+            categoria=original.categoria,
+            rendimento=original.rendimento,
+            rendimento_unidade=original.rendimento_unidade,
+            margem_desejada=original.margem_desejada,
+            preco_de_venda_real=original.preco_de_venda_real,
+            modo_preparo=original.modo_preparo,
+            # foto_url propositadamente não copiada para evitar ambiguidade visual.
+        )
+        self._db.add(nova)
+        await self._db.flush()
+
+        for ri in original.ingredientes:
+            self._db.add(
+                ReceitaIngrediente(
+                    receita_id=nova.id,
+                    ingrediente_id=ri.ingrediente_id,
+                    quantidade=ri.quantidade,
+                    unidade=ri.unidade,
+                )
+            )
+
+        for et in original.etapas:
+            self._db.add(
+                ReceitaEtapa(
+                    receita_id=nova.id,
+                    nome=et.nome,
+                    duracao_minutos=et.duracao_minutos,
+                    tipo_mao_obra=et.tipo_mao_obra,
+                    ordem=et.ordem,
+                )
+            )
+
+        await self._db.flush()
+        recarregada = await self.buscar_por_id(nova.id, tenant_id)
+        assert recarregada is not None  # acabou de ser criada
+        return recarregada
+
+    async def _proximo_nome_copia(self, nome_original: str, tenant_id: UUID) -> str:
+        """Gera "X (cópia)", "X (cópia 2)", "X (cópia 3)" — evita colisões."""
+        base = f"{nome_original} (cópia"
+        result = await self._db.execute(
+            select(func.count())
+            .select_from(Receita)
+            .where(
+                Receita.tenant_id == tenant_id,
+                Receita.deleted_at.is_(None),
+                Receita.nome.like(f"{base}%"),
+            )
+        )
+        existentes = int(result.scalar() or 0)
+        if existentes == 0:
+            return f"{base})"
+        return f"{base} {existentes + 1})"
 
     async def buscar_ingrediente(self, ingrediente_id: UUID, tenant_id: UUID) -> Ingrediente | None:
         result = await self._db.execute(

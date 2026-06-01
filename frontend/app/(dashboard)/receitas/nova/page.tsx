@@ -15,6 +15,8 @@ export default function NovaReceitaPage() {
       ...data,
       // margem chega como percentual (30) e API espera decimal (0.30)
       margem_desejada: data.margem_desejada / 100,
+      // 0 no input significa "não informado" — envia null pra API.
+      preco_de_venda_real: data.preco_de_venda_real > 0 ? data.preco_de_venda_real : null,
       modo_preparo: data.modo_preparo || null,
       etapas: data.etapas.map((e, i) => ({ ...e, ordem: i })),
     };

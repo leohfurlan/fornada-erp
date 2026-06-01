@@ -16,6 +16,7 @@ export default function EditarReceitaPage() {
     const payload = {
       ...data,
       margem_desejada: data.margem_desejada / 100,
+      preco_de_venda_real: data.preco_de_venda_real > 0 ? data.preco_de_venda_real : null,
       modo_preparo: data.modo_preparo || null,
       etapas: data.etapas.map((e, i) => ({ ...e, ordem: i })),
     };
@@ -39,6 +40,9 @@ export default function EditarReceitaPage() {
     rendimento: parseFloat(receita.rendimento),
     rendimento_unidade: receita.rendimento_unidade,
     margem_desejada: parseFloat(receita.margem_desejada) * 100, // decimal → percentual
+    preco_de_venda_real: receita.preco_de_venda_real
+      ? parseFloat(receita.preco_de_venda_real)
+      : 0,
     modo_preparo: receita.modo_preparo ?? "",
     ingredientes: receita.ingredientes.map((ri) => ({
       ingrediente_id: ri.ingrediente_id,

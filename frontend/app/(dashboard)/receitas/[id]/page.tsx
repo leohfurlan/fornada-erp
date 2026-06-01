@@ -2,8 +2,8 @@
 
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Clock, Pencil, Trash2 } from "lucide-react";
-import { useReceita, useDeletarReceita } from "@/hooks/use-receitas";
+import { ArrowLeft, Clock, Copy, Pencil, Trash2 } from "lucide-react";
+import { useDeletarReceita, useDuplicarReceita, useReceita } from "@/hooks/use-receitas";
 import { CustoCard } from "@/components/shared/custo-card";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { formatDataHora, formatMinutos, formatQuantidade } from "@/lib/utils";
@@ -13,11 +13,17 @@ export default function ReceitaPage() {
   const router = useRouter();
   const { data: receita, isLoading } = useReceita(id);
   const deletar = useDeletarReceita();
+  const duplicar = useDuplicarReceita();
 
   const handleDeletar = async () => {
     if (!confirm("Tem certeza que quer remover esta receita?")) return;
     await deletar.mutateAsync(id);
     router.push("/receitas");
+  };
+
+  const handleDuplicar = async () => {
+    const nova = await duplicar.mutateAsync(id);
+    router.push(`/receitas/${nova.id}/editar`);
   };
 
   if (isLoading) {
@@ -41,6 +47,16 @@ export default function ReceitaPage() {
           Voltar
         </Link>
         <div className="flex items-center gap-1">
+          <button
+            onClick={handleDuplicar}
+            disabled={duplicar.isPending}
+            className="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
+            aria-label="Duplicar receita"
+            title="Cria uma cópia desta receita para editar"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            {duplicar.isPending ? "Duplicando..." : "Duplicar"}
+          </button>
           <Link
             href={`/receitas/${id}/editar`}
             className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
@@ -70,9 +86,7 @@ export default function ReceitaPage() {
         </p>
       </div>
 
-      {receita.custo && (
-        <CustoCard custo={receita.custo} margemDesejada={receita.margem_desejada} />
-      )}
+      {receita.custo && <CustoCard custo={receita.custo} />}
 
       {/* Ingredientes */}
       <section className="space-y-2">

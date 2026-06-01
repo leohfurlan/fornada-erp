@@ -55,6 +55,7 @@ export interface IngredienteReceita {
 
 export interface CustoDetalhado {
   custo_ingredientes: string;
+  custo_embalagem: string;
   custo_operacional: string;
   custo_mao_obra_direta: string;
   custo_total: string;
@@ -63,6 +64,11 @@ export interface CustoDetalhado {
   preco_recomendado: string;
   tempo_total_minutos: number;
   tempo_ativo_minutos: number;
+  tempo_passivo_minutos: number;
+  lucro_estimado: string | null;
+  margem_real: string | null;
+  custo_por_hora_produzida: string | null;
+  lucro_por_minuto: string | null;
 }
 
 export interface Receita {
@@ -73,6 +79,7 @@ export interface Receita {
   rendimento: string;
   rendimento_unidade: string;
   margem_desejada: string;
+  preco_de_venda_real: string | null;
   modo_preparo: string | null;
   foto_url: string | null;
   created_at: string;
@@ -80,6 +87,127 @@ export interface Receita {
   ingredientes: IngredienteReceita[];
   etapas: EtapaReceita[];
   custo: CustoDetalhado | null;
+}
+
+export type StatusPedido =
+  | "orcamento"
+  | "aprovado"
+  | "em_producao"
+  | "finalizado"
+  | "entregue"
+  | "cancelado";
+
+export interface Cliente {
+  id: string;
+  tenant_id: string;
+  nome: string;
+  telefone: string | null;
+  observacoes: string | null;
+  created_at: string;
+}
+
+export interface PedidoItem {
+  id: string;
+  receita_id: string;
+  nome_receita: string;
+  quantidade: string;
+  preco_unitario: string;
+  subtotal: string;
+  observacoes: string | null;
+}
+
+export interface Pedido {
+  id: string;
+  tenant_id: string;
+  numero: number;
+  cliente_id: string | null;
+  cliente_nome: string | null;
+  status: StatusPedido;
+  data_entrega: string | null;
+  valor_total: string;
+  observacoes: string | null;
+  foto_referencia_url: string | null;
+  created_at: string;
+  updated_at: string;
+  itens: PedidoItem[];
+  proximas_transicoes: StatusPedido[];
+}
+
+export type StatusOP = "planejada" | "em_producao" | "finalizada" | "cancelada";
+export type CanalVenda = "loja_fisica" | "whatsapp" | "ifood" | "instagram" | "outro";
+
+export interface OrdemProducao {
+  id: string;
+  tenant_id: string;
+  numero: number;
+  receita_id: string;
+  nome_receita: string;
+  /** Rendimento da receita por fornada (ex: brownie rende 20 un/fornada). */
+  receita_rendimento: string;
+  receita_rendimento_unidade: string;
+  pedido_id: string | null;
+  pedido_numero: number | null;
+  /** Em fornadas/execuções da receita (não em unidades finais). */
+  qtd_planejada: string;
+  /** Em unidades finais reais que saíram (não em fornadas). */
+  qtd_produzida: string | null;
+  status: StatusOP;
+  data_prevista: string | null;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+  proximas_transicoes: StatusOP[];
+}
+
+export interface VendaItem {
+  id: string;
+  receita_id: string;
+  nome_receita: string;
+  quantidade: string;
+  preco_unitario: string;
+  subtotal: string;
+  observacoes: string | null;
+}
+
+export interface Venda {
+  id: string;
+  tenant_id: string;
+  numero: number;
+  cliente_id: string | null;
+  cliente_nome: string | null;
+  canal: CanalVenda;
+  data_venda: string;
+  valor_total: string;
+  observacoes: string | null;
+  created_at: string;
+  itens: VendaItem[];
+}
+
+export interface EstoquePA {
+  receita_id: string;
+  nome_receita: string;
+  qtd_disponivel: string;
+  qtd_minima: string;
+  status: "ok" | "baixo" | "zerado";
+}
+
+export interface MovimentacaoEstoquePA {
+  id: string;
+  receita_id: string;
+  tipo: "entrada" | "saida" | "ajuste";
+  quantidade: string;
+  origem: string;
+  created_at: string;
+}
+
+export interface MovimentacaoEstoque {
+  id: string;
+  ingrediente_id: string;
+  tipo: "entrada" | "saida" | "ajuste";
+  quantidade: string;
+  custo_unitario: string;
+  origem: string;
+  created_at: string;
 }
 
 export interface ApiError {

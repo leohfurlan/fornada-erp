@@ -2,22 +2,48 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { BookOpen, Package, LayoutDashboard, LogOut, Settings } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  BookOpen,
+  ChefHat,
+  LayoutDashboard,
+  LogOut,
+  MoreHorizontal,
+  Package,
+  Settings,
+  ShoppingBag,
+  ShoppingCart,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/use-auth-store";
 
-const navItems = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+// 4 atalhos prioritários na navegação inferior + "Mais" pro restante.
+// "Vendas" e "Produção" são os fluxos do dia a dia da confeiteira.
+const navPrincipal: NavItem[] = [
   { href: "/", label: "Início", icon: LayoutDashboard },
+  { href: "/vendas", label: "Vendas", icon: ShoppingBag },
+  { href: "/producao", label: "Produção", icon: ChefHat },
+  { href: "/pedidos", label: "Pedidos", icon: ShoppingCart },
+];
+
+const navMais: NavItem[] = [
   { href: "/receitas", label: "Receitas", icon: BookOpen },
   { href: "/estoque", label: "Estoque", icon: Package },
-  { href: "/configuracoes", label: "Ajustes", icon: Settings },
+  { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, logout, usuario } = useAuthStore();
+  const [maisAberto, setMaisAberto] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -25,7 +51,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [isAuthenticated, router]);
 
+  // Fecha menu "Mais" ao mudar de rota
+  useEffect(() => {
+    setMaisAberto(false);
+  }, [pathname]);
+
   if (!isAuthenticated) return null;
+
+  const ativo = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  const maisAtivo = navMais.some((i) => ativo(i.href));
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -50,28 +86,71 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </header>
 
       {/* Conteúdo */}
-      <main className="flex-1 px-4 py-6 pb-24 max-w-2xl md:max-w-5xl mx-auto w-full">{children}</main>
+      <main className="flex-1 px-4 py-6 pb-24 max-w-2xl md:max-w-5xl mx-auto w-full">
+        {children}
+      </main>
 
-      {/* Nav inferior mobile */}
+      {/* Nav inferior */}
       <nav className="fixed bottom-0 left-0 right-0 border-t bg-background z-40">
         <div className="flex justify-around">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "flex flex-col items-center gap-0.5 py-3 px-4 text-xs transition-colors",
-                  active ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Icon className="h-5 w-5" />
-                <span>{label}</span>
-              </Link>
-            );
-          })}
+          {navPrincipal.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex flex-col items-center gap-0.5 py-3 px-4 text-xs transition-colors",
+                ativo(href) ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className="h-5 w-5" />
+              <span>{label}</span>
+            </Link>
+          ))}
+          <button
+            type="button"
+            onClick={() => setMaisAberto((v) => !v)}
+            className={cn(
+              "flex flex-col items-center gap-0.5 py-3 px-4 text-xs transition-colors",
+              maisAtivo || maisAberto
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            aria-label="Mais opções"
+          >
+            <MoreHorizontal className="h-5 w-5" />
+            <span>Mais</span>
+          </button>
         </div>
+
+        {/* Sheet "Mais" */}
+        {maisAberto && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/30 z-40"
+              onClick={() => setMaisAberto(false)}
+              aria-hidden
+            />
+            <div className="absolute bottom-full left-0 right-0 bg-background border-t shadow-lg z-50 max-w-2xl md:max-w-5xl mx-auto">
+              <div className="p-2 space-y-0.5">
+                {navMais.map(({ href, label, icon: Icon }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors",
+                      ativo(href)
+                        ? "bg-primary/10 text-primary"
+                        : "hover:bg-muted text-foreground"
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </nav>
     </div>
   );

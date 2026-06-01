@@ -39,6 +39,7 @@ class CustoDetalhado:
     """Resultado completo do cálculo de custo de uma receita."""
 
     custo_ingredientes: Decimal
+    custo_embalagem: Decimal
     custo_operacional: Decimal
     custo_mao_obra_direta: Decimal
     rendimento: Decimal
@@ -46,7 +47,10 @@ class CustoDetalhado:
     @property
     def custo_total(self) -> Decimal:
         return (
-            self.custo_ingredientes + self.custo_operacional + self.custo_mao_obra_direta
+            self.custo_ingredientes
+            + self.custo_embalagem
+            + self.custo_operacional
+            + self.custo_mao_obra_direta
         ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     @property
@@ -102,12 +106,14 @@ def calcular_custo_total(
     tempo_total_horas: Decimal,
     valor_hora: Decimal,
     rendimento: Decimal,
+    embalagens: list[ItemIngredienteCalculo] | None = None,
 ) -> CustoDetalhado:
     """
     Calcula o custo completo de uma receita.
 
     Args:
-        ingredientes: Lista de ingredientes com quantidades e custo médio
+        ingredientes: Itens do tipo "ingrediente" com quantidades e custo médio
+        embalagens: Itens do tipo "embalagem" (caixinha, sacola, lacre etc.)
         config: Configurações de custo operacional do tenant
         tempo_ativo_horas: Horas de trabalho direto (mão de obra direta)
         tempo_total_horas: Tempo total da receita (usado para custo operacional)
@@ -115,14 +121,55 @@ def calcular_custo_total(
         rendimento: Quantidade de unidades produzidas pela receita
     """
     custo_ingredientes = calcular_custo_ingredientes(ingredientes)
+    custo_embalagem = calcular_custo_ingredientes(embalagens or [])
     custo_operacional = calcular_custo_operacional(config, tempo_total_horas)
     custo_mao_obra = calcular_custo_mao_obra(tempo_ativo_horas, valor_hora)
 
     return CustoDetalhado(
         custo_ingredientes=custo_ingredientes,
+        custo_embalagem=custo_embalagem,
         custo_operacional=custo_operacional,
         custo_mao_obra_direta=custo_mao_obra,
         rendimento=rendimento,
+    )
+
+
+def calcular_custo_por_hora_produzida(
+    custo_total: Decimal, tempo_ativo_horas: Decimal
+) -> Decimal | None:
+    """
+    Custo/hora produzida = Custo Total / Tempo Ativo em Horas.
+
+    Mostra o "custo por hora de trabalho" da receita — útil para comparar receitas
+    e identificar quais consomem muito tempo em relação ao retorno.
+
+    Retorna None quando não há tempo ativo (não dá pra calcular taxa horária).
+    """
+    if tempo_ativo_horas <= 0:
+        return None
+    return (custo_total / tempo_ativo_horas).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+
+
+def calcular_lucro_por_minuto(
+    lucro_por_unidade: Decimal,
+    rendimento: Decimal,
+    tempo_ativo_minutos: int,
+) -> Decimal | None:
+    """
+    Lucro por minuto de produção = (Lucro por Unidade × Rendimento) / Tempo Ativo (min).
+
+    Métrica do PRD §1: ajuda a usuária a entender o retorno em R$/min do tempo
+    ativo investido — comparável entre receitas com tempos e rendimentos diferentes.
+
+    Retorna None quando não há tempo ativo.
+    """
+    if tempo_ativo_minutos <= 0:
+        return None
+    lucro_total = lucro_por_unidade * rendimento
+    return (lucro_total / Decimal(tempo_ativo_minutos)).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
     )
 
 

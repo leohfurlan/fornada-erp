@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.usuarios.repository import UsuarioRepository
@@ -13,6 +13,7 @@ from domain.usuarios.service import UsuarioService
 from infrastructure.database.models import Usuario
 from infrastructure.database.session import get_db
 from api.dependencies import get_current_user
+from core.rate_limit import limiter
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
@@ -22,7 +23,9 @@ def get_usuario_service(db: AsyncSession = Depends(get_db)) -> UsuarioService:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/hour")
 async def registrar(
+    request: Request,
     data: RegistroRequest,
     service: UsuarioService = Depends(get_usuario_service),
     db: AsyncSession = Depends(get_db),
@@ -34,7 +37,9 @@ async def registrar(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("10/minute")
 async def login(
+    request: Request,
     data: LoginRequest,
     service: UsuarioService = Depends(get_usuario_service),
 ) -> TokenResponse:
@@ -43,7 +48,9 @@ async def login(
 
 
 @router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("20/minute")
 async def refresh(
+    request: Request,
     data: RefreshRequest,
     service: UsuarioService = Depends(get_usuario_service),
 ) -> TokenResponse:
