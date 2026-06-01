@@ -11,6 +11,7 @@ from api.routers import (
     agenda,
     auth,
     configuracoes,
+    dashboard,
     estoque,
     estoque_pa,
     pedidos,
@@ -91,6 +92,7 @@ app.include_router(estoque_pa.router, prefix="/api/v1")
 app.include_router(producao.router, prefix="/api/v1")
 app.include_router(vendas.router, prefix="/api/v1")
 app.include_router(agenda.router, prefix="/api/v1")
+app.include_router(dashboard.router, prefix="/api/v1")
 
 
 # Tratamento de erros de domínio — mensagens em português, sem jargão técnico

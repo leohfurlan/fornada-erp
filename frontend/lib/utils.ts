@@ -83,6 +83,24 @@ export function formatDataHora(iso: string | null | undefined): string {
   return `${dia}/${mes}/${d.getFullYear()}`;
 }
 
+/**
+ * Para datas de OPs: se for hoje, exibe "Hoje"; caso contrário, "dd/mm".
+ * `data_prevista` é `date` (sem hora) no backend, então não há hora a exibir.
+ */
+export function formatDataOP(dataISO: string | null | undefined): string {
+  if (!dataISO) return "";
+  const d = new Date(dataISO + "T00:00:00"); // evitar timezone shift
+  const hoje = new Date();
+  const ehHoje =
+    d.getFullYear() === hoje.getFullYear() &&
+    d.getMonth() === hoje.getMonth() &&
+    d.getDate() === hoje.getDate();
+  if (ehHoje) return "Hoje";
+  const dia = String(d.getDate()).padStart(2, "0");
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dia}/${mes}`;
+}
+
 export function formatMinutos(minutos: number): string {
   if (minutos < 60) return `${minutos} min`;
   const horas = Math.floor(minutos / 60);

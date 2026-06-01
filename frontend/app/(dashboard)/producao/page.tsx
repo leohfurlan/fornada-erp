@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Calendar, ChefHat, Plus } from "lucide-react";
 import { useOrdensProducao } from "@/hooks/use-producao";
 import { OpStatusBadge, STATUS_OP_LABEL } from "@/components/shared/op-status-badge";
-import { formatQuantidade } from "@/lib/utils";
+import { cn, formatDataOP, formatQuantidade } from "@/lib/utils";
 import type { OrdemProducao, StatusOP } from "@/types";
 
 const FILTROS_STATUS: { value: StatusOP | ""; label: string }[] = [
@@ -92,51 +92,68 @@ export default function ProducaoPage() {
 }
 
 function CardOP({ op }: { op: OrdemProducao }) {
+  const fornadas = parseFloat(op.qtd_planejada);
+  const rendimento = parseFloat(op.receita_rendimento) || 1;
+  const unidade = op.receita_rendimento_unidade || "un";
+  const unidadesPlanejadas = fornadas * rendimento;
+  const dataLabel = formatDataOP(op.data_prevista);
+
   return (
     <Link
       href={`/producao/${op.id}`}
-      className="block rounded-xl border bg-card p-4 hover:bg-accent transition-colors"
+      className={cn(
+        "block rounded-xl border bg-card p-4 transition-all hover:bg-accent active:scale-[0.99]",
+        op.status === "finalizada" && "opacity-60",
+        op.status === "cancelada" && "opacity-40"
+      )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-xs text-muted-foreground">
-              #{String(op.numero).padStart(3, "0")}
+      {/* Linha 1: número + badges + data */}
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-xs text-muted-foreground">
+            #{String(op.numero).padStart(3, "0")}
+          </span>
+          <OpStatusBadge status={op.status} />
+          {op.pedido_id && (
+            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+              Pedido #{op.pedido_numero}
             </span>
-            <OpStatusBadge status={op.status} />
-            {op.pedido_id && (
-              <span className="rounded-full bg-blue-100 text-blue-800 px-2 py-0.5 text-xs font-medium">
-                Pedido #{op.pedido_numero}
-              </span>
-            )}
-          </div>
-          <p className="font-medium mt-1">{op.nome_receita}</p>
-          {(() => {
-            const fornadas = parseFloat(op.qtd_planejada);
-            const rendimento = parseFloat(op.receita_rendimento) || 1;
-            const unidade = op.receita_rendimento_unidade || "un";
-            const unidadesPlanejadas = fornadas * rendimento;
-            return (
-              <p className="text-xs text-muted-foreground">
-                Planejado:{" "}
-                <span className="font-medium text-foreground">
-                  {formatQuantidade(unidadesPlanejadas)} {unidade}
-                </span>{" "}
-                ({formatQuantidade(fornadas)}{" "}
-                {fornadas === 1 ? "fornada" : "fornadas"})
-                {op.qtd_produzida && (
-                  <>
-                    {" "}· Produzido:{" "}
-                    <span className="font-medium text-foreground">
-                      {formatQuantidade(op.qtd_produzida)} {unidade}
-                    </span>
-                  </>
-                )}
-              </p>
-            );
-          })()}
+          )}
         </div>
+        {dataLabel && (
+          <span className="shrink-0 text-xs text-muted-foreground">{dataLabel}</span>
+        )}
       </div>
+
+      {/* Linha 2: nome da receita */}
+      <p className="mb-1 text-base font-semibold">{op.nome_receita}</p>
+
+      {/* Linha 3: quantidades */}
+      <p className="text-sm text-muted-foreground">
+        Planejado:{" "}
+        <span className="font-medium text-foreground">
+          {formatQuantidade(unidadesPlanejadas)} {unidade}
+        </span>{" "}
+        ({formatQuantidade(fornadas)} {fornadas === 1 ? "fornada" : "fornadas"})
+        {op.qtd_produzida && (
+          <>
+            {" "}· Produzido:{" "}
+            <span className="font-medium text-foreground">
+              {formatQuantidade(op.qtd_produzida)} {unidade}
+            </span>
+          </>
+        )}
+      </p>
+
+      {/* Barra de progresso — somente para "em_producao" */}
+      {op.status === "em_producao" && (
+        <div className="mt-3">
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div className="h-full w-1/2 rounded-full bg-primary" />
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">Em andamento</p>
+        </div>
+      )}
     </Link>
   );
 }

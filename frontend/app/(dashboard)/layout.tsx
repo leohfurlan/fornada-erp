@@ -5,8 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BookOpen,
-  CalendarDays,
+  Calendar,
   ChefHat,
+  ChevronRight,
   LayoutDashboard,
   LogOut,
   MoreHorizontal,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { useDashboardResumo } from "@/hooks/use-dashboard";
 
 interface NavItem {
   href: string;
@@ -25,20 +27,45 @@ interface NavItem {
   icon: LucideIcon;
 }
 
-// 4 atalhos prioritários na navegação inferior + "Mais" pro restante.
-// "Agenda" e "Produção" são os fluxos de planejamento do dia a dia.
+interface NavItemMais extends NavItem {
+  subtitulo: string;
+  iconBg: string;
+  iconColor: string;
+}
+
 const navPrincipal: NavItem[] = [
   { href: "/", label: "Início", icon: LayoutDashboard },
-  { href: "/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/receitas", label: "Receitas", icon: BookOpen },
+  { href: "/agenda", label: "Agenda", icon: Calendar },
   { href: "/producao", label: "Produção", icon: ChefHat },
   { href: "/pedidos", label: "Pedidos", icon: ShoppingCart },
 ];
 
-const navMais: NavItem[] = [
-  { href: "/vendas", label: "Vendas", icon: ShoppingBag },
-  { href: "/receitas", label: "Receitas", icon: BookOpen },
-  { href: "/estoque", label: "Estoque", icon: Package },
-  { href: "/configuracoes", label: "Configurações", icon: Settings },
+const navMais: NavItemMais[] = [
+  {
+    href: "/vendas",
+    label: "Vendas",
+    icon: ShoppingBag,
+    subtitulo: "Pronta entrega e multicanal",
+    iconBg: "bg-orange-50",
+    iconColor: "text-orange-500",
+  },
+  {
+    href: "/estoque",
+    label: "Estoque",
+    icon: Package,
+    subtitulo: "Ingredientes e produtos prontos",
+    iconBg: "bg-green-50",
+    iconColor: "text-green-600",
+  },
+  {
+    href: "/configuracoes",
+    label: "Configurações",
+    icon: Settings,
+    subtitulo: "Custos, valor/hora e etapas",
+    iconBg: "bg-blue-50",
+    iconColor: "text-blue-600",
+  },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -46,6 +73,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const { isAuthenticated, logout, usuario } = useAuthStore();
   const [maisAberto, setMaisAberto] = useState(false);
+  const { data: resumo } = useDashboardResumo();
+  const criticos = resumo?.total_ingredientes_criticos ?? 0;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -95,31 +124,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Nav inferior */}
       <nav className="fixed bottom-0 left-0 right-0 border-t bg-background z-40">
         <div className="flex justify-around">
-          {navPrincipal.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex flex-col items-center gap-0.5 py-3 px-4 text-xs transition-colors",
-                ativo(href) ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Icon className="h-5 w-5" />
-              <span>{label}</span>
-            </Link>
-          ))}
+          {navPrincipal.map(({ href, label, icon: Icon }) => {
+            const isAtivo = ativo(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "relative flex flex-col items-center gap-0.5 py-3 px-3 text-xs transition-colors",
+                  isAtivo ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {isAtivo && (
+                  <span className="absolute top-0 left-[20%] right-[20%] h-0.5 rounded-b-sm bg-primary" />
+                )}
+                <Icon className="h-5 w-5" />
+                <span>{label}</span>
+              </Link>
+            );
+          })}
           <button
             type="button"
             onClick={() => setMaisAberto((v) => !v)}
             className={cn(
-              "flex flex-col items-center gap-0.5 py-3 px-4 text-xs transition-colors",
+              "relative flex flex-col items-center gap-0.5 py-3 px-3 text-xs transition-colors",
               maisAtivo || maisAberto
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"
             )}
             aria-label="Mais opções"
           >
-            <MoreHorizontal className="h-5 w-5" />
+            {(maisAtivo || maisAberto) && (
+              <span className="absolute top-0 left-[20%] right-[20%] h-0.5 rounded-b-sm bg-primary" />
+            )}
+            <div className="relative">
+              <MoreHorizontal className="h-5 w-5" />
+              {criticos > 0 && (
+                <span className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                  {criticos}
+                </span>
+              )}
+            </div>
             <span>Mais</span>
           </button>
         </div>
@@ -134,21 +179,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             />
             <div className="absolute bottom-full left-0 right-0 bg-background border-t shadow-lg z-50 max-w-2xl md:max-w-5xl mx-auto">
               <div className="p-2 space-y-0.5">
-                {navMais.map(({ href, label, icon: Icon }) => (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors",
-                      ativo(href)
-                        ? "bg-primary/10 text-primary"
-                        : "hover:bg-muted text-foreground"
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                    {label}
-                  </Link>
-                ))}
+                {navMais.map(({ href, label, subtitulo, icon: Icon, iconBg, iconColor }) => {
+                  const mostrarBadge = href === "/estoque" && criticos > 0;
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-3 transition-colors",
+                        ativo(href) ? "bg-primary/5" : "hover:bg-muted"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                          iconBg
+                        )}
+                      >
+                        <Icon className={cn("h-5 w-5", iconColor)} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground">{label}</span>
+                          {mostrarBadge && (
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
+                              {criticos}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{subtitulo}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           </>
