@@ -37,7 +37,7 @@ export default function LoginPage() {
       });
       setTokens(response.data.access_token, response.data.refresh_token);
       setUsuario(response.data.usuario);
-      router.push("/receitas");
+      router.push("/");
     } catch {
       setErro("E-mail ou senha incorretos. Tente novamente.");
     }

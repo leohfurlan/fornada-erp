@@ -131,7 +131,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 key={href}
                 href={href}
                 className={cn(
-                  "relative flex flex-col items-center gap-0.5 py-3 px-3 text-xs transition-colors",
+                  "relative flex flex-col items-center gap-0.5 py-3 px-2 text-[10px] transition-colors",
                   isAtivo ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -147,7 +147,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             type="button"
             onClick={() => setMaisAberto((v) => !v)}
             className={cn(
-              "relative flex flex-col items-center gap-0.5 py-3 px-3 text-xs transition-colors",
+              "relative flex flex-col items-center gap-0.5 py-3 px-2 text-[10px] transition-colors",
               maisAtivo || maisAberto
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"
