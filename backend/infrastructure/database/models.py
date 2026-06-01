@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -12,6 +12,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    Time,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -362,6 +363,54 @@ class OrdemProducao(TenantMixin, TimestampMixin, Base):
 
     receita: Mapped["Receita"] = relationship()
     pedido: Mapped["Pedido | None"] = relationship()
+
+
+class AgendaItem(TenantMixin, TimestampMixin, Base):
+    """Item da Agenda de Produção — planejamento livre da confeiteira.
+
+    Diferente da OrdemProducao (documento formal com estado e efeito em estoque),
+    a Agenda é só planejamento visual: receitas a produzir, pedidos a preparar e
+    tarefas domésticas da confeitaria. Pode VINCULAR (referência cruzada, só
+    leitura) uma receita, um pedido ou uma OP existente, mas nunca cria nem altera
+    esses recursos. Sem efeito em estoque.
+    """
+
+    __tablename__ = "agenda_itens"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    titulo: Mapped[str] = mapped_column(String(200), nullable=False)
+    # 'receita' | 'pedido' | 'tarefa'
+    tipo: Mapped[str] = mapped_column(String(30), nullable=False)
+    data: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    # Nulo = dia inteiro (sem horário definido).
+    hora_inicio: Mapped[time | None] = mapped_column(Time(timezone=False), nullable=True)
+    hora_fim: Mapped[time | None] = mapped_column(Time(timezone=False), nullable=True)
+    # Hex da cor customizada ex: '#f97316'. Nulo = usa cor padrão por tipo na UI.
+    cor: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    concluido: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # FKs opcionais — vínculo de leitura cruzada. ondelete='SET NULL': remover a
+    # receita/pedido/OP não deve destruir o planejamento já feito na agenda.
+    receita_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("receitas.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    pedido_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("pedidos.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    ordem_producao_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("ordens_producao.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    receita: Mapped["Receita | None"] = relationship(lazy="select")
+    pedido: Mapped["Pedido | None"] = relationship(lazy="select")
+    ordem_producao: Mapped["OrdemProducao | None"] = relationship(lazy="select")
 
 
 class ReceitaEtapa(TimestampMixin, Base):

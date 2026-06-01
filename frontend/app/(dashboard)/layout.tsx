@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BookOpen,
+  CalendarDays,
   ChefHat,
   LayoutDashboard,
   LogOut,
@@ -25,15 +26,16 @@ interface NavItem {
 }
 
 // 4 atalhos prioritários na navegação inferior + "Mais" pro restante.
-// "Vendas" e "Produção" são os fluxos do dia a dia da confeiteira.
+// "Agenda" e "Produção" são os fluxos de planejamento do dia a dia.
 const navPrincipal: NavItem[] = [
   { href: "/", label: "Início", icon: LayoutDashboard },
-  { href: "/vendas", label: "Vendas", icon: ShoppingBag },
+  { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/producao", label: "Produção", icon: ChefHat },
   { href: "/pedidos", label: "Pedidos", icon: ShoppingCart },
 ];
 
 const navMais: NavItem[] = [
+  { href: "/vendas", label: "Vendas", icon: ShoppingBag },
   { href: "/receitas", label: "Receitas", icon: BookOpen },
   { href: "/estoque", label: "Estoque", icon: Package },
   { href: "/configuracoes", label: "Configurações", icon: Settings },

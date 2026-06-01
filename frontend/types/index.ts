@@ -210,6 +210,55 @@ export interface MovimentacaoEstoque {
   created_at: string;
 }
 
+export type TipoAgendaItem = "receita" | "pedido" | "tarefa";
+
+export interface AgendaItem {
+  id: string;
+  tenant_id: string;
+  titulo: string;
+  tipo: TipoAgendaItem;
+  data: string; // 'YYYY-MM-DD'
+  hora_inicio: string | null; // 'HH:MM:SS'
+  hora_fim: string | null;
+  cor: string | null;
+  concluido: boolean;
+  observacoes: string | null;
+  receita_id: string | null;
+  pedido_id: string | null;
+  ordem_producao_id: string | null;
+  nome_receita: string | null;
+  nome_pedido: string | null;
+  numero_op: number | null;
+  duracao_minutos: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ViewAgenda = "mes" | "semana" | "dia";
+
+export interface CriarAgendaItemPayload {
+  titulo: string;
+  tipo: TipoAgendaItem;
+  data: string;
+  hora_inicio?: string | null;
+  hora_fim?: string | null;
+  cor?: string | null;
+  observacoes?: string | null;
+  receita_id?: string | null;
+  pedido_id?: string | null;
+  ordem_producao_id?: string | null;
+}
+
+export type AtualizarAgendaItemPayload = Partial<
+  CriarAgendaItemPayload & { concluido: boolean }
+>;
+
+export interface MoverAgendaItemPayload {
+  data: string;
+  hora_inicio?: string | null;
+  hora_fim?: string | null;
+}
+
 export interface ApiError {
   detail: string;
 }
