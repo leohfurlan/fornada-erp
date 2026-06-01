@@ -13,6 +13,9 @@ export interface ConfiguracaoCusto {
   horas_mensais: string;
   valor_hora: string;
   custo_por_hora: string;
+  /** Taxas sobre a venda em decimal (0,12 = 12%). */
+  taxa_ifood: string;
+  taxa_cartao: string;
 }
 
 // -------- Etapas padrão --------
@@ -62,7 +65,17 @@ export function useConfiguracaoCusto() {
 
 export function useAtualizarConfiguracaoCusto() {
   const qc = useQueryClient();
-  return useMutation<ConfiguracaoCusto, Error, { custo_operacional_mensal: number; horas_mensais: number; valor_hora: number }>({
+  return useMutation<
+    ConfiguracaoCusto,
+    Error,
+    {
+      custo_operacional_mensal: number;
+      horas_mensais: number;
+      valor_hora: number;
+      taxa_ifood?: number;
+      taxa_cartao?: number;
+    }
+  >({
     mutationFn: async (payload) => {
       const { data } = await api.put("/configuracoes/custos", payload);
       return data;

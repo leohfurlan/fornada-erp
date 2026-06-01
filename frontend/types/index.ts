@@ -62,6 +62,8 @@ export interface CustoDetalhado {
   custo_por_unidade: string;
   preco_minimo: string;
   preco_recomendado: string;
+  /** Preço sugerido para venda via iFood (cobre comissão + cartão). Nulo sem taxas. */
+  preco_recomendado_ifood: string | null;
   tempo_total_minutos: number;
   tempo_ativo_minutos: number;
   tempo_passivo_minutos: number;
@@ -257,6 +259,67 @@ export interface MoverAgendaItemPayload {
   data: string;
   hora_inicio?: string | null;
   hora_fim?: string | null;
+}
+
+export interface ItemCompraSugerido {
+  descricao: string;
+  quantidade: string;
+  unidade: string;
+  preco_unitario: string;
+  preco_total: string;
+  /** Ingrediente existente sugerido para vínculo (null = sem correspondente). */
+  ingrediente_id: string | null;
+  nome_match: string | null;
+  /** Confiança do match (0 a 1). */
+  score: number;
+  /** Para itens novos: tipo e unidade já normalizados. */
+  tipo_sugerido: TipoIngrediente;
+  unidade_sugerida: string;
+}
+
+export interface OcrComprasResponse {
+  itens: ItemCompraSugerido[];
+  total: string | null;
+  estabelecimento: string | null;
+  fonte: string; // gemma4 | mock
+  confianca: number;
+}
+
+export interface ItemConfirmadoPayload {
+  ingrediente_id?: string | null;
+  criar_novo: boolean;
+  nome: string;
+  tipo: TipoIngrediente;
+  unidade: string;
+  quantidade: number;
+  custo_unitario: number;
+}
+
+export interface ConfirmarCompraPayload {
+  itens: ItemConfirmadoPayload[];
+  estabelecimento?: string | null;
+}
+
+export interface ConfirmarCompraResponse {
+  ingredientes_criados: number;
+  ingredientes_atualizados: number;
+  itens: Ingrediente[];
+}
+
+export interface ItemListaCompras {
+  ingrediente_id: string;
+  nome: string;
+  unidade: string;
+  saldo: string;
+  estoque_minimo: string;
+  status_estoque: "baixo" | "critico" | "zerado";
+  quantidade_sugerida: string;
+  custo_estimado: string;
+}
+
+export interface ListaComprasResponse {
+  itens: ItemListaCompras[];
+  custo_total_estimado: string;
 }
 
 export interface ApiError {

@@ -80,6 +80,14 @@ class ConfiguracaoCusto(TenantMixin, TimestampMixin, Base):
     horas_mensais: Mapped[Decimal] = mapped_column(
         Numeric(6, 2), default=Decimal("160"), nullable=False
     )
+    # Taxas cobradas sobre a venda (decimal: 0.12 = 12%). Usadas na precificação
+    # por canal (iFood = comissão do marketplace; cartão = taxa da maquininha).
+    taxa_ifood: Mapped[Decimal] = mapped_column(
+        Numeric(5, 4), default=Decimal("0"), server_default="0", nullable=False
+    )
+    taxa_cartao: Mapped[Decimal] = mapped_column(
+        Numeric(5, 4), default=Decimal("0"), server_default="0", nullable=False
+    )
 
 
 class Ingrediente(TenantMixin, TimestampMixin, Base):

@@ -59,6 +59,12 @@ export function CustoCard({ custo }: CustoCardProps) {
           <span>Preço recomendado</span>
           <MoneyDisplay value={custo.preco_recomendado} size="lg" />
         </div>
+        {custo.preco_recomendado_ifood !== null && (
+          <div className="flex justify-between text-sm pt-1 border-t">
+            <span className="text-muted-foreground">Preço sugerido p/ iFood</span>
+            <MoneyDisplay value={custo.preco_recomendado_ifood} />
+          </div>
+        )}
       </div>
 
       {/* Resultado — só aparece quando há preço de venda real ou tempo ativo */}

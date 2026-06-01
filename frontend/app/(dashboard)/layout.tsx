@@ -12,6 +12,7 @@ import {
   LogOut,
   MoreHorizontal,
   Package,
+  Receipt,
   Settings,
   ShoppingBag,
   ShoppingCart,
@@ -57,6 +58,14 @@ const navMais: NavItemMais[] = [
     subtitulo: "Ingredientes e produtos prontos",
     iconBg: "bg-green-50",
     iconColor: "text-green-600",
+  },
+  {
+    href: "/compras",
+    label: "Compras",
+    icon: Receipt,
+    subtitulo: "Entrada por cupom (foto)",
+    iconBg: "bg-purple-50",
+    iconColor: "text-purple-600",
   },
   {
     href: "/configuracoes",

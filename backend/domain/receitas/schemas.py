@@ -114,6 +114,9 @@ class CustoDetalhadoResponse(BaseModel):
     custo_por_unidade: Decimal
     preco_minimo: Decimal
     preco_recomendado: Decimal
+    # Preço sugerido para venda via iFood (cobre comissão + taxa de cartão).
+    # Nulo quando não há taxas configuradas.
+    preco_recomendado_ifood: Decimal | None = None
     tempo_total_minutos: int
     tempo_ativo_minutos: int
     tempo_passivo_minutos: int

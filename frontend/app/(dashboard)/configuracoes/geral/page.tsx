@@ -12,6 +12,10 @@ interface FormData {
   custo_operacional_mensal: number;
   horas_mensais: number;
   valor_hora: number;
+  // Em porcentagem (12 = 12%) para facilitar a digitação. Convertido para
+  // decimal no envio.
+  taxa_ifood_pct: number;
+  taxa_cartao_pct: number;
 }
 
 export default function ConfiguracoesGeralPage() {
@@ -19,7 +23,13 @@ export default function ConfiguracoesGeralPage() {
   const atualizar = useAtualizarConfiguracaoCusto();
 
   const { control, handleSubmit, reset, watch } = useForm<FormData>({
-    defaultValues: { custo_operacional_mensal: 0, horas_mensais: 160, valor_hora: 0 },
+    defaultValues: {
+      custo_operacional_mensal: 0,
+      horas_mensais: 160,
+      valor_hora: 0,
+      taxa_ifood_pct: 0,
+      taxa_cartao_pct: 0,
+    },
   });
 
   // Quando os dados carregam do backend, popula o form
@@ -29,6 +39,8 @@ export default function ConfiguracoesGeralPage() {
         custo_operacional_mensal: parseFloat(config.custo_operacional_mensal),
         horas_mensais: parseFloat(config.horas_mensais),
         valor_hora: parseFloat(config.valor_hora),
+        taxa_ifood_pct: parseFloat(config.taxa_ifood) * 100,
+        taxa_cartao_pct: parseFloat(config.taxa_cartao) * 100,
       });
     }
   }, [config, reset]);
@@ -41,7 +53,13 @@ export default function ConfiguracoesGeralPage() {
       : "0";
 
   const onSubmit = async (data: FormData) => {
-    await atualizar.mutateAsync(data);
+    await atualizar.mutateAsync({
+      custo_operacional_mensal: data.custo_operacional_mensal,
+      horas_mensais: data.horas_mensais,
+      valor_hora: data.valor_hora,
+      taxa_ifood: (data.taxa_ifood_pct || 0) / 100,
+      taxa_cartao: (data.taxa_cartao_pct || 0) / 100,
+    });
   };
 
   return (
@@ -127,6 +145,38 @@ export default function ConfiguracoesGeralPage() {
             <p className="text-xs text-muted-foreground mt-1">
               É quanto custa cada hora que sua cozinha fica funcionando
             </p>
+          </div>
+
+          <div className="rounded-xl border p-4 space-y-3">
+            <div>
+              <label className="text-sm font-medium">Taxas de venda</label>
+              <p className="text-xs text-muted-foreground">
+                Usadas para sugerir um preço maior nos canais que cobram taxa,
+                pra você não vender no prejuízo. Deixe 0 se não usa.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Comissão iFood (%)</label>
+                <Controller
+                  name="taxa_ifood_pct"
+                  control={control}
+                  render={({ field }) => (
+                    <DecimalInput value={field.value} onChange={field.onChange} placeholder="12" />
+                  )}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Taxa do cartão (%)</label>
+                <Controller
+                  name="taxa_cartao_pct"
+                  control={control}
+                  render={({ field }) => (
+                    <DecimalInput value={field.value} onChange={field.onChange} placeholder="3" />
+                  )}
+                />
+              </div>
+            </div>
           </div>
 
           {atualizar.isError && (

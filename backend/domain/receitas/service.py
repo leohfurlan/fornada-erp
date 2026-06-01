@@ -13,6 +13,7 @@ from domain.receitas.calculos import (
     calcular_lucro_por_minuto,
     calcular_margem_real,
     calcular_preco_recomendado,
+    calcular_preco_recomendado_com_taxas,
     minutos_para_horas,
 )
 from domain.receitas.repository import ReceitaRepository
@@ -191,6 +192,20 @@ class ReceitaService:
         )
         preco_recomendado = calcular_preco_recomendado(custo.custo_por_unidade, receita.margem_desejada)
 
+        # Preço sugerido para venda via iFood: cobre a margem mesmo após a
+        # comissão do marketplace + a taxa do cartão. None quando não há taxas
+        # configuradas (evita exibir um valor idêntico ao preço direto).
+        taxa_ifood_total = config.taxa_ifood + config.taxa_cartao
+        preco_recomendado_ifood: Decimal | None = None
+        if taxa_ifood_total > 0 and custo.custo_por_unidade > 0:
+            try:
+                preco_recomendado_ifood = calcular_preco_recomendado_com_taxas(
+                    custo.custo_por_unidade, receita.margem_desejada, taxa_ifood_total
+                )
+            except ValueError:
+                # Margem + taxas ≥ 100%: não há preço viável; deixa None.
+                preco_recomendado_ifood = None
+
         # Métricas que dependem do preço de venda real informado pela usuária.
         lucro_estimado: Decimal | None = None
         margem_real: Decimal | None = None
@@ -233,6 +248,7 @@ class ReceitaService:
             custo_por_unidade=custo.custo_por_unidade,
             preco_minimo=custo.preco_minimo,
             preco_recomendado=preco_recomendado,
+            preco_recomendado_ifood=preco_recomendado_ifood,
             tempo_total_minutos=tempo_total_min,
             tempo_ativo_minutos=tempo_ativo_min,
             tempo_passivo_minutos=tempo_passivo_min,
@@ -272,6 +288,8 @@ class ReceitaService:
             return ConfiguracaoCustoCalculo(
                 custo_operacional_mensal=config.custo_operacional_mensal,
                 horas_mensais=config.horas_mensais,
+                taxa_ifood=config.taxa_ifood,
+                taxa_cartao=config.taxa_cartao,
             )
         return ConfiguracaoCustoCalculo(
             custo_operacional_mensal=Decimal("0"),

@@ -5,6 +5,40 @@
 
 ---
 
+## Sprint 4 — Compras/OCR, Precificação com taxas e Lista inteligente ✅
+> "Sprints 3 e 4 do planejamento" — os próximos blocos do backlog MVP.
+> ⚠️ **Validação parcial:** Docker/WSL2 indisponível nesta máquina (virtualização
+> desabilitada no firmware), então a suíte de integração, as migrations e o `tsc`
+> do frontend **não puderam ser executados aqui**. A lógica pura foi validada
+> (67 testes unitários verdes via venv local). Antes de mergear: habilitar
+> virtualização → `make up` → `make migrate` → `make test-backend` + `tsc`.
+
+### Entrada de Compras via OCR (PRD §3)
+- ✅ Domínio `domain/compras/` — `matching.py` (fuzzy via `difflib` + normalização de unidades, sem nova dependência), `schemas.py`, `service.py`
+- ✅ Matching de itens do cupom × ingredientes cadastrados (limiar de confiança, isolado por tenant)
+- ✅ Sugestão de categorização (ingrediente/embalagem) para itens novos
+- ✅ Rota `POST /compras/ocr` (upload da foto, rate-limit 20/min, validação de mime + tamanho ≤ 8 MB) reaproveitando `GemmaOCRAdapter` (mock automático sem API key)
+- ✅ Rota `POST /compras/confirmar` — cria ingredientes novos e dá entrada nos existentes, recalculando custo médio (reusa `EstoqueService`)
+- ✅ Frontend: `use-compras`, tela `/compras` (fluxo captura → revisão → concluído, câmera nativa), entrada "Compras" no menu Mais
+- ✅ Testes: matching (unit) + fluxo confirmar/match/isolamento (integração)
+
+### Precificação com taxas iFood/cartão (PRD §4)
+- ✅ Função pura `calcular_preco_recomendado_com_taxas()` no motor de cálculo (`preço = custo / (1 − margem − taxa)`)
+- ✅ Colunas `taxa_ifood` / `taxa_cartao` em `configuracoes_custo` (migration `b1c2d3e4f5a6` — **escrita à mão**, revisar/aplicar)
+- ✅ Config GET/PUT `/configuracoes/custos` lê/grava as taxas; tela `/configuracoes/geral` com campos em %
+- ✅ Receita expõe `preco_recomendado_ifood` no `CustoDetalhado`; `CustoCard` exibe "Preço sugerido p/ iFood"
+- ✅ Testes do motor (taxas): 6 casos incluindo invariante de margem líquida e erro quando margem+taxas ≥ 100%
+
+### Lista Inteligente de Compras (PRD §7) — base
+- ✅ Função pura `calcular_sugestao_reposicao()` (repõe até 2× o mínimo)
+- ✅ `ComprasService.lista_reposicao()` + rota `GET /compras/lista-sugerida` (ordena por urgência, custo total estimado)
+- ✅ Frontend: `use-compras` (`useListaCompras`), tela `/compras/lista`
+- ✅ Testes: reposição (unit) + lista por tenant (integração)
+- ⬜ Previsão de consumo com base em pedidos futuros (Fase 2)
+- ⬜ Notificação push/email de estoque baixo
+
+---
+
 ## Sprint 3 — Concluída ✅
 
 ### Mudança conceitual
@@ -197,20 +231,21 @@
 - ⬜ Implementação real de **quantidade reservada** (depende de Pedidos)
 - ⬜ Tela de edição (PATCH) e exclusão de ingrediente — hoje só criação
 
-#### Entrada de Compras via Câmera (PRD §3) ⬜ **NADA NA UI AINDA**
-- ⬜ Endpoint que recebe imagem/QR e dispara task Celery
-- ⬜ Tela mobile com câmera nativa (`<input type="file" capture="environment">`)
-- ⬜ Leitura de **QR Code da NFCe**
-- ⬜ Upload de **XML da NFe**
-- ⬜ Matching fuzzy de itens extraídos × ingredientes cadastrados
-- ⬜ Tela de **confirmação/edição** dos itens antes de salvar
-- ⬜ Sugestão de categorização para itens novos
-- ⬜ Atualização automática de estoque + custo médio após confirmação
+#### Entrada de Compras via Câmera (PRD §3) ✅ **feito na Sprint 4**
+- ✅ Endpoint que recebe imagem (`POST /compras/ocr`) — síncrono via `GemmaOCRAdapter` (task Celery `processar_ocr_cupom` já existe para uso assíncrono futuro)
+- ✅ Tela mobile com câmera nativa (`<input type="file" capture="environment">`)
+- ⬜ Leitura de **QR Code da NFCe** (fica para iteração futura)
+- ⬜ Upload de **XML da NFe** (fica para iteração futura)
+- ✅ Matching fuzzy de itens extraídos × ingredientes cadastrados
+- ✅ Tela de **confirmação/edição** dos itens antes de salvar
+- ✅ Sugestão de categorização para itens novos
+- ✅ Atualização automática de estoque + custo médio após confirmação
 
 #### Precificação Inteligente (PRD §4)
-- ⬜ Componente de custo de **taxas iFood** (configurável)
-- ⬜ Componente de custo de **taxa de cartão** (configurável)
-- ⬜ Resultado final exibido conforme PRD: lucro estimado, lucro/min, custo/hora produzida
+- ✅ Componente de custo de **taxas iFood** (configurável) — Sprint 4
+- ✅ Componente de custo de **taxa de cartão** (configurável) — Sprint 4
+- ✅ Preço sugerido por canal (iFood) exibido no `CustoCard` — Sprint 4
+- ✅ Resultado final exibido conforme PRD: lucro estimado, lucro/min, custo/hora produzida (Sprint 2)
 
 #### Gestão de Pedidos (PRD §5) ⬜ **DOMÍNIO INTEIRO NÃO IMPLEMENTADO**
 - ⬜ Tabela `pedidos`, `pedido_itens`, `clientes`
@@ -234,10 +269,11 @@
 - 🟡 Alertas de estoque crítico — existe na tela `/estoque`, falta agregar no dashboard
 - ⬜ Pedidos pendentes com prazo próximo
 
-#### Lista Inteligente de Compras (PRD §7) ⬜ **NÃO IMPLEMENTADO**
-- ⬜ Previsão de consumo com base em pedidos futuros
-- ⬜ Sugestão automática de recompra quando atinge estoque mínimo
-- ⬜ Geração de lista consolidada (exportável)
+#### Lista Inteligente de Compras (PRD §7) 🟡 **base feita na Sprint 4**
+- ⬜ Previsão de consumo com base em pedidos futuros (Fase 2)
+- ✅ Sugestão automática de recompra quando atinge estoque mínimo
+- ✅ Geração de lista consolidada (tela `/compras/lista` com custo total estimado)
+- ⬜ Exportável (PDF/compartilhar) — iteração futura
 - ⬜ Notificação push/email de estoque baixo
 
 ### Qualidade — Testes (CLAUDE.md §10)
