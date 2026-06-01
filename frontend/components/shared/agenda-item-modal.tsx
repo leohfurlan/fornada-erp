@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, X } from "lucide-react";
-import { LABEL_TIPO, PALETA_CORES } from "@/lib/agenda";
+import { LABEL_TIPO, PALETA_CORES, somaMinutos } from "@/lib/agenda";
 import { cn } from "@/lib/utils";
 import {
   useAtualizarAgendaItem,
   useCriarAgendaItem,
 } from "@/hooks/use-agenda";
+import { useEtapasPadrao } from "@/hooks/use-configuracoes";
 import { usePedidos } from "@/hooks/use-pedidos";
+import { useOrdensProducao } from "@/hooks/use-producao";
 import { useReceitas } from "@/hooks/use-receitas";
 import type {
   AgendaItem,
@@ -40,6 +42,7 @@ interface FormState {
   hora_fim: string;
   cor: string;
   observacoes: string;
+  ordem_producao_id: string;
 }
 
 const TIPOS: TipoAgendaItem[] = ["receita", "pedido", "tarefa"];
@@ -61,6 +64,7 @@ function estadoInicial(
       hora_fim: item.hora_fim ? item.hora_fim.slice(0, 5) : "09:00",
       cor: item.cor ?? "",
       observacoes: item.observacoes ?? "",
+      ordem_producao_id: item.ordem_producao_id ?? "",
     };
   }
   return {
@@ -74,6 +78,7 @@ function estadoInicial(
     hora_fim: horaInicial ? somaUmaHora(horaInicial.slice(0, 5)) : "09:00",
     cor: "",
     observacoes: "",
+    ordem_producao_id: "",
   };
 }
 
@@ -102,12 +107,21 @@ export function AgendaItemModal({
 
   const { data: receitas } = useReceitas();
   const { data: pedidos } = usePedidos();
+  const { data: ordensProducao } = useOrdensProducao();
+  const { data: etapasPadrao } = useEtapasPadrao();
   const criar = useCriarAgendaItem();
   const atualizar = useAtualizarAgendaItem(item?.id ?? "");
   const mutation = isEdicao ? atualizar : criar;
 
   const set = <K extends keyof FormState>(campo: K, valor: FormState[K]) =>
     setForm((f) => ({ ...f, [campo]: valor }));
+
+  // Sugestões de tarefa = etapas padrão de mão de obra indireta (MOI):
+  // lavar louça, ir ao mercado, organizar ingredientes etc.
+  const sugestoesTarefa = useMemo(
+    () => etapasPadrao?.filter((e) => e.tipo_mao_obra === "indireta") ?? [],
+    [etapasPadrao]
+  );
 
   const tituloAuto = useMemo(() => {
     if (form.tipo === "receita") {
@@ -119,6 +133,16 @@ export function AgendaItemModal({
     }
     return form.titulo;
   }, [form.tipo, form.receita_id, form.pedido_id, form.titulo, receitas, pedidos]);
+
+  // Recalcula hora_fim quando a receita selecionada ou hora_inicio mudam.
+  // Apenas sugere o valor — o campo continua editável manualmente.
+  useEffect(() => {
+    if (form.diaInteiro || !form.receita_id || !form.hora_inicio) return;
+    const receita = receitas?.find((r) => r.id === form.receita_id);
+    const minutos = receita?.custo?.tempo_total_minutos;
+    if (!minutos || minutos <= 0) return;
+    setForm((f) => ({ ...f, hora_fim: somaMinutos(f.hora_inicio, minutos) }));
+  }, [form.receita_id, form.hora_inicio, form.diaInteiro, receitas]);
 
   const erro = mutation.error as AxiosError<ApiError> | null;
   const mensagem = erro?.response?.data?.detail;
@@ -140,6 +164,10 @@ export function AgendaItemModal({
       observacoes: form.observacoes.trim() || null,
       receita_id: form.tipo === "receita" ? form.receita_id || null : null,
       pedido_id: form.tipo === "pedido" ? form.pedido_id || null : null,
+      ordem_producao_id:
+        form.tipo === "receita" && form.ordem_producao_id
+          ? form.ordem_producao_id
+          : null,
     };
 
     if (isEdicao) {
@@ -207,6 +235,35 @@ export function AgendaItemModal({
             </div>
           )}
 
+          {form.tipo === "receita" && (
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                Ordem de Produção{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  (opcional)
+                </span>
+              </label>
+              <select
+                className="w-full rounded-lg border px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                value={form.ordem_producao_id}
+                onChange={(e) => set("ordem_producao_id", e.target.value)}
+              >
+                <option value="">Sem vínculo com OP</option>
+                {ordensProducao
+                  ?.filter((op) => !["finalizada", "cancelada"].includes(op.status))
+                  .map((op) => (
+                    <option key={op.id} value={op.id}>
+                      OP #{String(op.numero).padStart(3, "0")} — {op.nome_receita} (
+                      {op.status === "em_producao" ? "Em produção" : "Planejada"})
+                    </option>
+                  ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Vincule uma OP para rastrear este planejamento na produção.
+              </p>
+            </div>
+          )}
+
           {form.tipo === "pedido" && (
             <div className="space-y-1">
               <label className="text-sm font-medium">Pedido</label>
@@ -237,6 +294,20 @@ export function AgendaItemModal({
                 placeholder="Ex: Ir ao mercado, lavar louça…"
                 className="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
+              {sugestoesTarefa.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {sugestoesTarefa.map((e) => (
+                    <button
+                      key={e.id}
+                      type="button"
+                      onClick={() => set("titulo", e.nome)}
+                      className="rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                    >
+                      {e.nome}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -301,6 +372,26 @@ export function AgendaItemModal({
                 </div>
               </div>
             )}
+            {form.tipo === "receita" &&
+              !form.diaInteiro &&
+              (() => {
+                const receita = receitas?.find((r) => r.id === form.receita_id);
+                const minutos = receita?.custo?.tempo_total_minutos;
+                if (!minutos || minutos <= 0) return null;
+                const horas = Math.floor(minutos / 60);
+                const mins = minutos % 60;
+                const label =
+                  horas > 0
+                    ? `${horas}h${mins > 0 ? ` ${mins}min` : ""}`
+                    : `${mins}min`;
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    Duração estimada:{" "}
+                    <span className="font-medium text-foreground">{label}</span>{" "}
+                    (baseado nas etapas da receita)
+                  </p>
+                );
+              })()}
           </div>
 
           {/* Cor */}

@@ -3,6 +3,7 @@ import {
   corDoItem,
   diasDaSemana,
   inicioSemana,
+  somaMinutos,
   toDateKey,
   fromDateKey,
 } from "@/lib/agenda";
@@ -91,6 +92,17 @@ describe("calcularMover", () => {
     const payload = calcularMover(fakeItem(), "2026-06-05", 9);
     expect(payload.hora_inicio).toBe("09:00:00");
     expect(payload.hora_fim).toBe("10:00:00");
+  });
+});
+
+describe("somaMinutos", () => {
+  it("soma duração simples", () => {
+    expect(somaMinutos("08:00", 120)).toBe("10:00");
+    expect(somaMinutos("08:15", 45)).toBe("09:00");
+  });
+
+  it("trata overflow de meia-noite", () => {
+    expect(somaMinutos("23:30", 60)).toBe("00:30");
   });
 });
 

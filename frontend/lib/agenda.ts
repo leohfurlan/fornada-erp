@@ -158,6 +158,18 @@ export function minutosDoDia(hora: string): number {
   return h * 60 + (m || 0);
 }
 
+/**
+ * Soma `minutos` a um horário 'HH:MM' e retorna 'HH:MM'.
+ * Trata overflow: 23:30 + 60 → '00:30'.
+ */
+export function somaMinutos(hhmm: string, minutos: number): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const totalMin = h * 60 + (m || 0) + minutos;
+  const novaHora = Math.floor(totalMin / 60) % 24;
+  const novoMin = totalMin % 60;
+  return `${String(novaHora).padStart(2, "0")}:${String(novoMin).padStart(2, "0")}`;
+}
+
 /** Rótulo do cabeçalho conforme a view. */
 export function tituloPeriodo(view: "mes" | "semana" | "dia", ref: Date): string {
   if (view === "mes") return `${nomeMes(ref.getMonth())} ${ref.getFullYear()}`;
