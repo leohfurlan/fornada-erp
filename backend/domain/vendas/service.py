@@ -87,7 +87,7 @@ class VendasService:
             )
         for receita_id, qty in necessidade.items():
             saldo = await self._estoque_pa._repo.buscar_ou_criar(  # noqa: SLF001
-                receita_id, tenant_id
+                receita_id, tenant_id, for_update=True
             )
             if saldo.qtd_disponivel < qty:
                 receita_nome = saldo.receita.nome if saldo.receita else "(receita)"

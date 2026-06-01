@@ -67,6 +67,7 @@ export function useMudarStatusPedido(id: string) {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["pedidos"] });
       queryClient.invalidateQueries({ queryKey: ["ingredientes"] });
+      queryClient.invalidateQueries({ queryKey: ["estoque-pa"] });
       queryClient.setQueryData(["pedidos", id], data);
     },
   });

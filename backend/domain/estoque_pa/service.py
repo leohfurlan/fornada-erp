@@ -56,7 +56,9 @@ class EstoquePAService:
         if quantidade <= 0:
             return await self._repo.buscar_ou_criar(receita_id, tenant_id)
 
-        saldo = await self._repo.buscar_ou_criar(receita_id, tenant_id)
+        saldo = await self._repo.buscar_ou_criar(
+            receita_id, tenant_id, for_update=True
+        )
         saldo.qtd_disponivel += quantidade
         await self._repo.salvar_movimentacao(
             receita_id=receita_id,
@@ -87,7 +89,9 @@ class EstoquePAService:
         if quantidade <= 0:
             return await self._repo.buscar_ou_criar(receita_id, tenant_id)
 
-        saldo = await self._repo.buscar_ou_criar(receita_id, tenant_id)
+        saldo = await self._repo.buscar_ou_criar(
+            receita_id, tenant_id, for_update=True
+        )
         if saldo.qtd_disponivel < quantidade:
             receita_nome = saldo.receita.nome if saldo.receita else "(receita)"
             raise EstoquePAInsuficienteError(
@@ -121,22 +125,33 @@ class EstoquePAService:
         Levanta EstoquePAInsuficienteError no primeiro item sem saldo, sem
         debitar nada. Útil pra transição 'aprovado → entregue'.
         """
-        # Primeiro valida tudo
+        # Primeiro valida tudo (já trava as linhas — locks ficam até o commit,
+        # então o debitar abaixo opera sobre saldos garantidos).
+        # Agrega quantidade por receita: se a mesma receita aparece em vários
+        # itens, soma — senão a validação trataria cada item isoladamente e
+        # poderíamos passar com saldo total insuficiente.
+        necessidade: dict[UUID, Decimal] = {}
         for item in pedido.itens:
-            saldo = await self._repo.buscar_ou_criar(item.receita_id, tenant_id)
-            if saldo.qtd_disponivel < item.quantidade:
+            necessidade[item.receita_id] = (
+                necessidade.get(item.receita_id, Decimal("0")) + item.quantidade
+            )
+        for receita_id, qty in necessidade.items():
+            saldo = await self._repo.buscar_ou_criar(
+                receita_id, tenant_id, for_update=True
+            )
+            if saldo.qtd_disponivel < qty:
                 receita_nome = saldo.receita.nome if saldo.receita else "(receita)"
                 raise EstoquePAInsuficienteError(
                     receita=receita_nome,
                     disponivel=float(saldo.qtd_disponivel),
-                    necessario=float(item.quantidade),
+                    necessario=float(qty),
                 )
-        # Depois debita
-        for item in pedido.itens:
+        # Depois debita (uma saída por receita, agregando os itens).
+        for receita_id, qty in necessidade.items():
             await self.debitar(
-                receita_id=item.receita_id,
+                receita_id=receita_id,
                 tenant_id=tenant_id,
-                quantidade=item.quantidade,
+                quantidade=qty,
                 origem=f"pedido:{pedido.numero}",
             )
 
@@ -165,7 +180,9 @@ class EstoquePAService:
         receita = await self._repo.buscar_receita(receita_id, tenant_id)
         if not receita:
             raise NotFoundError("Receita", str(receita_id))
-        saldo = await self._repo.buscar_ou_criar(receita_id, tenant_id)
+        saldo = await self._repo.buscar_ou_criar(
+            receita_id, tenant_id, for_update=True
+        )
         saldo.qtd_minima = qtd_minima
         if not saldo.receita:
             saldo.receita = receita  # type: ignore[assignment]
