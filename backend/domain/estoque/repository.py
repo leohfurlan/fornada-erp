@@ -43,14 +43,14 @@ class EstoqueRepository:
         await self._db.flush()
         return ingrediente
 
-    async def buscar_por_id(self, ingrediente_id: UUID, tenant_id: UUID) -> Ingrediente | None:
-        result = await self._db.execute(
-            select(Ingrediente).where(
-                Ingrediente.id == ingrediente_id,
-                Ingrediente.tenant_id == tenant_id,
-                Ingrediente.deleted_at.is_(None),
-            )
+    async def buscar_por_id(self, ingrediente_id: UUID, tenant_id: UUID, *, for_update: bool = False) -> Ingrediente | None:
+        stmt = select(Ingrediente).where(
+            Ingrediente.id == ingrediente_id, Ingrediente.tenant_id == tenant_id,
+            Ingrediente.deleted_at.is_(None),
         )
+        if for_update:
+            stmt = stmt.with_for_update().execution_options(populate_existing=True)
+        result = await self._db.execute(stmt)
         return result.scalar_one_or_none()
 
     async def listar(self, tenant_id: UUID) -> list[Ingrediente]:

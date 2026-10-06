@@ -13,9 +13,12 @@ import { useAuthStore } from "@/stores/use-auth-store";
  * `NEXT_PUBLIC_API_URL` segue suportado como override (CI, produção, casos
  * em que o backend está em outro host).
  */
-function baseApiUrl(): string {
+export function baseApiUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+  }
+  if (process.env.NODE_ENV === "production") {
+    return "";
   }
   if (typeof window !== "undefined") {
     return `${window.location.protocol}//${window.location.hostname}:8000`;
@@ -61,7 +64,7 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as typeof error.config & { _retry?: boolean };
 
-    if (error.response?.status !== 401 || originalRequest._retry) {
+    if (!originalRequest || error.response?.status !== 401 || originalRequest._retry) {
       return Promise.reject(error);
     }
 
@@ -75,7 +78,6 @@ api.interceptors.response.use(
     }
 
     originalRequest._retry = true;
-    isRefreshing = true;
 
     const { refreshToken, setTokens, logout } = useAuthStore.getState();
 
@@ -83,6 +85,8 @@ api.interceptors.response.use(
       logout();
       return Promise.reject(error);
     }
+
+    isRefreshing = true;
 
     try {
       const response = await axios.post(`${baseApiUrl()}/api/v1/auth/refresh`, {

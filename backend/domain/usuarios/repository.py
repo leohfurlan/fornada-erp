@@ -39,6 +39,13 @@ class UsuarioRepository:
         )
         return result.scalar_one_or_none()
 
+    async def buscar_por_telefone(self, telefone: str) -> Usuario | None:
+        """Lookup global de identidade; só após comprovar posse pelo OTP."""
+        result = await self._db.execute(select(Usuario).where(
+            Usuario.telefone == telefone, Usuario.deleted_at.is_(None),
+        ))
+        return result.scalar_one_or_none()
+
     async def buscar_por_id(self, usuario_id: UUID, tenant_id: UUID) -> Usuario | None:
         result = await self._db.execute(
             select(Usuario).where(

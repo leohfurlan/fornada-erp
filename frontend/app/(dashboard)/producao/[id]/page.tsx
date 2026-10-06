@@ -54,7 +54,7 @@ export default function OrdemProducaoDetalhePage() {
     if (novo === "em_producao") {
       if (
         !confirm(
-          "Ao iniciar produção, os ingredientes serão reservados no estoque. Continuar?"
+          "Ao iniciar produção, os materiais e componentes prontos serão reservados no estoque. Continuar?"
         )
       ) {
         return;
@@ -96,7 +96,7 @@ export default function OrdemProducaoDetalhePage() {
 
   const podeDeletar = op.status === "planejada" || op.status === "cancelada";
 
-  const consumoPrevisto = receita?.ingredientes.map((ri) => ({
+  const consumoPrevisto = op.ficha_snapshot?.consumo ? op.ficha_snapshot.consumo.map(item => ({ id: item.id, nome: item.nome, qtd: Number(item.quantidade_por_fornada) * Number(op.qtd_planejada), unidade: item.unidade })) : receita?.ingredientes.map((ri) => ({
     id: ri.id,
     nome: ri.nome_ingrediente,
     qtd: parseFloat(ri.quantidade) * parseFloat(op.qtd_planejada),
@@ -105,6 +105,15 @@ export default function OrdemProducaoDetalhePage() {
 
   return (
     <div className="space-y-5 pb-8">
+      {op.ficha_snapshot?.ficha.passos?.length ? <section className="space-y-3 rounded-xl border p-4">
+        <h2 className="font-semibold">Ficha de montagem desta produção</h2>
+        <p className="text-sm text-muted-foreground">{op.ficha_snapshot.ficha.descricao_produto} · revisão {op.ficha_snapshot.revisao}</p>
+        <p className="text-sm">Quantidades por unidade do produto; consumo reservado considera todas as fornadas planejadas.</p>
+        <ol className="space-y-2">{op.ficha_snapshot.ficha.passos.map((passo, i) => <li key={i} className="text-sm"><strong>{i + 1}. {passo.descricao}</strong> — {formatQuantidade(passo.quantidade)} {passo.unidade}
+          {passo.quantidade_minima && <> ({formatQuantidade(passo.quantidade_minima)}–{formatQuantidade(passo.quantidade_maxima ?? "")} {passo.unidade})</>}
+          {passo.especificacao && <p>{passo.especificacao}</p>}{passo.instrucao && <p className="text-muted-foreground">{passo.instrucao}</p>}
+        </li>)}</ol>
+      </section> : null}
       <Link href="/producao" className="flex items-center gap-1 text-sm text-muted-foreground">
         <ArrowLeft className="h-4 w-4" />
         Voltar
@@ -192,9 +201,7 @@ export default function OrdemProducaoDetalhePage() {
       {consumoPrevisto.length > 0 && (
         <section className="space-y-2">
           <h2 className="font-semibold">
-            {op.status === "finalizada" || op.status === "em_producao"
-              ? "Ingredientes consumidos"
-              : "Ingredientes a consumir"}
+              {op.status === "finalizada" ? "Materiais e componentes consumidos" : op.status === "em_producao" ? "Materiais e componentes reservados" : "Materiais e componentes a consumir"}
           </h2>
           <div className="divide-y rounded-xl border">
             {consumoPrevisto.map((ing) => (

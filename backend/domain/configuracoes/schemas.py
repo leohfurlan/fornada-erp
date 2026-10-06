@@ -47,6 +47,9 @@ class ConfiguracaoCustoRequest(BaseModel):
     custo_operacional_mensal: Decimal
     horas_mensais: Decimal
     valor_hora: Decimal
+    # Taxas sobre a venda em decimal (0,12 = 12%). Opcionais — default 0.
+    taxa_ifood: Decimal = Decimal("0")
+    taxa_cartao: Decimal = Decimal("0")
 
     @field_validator("custo_operacional_mensal", "valor_hora")
     @classmethod
@@ -62,9 +65,18 @@ class ConfiguracaoCustoRequest(BaseModel):
             raise ValueError("Horas mensais deve ser maior que zero")
         return v
 
+    @field_validator("taxa_ifood", "taxa_cartao")
+    @classmethod
+    def taxa_entre_zero_e_um(cls, v: Decimal) -> Decimal:
+        if v < 0 or v >= 1:
+            raise ValueError("Taxa deve ser um decimal entre 0 e 1 (ex: 0,12 = 12%)")
+        return v
+
 
 class ConfiguracaoCustoResponse(BaseModel):
     custo_operacional_mensal: Decimal
     horas_mensais: Decimal
     valor_hora: Decimal
     custo_por_hora: Decimal
+    taxa_ifood: Decimal = Decimal("0")
+    taxa_cartao: Decimal = Decimal("0")

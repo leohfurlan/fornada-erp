@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from core.config import settings
 from infrastructure.database.models import Base  # noqa: F401 — importa todos os models
+from infrastructure.database import whatsapp_models  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

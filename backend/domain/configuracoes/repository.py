@@ -1,3 +1,4 @@
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import select
@@ -54,17 +55,28 @@ class ConfiguracoesRepository:
         return result.scalar_one_or_none()
 
     async def upsert_config(
-        self, tenant_id: UUID, custo_operacional_mensal, horas_mensais
+        self,
+        tenant_id: UUID,
+        custo_operacional_mensal,
+        horas_mensais,
+        taxa_ifood=None,
+        taxa_cartao=None,
     ) -> ConfiguracaoCusto:
         config = await self.buscar_config(tenant_id)
         if config:
             config.custo_operacional_mensal = custo_operacional_mensal
             config.horas_mensais = horas_mensais
+            if taxa_ifood is not None:
+                config.taxa_ifood = taxa_ifood
+            if taxa_cartao is not None:
+                config.taxa_cartao = taxa_cartao
         else:
             config = ConfiguracaoCusto(
                 tenant_id=tenant_id,
                 custo_operacional_mensal=custo_operacional_mensal,
                 horas_mensais=horas_mensais,
+                taxa_ifood=taxa_ifood or Decimal("0"),
+                taxa_cartao=taxa_cartao or Decimal("0"),
             )
             self._db.add(config)
         await self._db.flush()

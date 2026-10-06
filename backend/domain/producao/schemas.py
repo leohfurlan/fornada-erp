@@ -76,5 +76,6 @@ class OrdemProducaoResponse(BaseModel):
     updated_at: datetime
     # Sugestão para a UI.
     proximas_transicoes: list[str]
+    ficha_snapshot: dict | None = None
 
     model_config = {"from_attributes": True}

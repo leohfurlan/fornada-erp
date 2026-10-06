@@ -78,6 +78,7 @@ export default function ReceitaPage() {
       <div>
         <h1 className="text-xl font-bold">{receita.nome}</h1>
         <p className="text-muted-foreground text-sm">{receita.categoria}</p>
+        <p className="text-sm text-muted-foreground">{receita.tipo_cadastro === "produto" ? "Produto com composição" : "Receita-base"}</p>
         <p className="text-sm mt-0.5">
           Rende {formatQuantidade(receita.rendimento)} {receita.rendimento_unidade}
         </p>
@@ -87,6 +88,7 @@ export default function ReceitaPage() {
       </div>
 
       {receita.custo && <CustoCard custo={receita.custo} />}
+      <Link href={`/receitas/${id}/ficha-tecnica`} className="block rounded-xl border p-4 font-medium text-primary">Ficha técnica e montagem do produto →</Link>
 
       {/* Ingredientes */}
       <section className="space-y-2">

@@ -6,7 +6,7 @@ celery_app = Celery(
     "fornada",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["infrastructure.celery.tasks"],
+    include=["infrastructure.celery.tasks", "infrastructure.celery.whatsapp_tasks"],
 )
 
 celery_app.conf.update(

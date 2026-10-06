@@ -105,6 +105,8 @@ async def buscar_configuracao_custos(
         horas_mensais=horas,
         valor_hora=valor_hora,
         custo_por_hora=custo_por_hora.quantize(Decimal("0.01")),
+        taxa_ifood=config.taxa_ifood if config else Decimal("0"),
+        taxa_cartao=config.taxa_cartao if config else Decimal("0"),
     )
 
 
@@ -115,11 +117,13 @@ async def atualizar_configuracao_custos(
     repo: ConfiguracoesRepository = Depends(get_repo),
     db: AsyncSession = Depends(get_db),
 ) -> ConfiguracaoCustoResponse:
-    """Atualiza custo operacional mensal, horas mensais e valor/hora da confeiteira."""
+    """Atualiza custo operacional, horas, valor/hora e taxas de venda (iFood/cartão)."""
     await repo.upsert_config(
         tenant_id=tenant_id,
         custo_operacional_mensal=data.custo_operacional_mensal,
         horas_mensais=data.horas_mensais,
+        taxa_ifood=data.taxa_ifood,
+        taxa_cartao=data.taxa_cartao,
     )
     usuario = await repo.buscar_usuario_por_tenant(tenant_id)
     if usuario:
@@ -134,4 +138,6 @@ async def atualizar_configuracao_custos(
         horas_mensais=data.horas_mensais,
         valor_hora=data.valor_hora,
         custo_por_hora=custo_por_hora.quantize(Decimal("0.01")),
+        taxa_ifood=data.taxa_ifood,
+        taxa_cartao=data.taxa_cartao,
     )

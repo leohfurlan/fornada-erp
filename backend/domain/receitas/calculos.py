@@ -20,10 +20,13 @@ class ItemIngredienteCalculo:
 
 @dataclass(frozen=True)
 class ConfiguracaoCustoCalculo:
-    """Parâmetros de custo operacional e hora trabalhada."""
+    """Parâmetros de custo operacional, hora trabalhada e taxas de venda."""
 
     custo_operacional_mensal: Decimal
     horas_mensais: Decimal
+    # Taxas sobre a venda (decimal: 0.12 = 12%). Usadas na precificação por canal.
+    taxa_ifood: Decimal = Decimal("0")
+    taxa_cartao: Decimal = Decimal("0")
 
     @property
     def custo_por_hora(self) -> Decimal:
@@ -186,6 +189,38 @@ def calcular_preco_recomendado(custo_por_unidade: Decimal, margem: Decimal) -> D
         return Decimal("0")
 
     preco = custo_por_unidade / (Decimal("1") - margem)
+    return preco.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def calcular_preco_recomendado_com_taxas(
+    custo_por_unidade: Decimal,
+    margem: Decimal,
+    taxa_total: Decimal,
+) -> Decimal:
+    """
+    Preço recomendado que cobre custo + margem mesmo após as taxas cobradas
+    sobre a venda (comissão de marketplace como iFood, taxa da maquininha).
+
+    As taxas incidem sobre o preço final, então o preço precisa ser "inflado"
+    para que, depois de descontá-las, ainda sobre a margem desejada:
+
+        preço = custo + preço × taxa_total + preço × margem
+        preço × (1 - margem - taxa_total) = custo
+        preço = custo / (1 - margem - taxa_total)
+
+    `margem` e `taxa_total` são decimais (0,30 = 30%). Levanta ValueError se a
+    soma de margem e taxas atingir 100% (não há preço finito que feche a conta).
+    """
+    if margem < Decimal("0") or taxa_total < Decimal("0"):
+        raise ValueError("Margem e taxas não podem ser negativas")
+    if custo_por_unidade <= 0:
+        return Decimal("0")
+
+    denominador = Decimal("1") - margem - taxa_total
+    if denominador <= 0:
+        raise ValueError("Margem somada às taxas não pode atingir 100%")
+
+    preco = custo_por_unidade / denominador
     return preco.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 

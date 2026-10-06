@@ -12,6 +12,7 @@ import {
   LogOut,
   MoreHorizontal,
   Package,
+  Receipt,
   Settings,
   ShoppingBag,
   ShoppingCart,
@@ -59,6 +60,14 @@ const navMais: NavItemMais[] = [
     iconColor: "text-green-600",
   },
   {
+    href: "/compras",
+    label: "Compras",
+    icon: Receipt,
+    subtitulo: "Entrada por cupom (foto)",
+    iconBg: "bg-purple-50",
+    iconColor: "text-purple-600",
+  },
+  {
     href: "/configuracoes",
     label: "Configurações",
     icon: Settings,
@@ -73,21 +82,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const { isAuthenticated, logout, usuario } = useAuthStore();
   const [maisAberto, setMaisAberto] = useState(false);
+  const [sessaoCarregada, setSessaoCarregada] = useState(false);
   const { data: resumo } = useDashboardResumo();
   const criticos = resumo?.total_ingredientes_criticos ?? 0;
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    const unsubscribe = useAuthStore.persist.onFinishHydration(() => setSessaoCarregada(true));
+    setSessaoCarregada(useAuthStore.persist.hasHydrated());
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (sessaoCarregada && !isAuthenticated) {
       router.push("/login");
     }
-  }, [isAuthenticated, router]);
+  }, [sessaoCarregada, isAuthenticated, router]);
 
   // Fecha menu "Mais" ao mudar de rota
   useEffect(() => {
     setMaisAberto(false);
   }, [pathname]);
 
-  if (!isAuthenticated) return null;
+  if (!sessaoCarregada || !isAuthenticated) return null;
 
   const ativo = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -131,7 +147,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 key={href}
                 href={href}
                 className={cn(
-                  "relative flex flex-col items-center gap-0.5 py-3 px-3 text-xs transition-colors",
+                  "relative flex flex-col items-center gap-0.5 py-3 px-2 text-[10px] transition-colors",
                   isAtivo ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -147,7 +163,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             type="button"
             onClick={() => setMaisAberto((v) => !v)}
             className={cn(
-              "relative flex flex-col items-center gap-0.5 py-3 px-3 text-xs transition-colors",
+              "relative flex flex-col items-center gap-0.5 py-3 px-2 text-[10px] transition-colors",
               maisAtivo || maisAberto
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"

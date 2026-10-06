@@ -10,6 +10,8 @@ class EstoquePAResponse(BaseModel):
     nome_receita: str
     qtd_disponivel: Decimal
     qtd_minima: Decimal
+    qtd_reservada: Decimal = Decimal("0")
+    unidade: str = "un"
     status: str  # ok | baixo | zerado
 
     model_config = {"from_attributes": True}

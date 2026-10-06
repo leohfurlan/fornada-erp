@@ -33,6 +33,7 @@ class UsuarioResponse(BaseModel):
     email: str
     nome: str
     valor_hora: Decimal
+    telefone: str | None = None
 
     model_config = {"from_attributes": True}
 

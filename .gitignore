@@ -1,6 +1,8 @@
 # Ambiente
 .env
 .env.local
+.env.production
+.env.pilot
 .env.*.local
 
 # Python
@@ -16,6 +18,7 @@ venv/
 
 # Node / Next.js
 node_modules/
+.pnpm-store/
 .next/
 out/
 *.tsbuildinfo
@@ -30,4 +33,9 @@ Thumbs.db
 .claude/
 
 # Docker
+dist/
+.playwright-cli/
+output/playwright/
 postgres_data/
+backups/
+.deploy.lock

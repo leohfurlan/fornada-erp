@@ -1,16 +1,53 @@
 from uuid import UUID
+from copy import deepcopy
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from domain.receitas.schemas import CriarReceitaRequest
-from infrastructure.database.models import Ingrediente, Receita, ReceitaEtapa, ReceitaIngrediente
+from infrastructure.database.models import Ingrediente, Receita, ReceitaEtapa, ReceitaIngrediente, Tenant, OrdemProducao, EstoqueProdutoAcabado
 
 
 class ReceitaRepository:
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
+
+    async def travar_composicao(self, tenant_id: UUID) -> None:
+        """Serializa escrita e remoção de componentes do mesmo tenant."""
+        await self._db.execute(select(Tenant.id).where(Tenant.id == tenant_id).with_for_update())
+
+    async def referencia_em_uso(self, alvo: UUID, tenant_id: UUID, campo: str) -> bool:
+        """Procura vínculos em fichas ativas e snapshots ainda não concluídos."""
+        ficha = await self._db.execute(select(Receita.id).where(
+            Receita.tenant_id == tenant_id, Receita.deleted_at.is_(None),
+            Receita.ficha_tecnica["passos"].contains([{campo: str(alvo)}]),
+        ).limit(1))
+        if ficha.first():
+            return True
+        consumo = "bases" if campo == "receita_base_id" else "materiais"
+        op = await self._db.execute(select(OrdemProducao.id).where(
+            OrdemProducao.tenant_id == tenant_id, OrdemProducao.deleted_at.is_(None),
+            OrdemProducao.status.in_(["planejada", "em_producao"]),
+            OrdemProducao.ficha_snapshot[consumo].op("?")(str(alvo)),
+        ).limit(1))
+        return op.first() is not None
+
+    async def unidade_rendimento_em_uso(self, alvo: UUID, tenant_id: UUID) -> bool:
+        """Não reinterpretar saldos e ordens pendentes ao trocar g por kg ou un."""
+        if await self.referencia_em_uso(alvo, tenant_id, "receita_base_id"):
+            return True
+        saldo = await self._db.execute(select(EstoqueProdutoAcabado.id).where(
+            EstoqueProdutoAcabado.tenant_id == tenant_id, EstoqueProdutoAcabado.receita_id == alvo,
+            EstoqueProdutoAcabado.deleted_at.is_(None), EstoqueProdutoAcabado.qtd_disponivel > 0,
+        ).limit(1))
+        if saldo.first():
+            return True
+        op = await self._db.execute(select(OrdemProducao.id).where(
+            OrdemProducao.tenant_id == tenant_id, OrdemProducao.receita_id == alvo,
+            OrdemProducao.deleted_at.is_(None), OrdemProducao.status.in_(["planejada", "em_producao"]),
+        ).limit(1))
+        return op.first() is not None
 
     async def criar(self, tenant_id: UUID, data: CriarReceitaRequest) -> Receita:
         receita = Receita(
@@ -61,6 +98,7 @@ class ReceitaRepository:
                 Receita.tenant_id == tenant_id,
                 Receita.deleted_at.is_(None),
             )
+            .execution_options(populate_existing=True)
         )
         return result.scalar_one_or_none()
 
@@ -148,6 +186,8 @@ class ReceitaRepository:
             margem_desejada=original.margem_desejada,
             preco_de_venda_real=original.preco_de_venda_real,
             modo_preparo=original.modo_preparo,
+            ficha_tecnica=deepcopy(original.ficha_tecnica),
+            ficha_revisao=0,
             # foto_url propositadamente não copiada para evitar ambiguidade visual.
         )
         self._db.add(nova)
