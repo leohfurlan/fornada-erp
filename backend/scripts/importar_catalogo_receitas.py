@@ -52,6 +52,8 @@ def alternativas(nome: str) -> list[dict]:
         "Açúcar": [("xícara (massa chocolate média)", "180", "JSON: 360 g = 2 xícaras"), ("colher de sopa rasa", "10", "JSON: 30 g = 3 colheres rasas")],
         "Sal": [("colher de sopa rasa", "10", "JSON: 20 g = 2 colheres rasas")],
         "Fermento químico": [("colher de sopa bem cheia", "15", "JSON: 15 g = 1 colher bem cheia")],
+        "Fermento biológico seco": [("envelope", "10", "JSON: 10 g = 1 envelope")],
+        "Fermento biológico (tipo não informado)": [("pacote", "10", "JSON: meio pacote = 5 g")],
         "Farinha de trigo": [("copo americano (esponja pão caseiro)", "120", "JSON: 1 copo = 120 g; não aplicar à massa do mesmo pão")],
     }
     resultado.extend({"unidade": u, "fator": v, "observacao": f} for u, v, f in extras.get(nome, []))
