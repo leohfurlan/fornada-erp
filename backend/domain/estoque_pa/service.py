@@ -17,9 +17,10 @@ logger = structlog.get_logger(__name__)
 
 
 def _status(eq: EstoqueProdutoAcabado) -> str:
-    if eq.qtd_disponivel <= 0:
+    livre = eq.qtd_disponivel - eq.qtd_reservada
+    if livre <= 0:
         return "zerado"
-    if eq.qtd_minima > 0 and eq.qtd_disponivel <= eq.qtd_minima:
+    if eq.qtd_minima > 0 and livre <= eq.qtd_minima:
         return "baixo"
     return "ok"
 
@@ -28,7 +29,9 @@ def _to_response(eq: EstoqueProdutoAcabado) -> EstoquePAResponse:
     return EstoquePAResponse(
         receita_id=eq.receita_id,
         nome_receita=eq.receita.nome if eq.receita else "",
-        qtd_disponivel=eq.qtd_disponivel,
+        qtd_disponivel=eq.qtd_disponivel - eq.qtd_reservada,
+        qtd_reservada=eq.qtd_reservada,
+        unidade=eq.receita.rendimento_unidade if eq.receita else "un",
         qtd_minima=eq.qtd_minima,
         status=_status(eq),
     )
@@ -92,11 +95,11 @@ class EstoquePAService:
         saldo = await self._repo.buscar_ou_criar(
             receita_id, tenant_id, for_update=True
         )
-        if saldo.qtd_disponivel < quantidade:
+        if saldo.qtd_disponivel - saldo.qtd_reservada < quantidade:
             receita_nome = saldo.receita.nome if saldo.receita else "(receita)"
             raise EstoquePAInsuficienteError(
                 receita=receita_nome,
-                disponivel=float(saldo.qtd_disponivel),
+                disponivel=float(saldo.qtd_disponivel - saldo.qtd_reservada),
                 necessario=float(quantidade),
             )
 
@@ -139,11 +142,11 @@ class EstoquePAService:
             saldo = await self._repo.buscar_ou_criar(
                 receita_id, tenant_id, for_update=True
             )
-            if saldo.qtd_disponivel < qty:
+            if saldo.qtd_disponivel - saldo.qtd_reservada < qty:
                 receita_nome = saldo.receita.nome if saldo.receita else "(receita)"
                 raise EstoquePAInsuficienteError(
                     receita=receita_nome,
-                    disponivel=float(saldo.qtd_disponivel),
+                    disponivel=float(saldo.qtd_disponivel - saldo.qtd_reservada),
                     necessario=float(qty),
                 )
         # Depois debita (uma saída por receita, agregando os itens).

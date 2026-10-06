@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   AlertTriangle,
   Calendar,
@@ -49,6 +50,9 @@ export default function DashboardPage() {
           {primeiroNome ? `, ${primeiroNome}` : ""}
         </h1>
         <p className="text-sm text-muted-foreground">{dataHoje}</p>
+        <Link href="/boas-vindas" className="text-sm text-primary underline">
+          Ver guia de primeiros passos
+        </Link>
       </div>
 
       {/* Métricas */}
@@ -67,7 +71,7 @@ export default function DashboardPage() {
         />
         <MetricaCard
           valor={String(data?.ops_hoje ?? 0)}
-          label="OPs planejadas hoje"
+          label="Produções planejadas hoje"
           loading={isLoading}
         />
         <MetricaCard
@@ -116,8 +120,8 @@ export default function DashboardPage() {
             icon={ChefHat}
             iconBg="bg-orange-100"
             iconColor="text-orange-600"
-            label="Nova OP"
-            subtitulo="Iniciar produção"
+            label="Nova Produção"
+            subtitulo="Planejar sua próxima produção"
             onClick={() => router.push("/producao/nova")}
           />
           <AcaoRapida

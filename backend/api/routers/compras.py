@@ -48,7 +48,7 @@ async def processar_cupom(
             "Formato de imagem não suportado. Tire uma foto em JPG ou PNG."
         )
 
-    conteudo = await arquivo.read()
+    conteudo = await arquivo.read(TAMANHO_MAX_BYTES + 1)
     if not conteudo:
         raise ValidationError("Não recebemos a imagem. Tente tirar a foto novamente.")
     if len(conteudo) > TAMANHO_MAX_BYTES:

@@ -1,9 +1,10 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
+from dataclasses import replace
 from uuid import UUID
 
 import structlog
 
-from domain.exceptions import NotFoundError, ValidationError
+from domain.exceptions import NotFoundError, ValidationError, ConflictError
 from domain.receitas.calculos import (
     ConfiguracaoCustoCalculo,
     ItemIngredienteCalculo,
@@ -17,6 +18,7 @@ from domain.receitas.calculos import (
     minutos_para_horas,
 )
 from domain.receitas.repository import ReceitaRepository
+from domain.receitas.composicao import converter_quantidade
 from domain.receitas.schemas import (
     AtualizarReceitaRequest,
     CriarReceitaRequest,
@@ -44,6 +46,7 @@ class ReceitaService:
                 raise ValidationError(
                     f"Ingrediente {item.ingrediente_id} não encontrado no estoque"
                 )
+            converter_quantidade(item.quantidade, item.unidade, ingrediente.unidade)
 
         receita = await self._repo.criar(tenant_id, data)
 
@@ -71,9 +74,15 @@ class ReceitaService:
         self, receita_id: UUID, tenant_id: UUID, data: AtualizarReceitaRequest
     ) -> ReceitaResponse:
         """Atualiza receita. Ingredientes/etapas substituem a lista inteira se enviados."""
+        await self._repo.travar_composicao(tenant_id)
         receita = await self._repo.buscar_por_id(receita_id, tenant_id)
         if not receita:
             raise NotFoundError("Receita", str(receita_id))
+        if data.rendimento is not None and data.rendimento <= 0:
+            raise ValidationError("Rendimento deve ser maior que zero")
+        if data.rendimento_unidade is not None and data.rendimento_unidade != receita.rendimento_unidade:
+            if await self._repo.unidade_rendimento_em_uso(receita_id, tenant_id):
+                raise ConflictError("Esta receita-base está em uso. Preserve a unidade de rendimento ou crie outra receita.")
 
         # Valida ingredientes pertencem ao tenant
         if data.ingredientes is not None:
@@ -83,6 +92,7 @@ class ReceitaService:
                     raise ValidationError(
                         f"Ingrediente {item.ingrediente_id} não encontrado no estoque"
                     )
+                converter_quantidade(item.quantidade, item.unidade, ingrediente.unidade)
 
         campos_atualizaveis = data.model_dump(
             exclude_unset=True,
@@ -136,9 +146,12 @@ class ReceitaService:
         return await self._montar_response(nova, tenant_id)
 
     async def deletar(self, receita_id: UUID, tenant_id: UUID) -> None:
+        await self._repo.travar_composicao(tenant_id)
         receita = await self._repo.buscar_por_id(receita_id, tenant_id)
         if not receita:
             raise NotFoundError("Receita", str(receita_id))
+        if await self._repo.referencia_em_uso(receita_id, tenant_id, "receita_base_id"):
+            raise ConflictError("Esta receita-base está em uso em uma ficha ou produção. Remova o vínculo antes de excluir.")
         await self._repo.deletar(receita)
 
         logger.info(
@@ -149,8 +162,11 @@ class ReceitaService:
             entity_id=str(receita_id),
         )
 
-    async def _montar_response(self, receita: Receita, tenant_id: UUID) -> ReceitaResponse:
+    async def _montar_response(self, receita: Receita, tenant_id: UUID, caminho: frozenset[UUID] = frozenset()) -> ReceitaResponse:
         """Monta o response completo com custo calculado."""
+        if receita.id in caminho or len(caminho) >= 20:
+            raise ValidationError("A composição contém um ciclo ou mais de 20 níveis")
+        caminho = caminho | {receita.id}
         config = await self._buscar_config(tenant_id)
         usuario = await self._buscar_valor_hora(tenant_id)
 
@@ -159,7 +175,7 @@ class ReceitaService:
         itens_ingredientes = [
             ItemIngredienteCalculo(
                 nome=ri.ingrediente.nome,
-                quantidade=ri.quantidade,
+                quantidade=converter_quantidade(ri.quantidade, ri.unidade, ri.ingrediente.unidade),
                 custo_medio_por_unidade=ri.ingrediente.custo_medio,
             )
             for ri in receita.ingredientes
@@ -168,7 +184,7 @@ class ReceitaService:
         itens_embalagem = [
             ItemIngredienteCalculo(
                 nome=ri.ingrediente.nome,
-                quantidade=ri.quantidade,
+                quantidade=converter_quantidade(ri.quantidade, ri.unidade, ri.ingrediente.unidade),
                 custo_medio_por_unidade=ri.ingrediente.custo_medio,
             )
             for ri in receita.ingredientes
@@ -190,6 +206,31 @@ class ReceitaService:
             valor_hora=usuario,
             rendimento=receita.rendimento,
         )
+        ficha = receita.ficha_tecnica or {}
+        if ficha.get("composicao_ativa"):
+            # Ficha descreve UMA unidade. Substitui ingredientes tradicionais;
+            # tempo das etapas locais representa somente a montagem do produto.
+            totais = {"custo_ingredientes": Decimal("0"), "custo_embalagem": Decimal("0"),
+                      "custo_operacional": custo.custo_operacional,
+                      "custo_mao_obra_direta": custo.custo_mao_obra_direta}
+            for passo in ficha["passos"]:
+                quantidade = Decimal(passo["quantidade"]) * receita.rendimento
+                if passo.get("receita_base_id"):
+                    base = await self._repo.buscar_por_id(UUID(passo["receita_base_id"]), tenant_id)
+                    if not base:
+                        raise ValidationError("Uma receita-base foi removida. Revise a ficha técnica.")
+                    fator = converter_quantidade(quantidade, passo["unidade"], base.rendimento_unidade) / base.rendimento
+                    resposta_base = await self._montar_response(base, tenant_id, caminho)
+                    for campo in totais:
+                        totais[campo] += getattr(resposta_base.custo, campo) * fator
+                else:
+                    material = await self._repo.buscar_ingrediente(UUID(passo["ingrediente_id"]), tenant_id)
+                    if not material:
+                        raise ValidationError("Um material foi removido. Revise a ficha técnica.")
+                    consumo = converter_quantidade(quantidade, passo["unidade"], material.unidade)
+                    campo = "custo_embalagem" if material.tipo == "embalagem" else "custo_ingredientes"
+                    totais[campo] += consumo * material.custo_medio
+            custo = replace(custo, **{campo: valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) for campo, valor in totais.items()})
         preco_recomendado = calcular_preco_recomendado(custo.custo_por_unidade, receita.margem_desejada)
 
         # Preço sugerido para venda via iFood: cobre a margem mesmo após a
@@ -232,7 +273,7 @@ class ReceitaService:
                 nome_ingrediente=ri.ingrediente.nome if ri.ingrediente else "",
                 quantidade=ri.quantidade,
                 unidade=ri.unidade,
-                custo_total=(ri.quantidade * ri.ingrediente.custo_medio).quantize(Decimal("0.01"))
+                custo_total=(converter_quantidade(ri.quantidade, ri.unidade, ri.ingrediente.unidade) * ri.ingrediente.custo_medio).quantize(Decimal("0.01"))
                 if ri.ingrediente
                 else Decimal("0"),
             )
@@ -274,6 +315,7 @@ class ReceitaService:
             ingredientes=ingredientes_resp,
             etapas=[e for e in receita.etapas],
             custo=custo_resp,
+            tipo_cadastro="produto" if ficha.get("composicao_ativa") else "receita_base",
         )
 
     async def _buscar_config(self, tenant_id: UUID) -> ConfiguracaoCustoCalculo:

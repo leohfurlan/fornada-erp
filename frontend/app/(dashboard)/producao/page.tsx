@@ -40,7 +40,7 @@ export default function ProducaoPage() {
           className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
         >
           <Plus className="h-4 w-4" />
-          Nova OP
+          Nova Produção
         </Link>
       </div>
 
@@ -171,7 +171,7 @@ function EmptyState() {
         className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
       >
         <Plus className="h-4 w-4" />
-        Nova OP
+        Nova Produção
       </Link>
     </div>
   );

@@ -1,0 +1,8 @@
+# Homologação privada na VPS, combinada com docker-compose.prod.yml.
+# Requer Docker Compose 2.24.4+ para !override.
+services:
+  proxy:
+    ports: !override
+      - "127.0.0.1:8080:80"
+    volumes: !override
+      - ./deploy/Caddyfile.pilot:/etc/caddy/Caddyfile:ro

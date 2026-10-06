@@ -143,6 +143,7 @@ class ReceitaResponse(BaseModel):
     ingredientes: list[IngredienteReceitaResponse]
     etapas: list[EtapaResponse]
     custo: CustoDetalhadoResponse | None = None
+    tipo_cadastro: str = "receita_base"
 
     model_config = {"from_attributes": True}
 

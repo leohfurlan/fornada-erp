@@ -9,6 +9,7 @@ import { DecimalInput } from "@/components/shared/decimal-input";
 import { useCriarOrdemProducao } from "@/hooks/use-producao";
 import { usePedidos } from "@/hooks/use-pedidos";
 import { useReceitas } from "@/hooks/use-receitas";
+import { useConsumoComposicao } from "@/hooks/use-ficha-tecnica";
 import { formatQuantidade } from "@/lib/utils";
 import type { ApiError } from "@/types";
 import type { AxiosError } from "axios";
@@ -45,6 +46,7 @@ export default function NovaOrdemProducaoPage() {
   });
 
   const receitaId = watch("receita_id");
+  const consumo = useConsumoComposicao(receitaId);
   const qtdPlanejada = watch("qtd_planejada");
   const receitaSelecionada = useMemo(
     () => receitas?.find((r) => r.id === receitaId),
@@ -60,12 +62,13 @@ export default function NovaOrdemProducaoPage() {
 
   const consumoIngredientes = useMemo(() => {
     if (!receitaSelecionada || qtdPlanejada <= 0) return [];
+    if (receitaSelecionada.tipo_cadastro === "produto") return (consumo.data ?? []).map(item => ({ nome: item.nome, qtd: Number(item.quantidade_por_fornada) * qtdPlanejada, unidade: item.unidade }));
     return receitaSelecionada.ingredientes.map((ri) => ({
       nome: ri.nome_ingrediente,
       qtd: parseFloat(ri.quantidade) * qtdPlanejada,
       unidade: ri.unidade,
     }));
-  }, [receitaSelecionada, qtdPlanejada]);
+  }, [receitaSelecionada, qtdPlanejada, consumo.data]);
 
   const onSubmit = async (data: OPForm) => {
     if (!data.receita_id) return;
@@ -188,7 +191,7 @@ export default function NovaOrdemProducaoPage() {
           <div className="rounded-xl border bg-muted/30 p-3 space-y-2">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
               <Info className="h-3 w-3" />
-              Consumo previsto de ingredientes
+                Consumo previsto de materiais e componentes prontos
             </p>
             <ul className="text-sm space-y-1">
               {consumoIngredientes.map((ing, i) => (

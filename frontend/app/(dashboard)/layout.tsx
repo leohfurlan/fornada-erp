@@ -82,21 +82,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const { isAuthenticated, logout, usuario } = useAuthStore();
   const [maisAberto, setMaisAberto] = useState(false);
+  const [sessaoCarregada, setSessaoCarregada] = useState(false);
   const { data: resumo } = useDashboardResumo();
   const criticos = resumo?.total_ingredientes_criticos ?? 0;
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    const unsubscribe = useAuthStore.persist.onFinishHydration(() => setSessaoCarregada(true));
+    setSessaoCarregada(useAuthStore.persist.hasHydrated());
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (sessaoCarregada && !isAuthenticated) {
       router.push("/login");
     }
-  }, [isAuthenticated, router]);
+  }, [sessaoCarregada, isAuthenticated, router]);
 
   // Fecha menu "Mais" ao mudar de rota
   useEffect(() => {
     setMaisAberto(false);
   }, [pathname]);
 
-  if (!isAuthenticated) return null;
+  if (!sessaoCarregada || !isAuthenticated) return null;
 
   const ativo = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);

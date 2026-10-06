@@ -74,6 +74,7 @@ export interface CustoDetalhado {
 }
 
 export interface Receita {
+  tipo_cadastro?: "receita_base" | "produto";
   id: string;
   tenant_id: string;
   nome: string;
@@ -139,6 +140,16 @@ export type StatusOP = "planejada" | "em_producao" | "finalizada" | "cancelada";
 export type CanalVenda = "loja_fisica" | "whatsapp" | "ifood" | "instagram" | "outro";
 
 export interface OrdemProducao {
+  ficha_snapshot?: {
+    ficha: import("@/hooks/use-ficha-tecnica").FichaTecnica;
+    revisao: number;
+    nome: string;
+    rendimento: string;
+    unidade: string;
+    materiais: Record<string, string>;
+    bases: Record<string, string>;
+    consumo?: import("@/hooks/use-ficha-tecnica").ConsumoComponente[];
+  } | null;
   id: string;
   tenant_id: string;
   numero: number;

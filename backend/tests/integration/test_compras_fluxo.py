@@ -181,10 +181,12 @@ async def test_confirmar_item_sem_vinculo_falha(
 
 @pytest.mark.asyncio
 async def test_isolamento_tenant_no_match(
-    estoque: EstoqueService, compras: ComprasService, tenant_id
+    estoque: EstoqueService, compras: ComprasService, tenant_id, db
 ):
     # Açúcar de OUTRO tenant não deve ser sugerido como match.
     outro_tenant = uuid4()
+    db.add(Tenant(id=outro_tenant, nome="Outro tenant OCR"))
+    await db.flush()
     await estoque.criar_ingrediente(
         outro_tenant,
         CriarIngredienteRequest(nome="Açúcar Cristal", unidade="kg"),
@@ -235,9 +237,11 @@ async def test_lista_reposicao_so_inclui_abaixo_do_minimo(
 
 @pytest.mark.asyncio
 async def test_lista_reposicao_isolada_por_tenant(
-    estoque: EstoqueService, compras: ComprasService, tenant_id
+    estoque: EstoqueService, compras: ComprasService, tenant_id, db
 ):
     outro = uuid4()
+    db.add(Tenant(id=outro, nome="Outro tenant reposição"))
+    await db.flush()
     await estoque.criar_ingrediente(
         outro,
         CriarIngredienteRequest(

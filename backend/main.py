@@ -21,6 +21,7 @@ from api.routers import (
     vendas,
 )
 from core.config import settings
+from api.routers import whatsapp
 from core.logging import configure_logging
 from core.rate_limit import limiter
 from domain.exceptions import (
@@ -68,10 +69,11 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONRe
 
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=settings.cors_origins,
     # Aceita localhost + qualquer IP de rede privada (LAN/Wi-Fi) na porta 3000.
     # Permite acessar pelo celular conectado na mesma rede sem precisar
     # editar config a cada mudança de IP.
-    allow_origin_regex=(
+    allow_origin_regex=None if settings.is_production else (
         r"http://(localhost|127\.0\.0\.1|"
         r"192\.168\.\d{1,3}\.\d{1,3}|"
         r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
@@ -85,6 +87,8 @@ app.add_middleware(
 
 # Routers
 app.include_router(auth.router, prefix="/api/v1")
+from api.routers import whatsapp_auth
+app.include_router(whatsapp_auth.router, prefix="/api/v1")
 app.include_router(receitas.router, prefix="/api/v1")
 app.include_router(estoque.router, prefix="/api/v1")
 app.include_router(configuracoes.router, prefix="/api/v1")
@@ -95,6 +99,7 @@ app.include_router(vendas.router, prefix="/api/v1")
 app.include_router(agenda.router, prefix="/api/v1")
 app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(compras.router, prefix="/api/v1")
+app.include_router(whatsapp.router, prefix="/api/v1")
 
 
 # Tratamento de erros de domínio — mensagens em português, sem jargão técnico

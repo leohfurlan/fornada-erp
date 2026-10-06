@@ -35,13 +35,15 @@ class EstoquePARepository:
         for mutar o saldo deve passar for_update=True; leitura pura pode
         deixar False.
         """
-        stmt = select(EstoqueProdutoAcabado).where(
+        stmt = select(EstoqueProdutoAcabado).options(selectinload(EstoqueProdutoAcabado.receita)).where(
             EstoqueProdutoAcabado.receita_id == receita_id,
             EstoqueProdutoAcabado.tenant_id == tenant_id,
             EstoqueProdutoAcabado.deleted_at.is_(None),
         )
         if for_update:
-            stmt = stmt.with_for_update()
+            # Preserva mutações locais antes de atualizar o estado sob lock.
+            await self._db.flush()
+            stmt = stmt.with_for_update().execution_options(populate_existing=True)
 
         result = await self._db.execute(stmt)
         existente = result.scalar_one_or_none()

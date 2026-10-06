@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useWhatsAppDisponivel } from "@/hooks/use-whatsapp-auth";
+import { WhatsAppAccess } from "@/components/shared/whatsapp-access";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -18,6 +20,9 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function LoginPage() {
+  const whatsapp = useWhatsAppDisponivel();
+  const [emailAcesso, setEmailAcesso] = useState<boolean | null>(null);
+  useEffect(() => { setEmailAcesso(new URLSearchParams(window.location.search).get("email") === "1"); }, []);
   const router = useRouter();
   const { setTokens, setUsuario } = useAuthStore();
   const [erro, setErro] = useState<string | null>(null);
@@ -43,6 +48,7 @@ export default function LoginPage() {
     }
   };
 
+  if (whatsapp.data?.ativo && emailAcesso === false) return <div className="min-h-screen flex items-center justify-center px-4 py-8"><WhatsAppAccess /></div>;
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-6">

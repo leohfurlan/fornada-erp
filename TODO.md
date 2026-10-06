@@ -1,5 +1,10 @@
 # TODO — Fornada
 
+> **Revisão de 06/10/2026:** consultar [status atual](docs/status-2026-10-06.md)
+> e [publicação](deploy/README.md). As seções históricas abaixo contêm pendências
+> já implementadas (pedidos, métricas de receitas, rate limiting e dashboard parcial).
+> Preparação de produção criada; homologação de containers/integração e publicação pendentes.
+
 > Estado do projeto em **30/05/2026** confrontado com [PRD.md](PRD.md) e [CLAUDE.md](CLAUDE.md).
 > Marcações: ✅ feito · 🟡 parcial · ⬜ pendente
 

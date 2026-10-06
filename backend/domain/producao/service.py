@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
+from domain.producao.ficha import montar_snapshot, necessidade
+from domain.receitas.repository import ReceitaRepository
+from domain.exceptions import EstoquePAInsuficienteError
 
 import structlog
 
@@ -40,9 +43,9 @@ def _to_response(op: OrdemProducao) -> OrdemProducaoResponse:
         tenant_id=op.tenant_id,
         numero=op.numero,
         receita_id=op.receita_id,
-        nome_receita=op.receita.nome if op.receita else "(receita removida)",
-        receita_rendimento=op.receita.rendimento if op.receita else Decimal("1"),
-        receita_rendimento_unidade=op.receita.rendimento_unidade if op.receita else "un",
+        nome_receita=op.ficha_snapshot["nome"] if op.ficha_snapshot else op.receita.nome if op.receita else "(receita removida)",
+        receita_rendimento=Decimal(op.ficha_snapshot["rendimento"]) if op.ficha_snapshot else op.receita.rendimento if op.receita else Decimal("1"),
+        receita_rendimento_unidade=op.ficha_snapshot["unidade"] if op.ficha_snapshot else op.receita.rendimento_unidade if op.receita else "un",
         pedido_id=op.pedido_id,
         pedido_numero=op.pedido.numero if op.pedido else None,
         qtd_planejada=op.qtd_planejada,
@@ -53,6 +56,7 @@ def _to_response(op: OrdemProducao) -> OrdemProducaoResponse:
         created_at=op.created_at,
         updated_at=op.updated_at,
         proximas_transicoes=sorted(proximas_transicoes(op.status)),
+        ficha_snapshot=op.ficha_snapshot,
     )
 
 
@@ -77,6 +81,7 @@ class ProducaoService:
     async def criar(
         self, tenant_id: UUID, data: CriarOrdemProducaoRequest
     ) -> OrdemProducaoResponse:
+        await ReceitaRepository(self._repo._db).travar_composicao(tenant_id)
         receita = await self._repo.buscar_receita(data.receita_id, tenant_id)
         if not receita:
             raise ValidationError(f"Receita {data.receita_id} não encontrada")
@@ -86,6 +91,9 @@ class ProducaoService:
                 raise ValidationError(f"Pedido {data.pedido_id} não encontrado")
 
         op = await self._repo.criar(tenant_id, data)
+        op.ficha_snapshot = await montar_snapshot(receita, ReceitaRepository(self._repo._db), tenant_id)
+        await self._repo._db.flush()
+        await self._repo._db.refresh(op, ["updated_at"])
         logger.info(
             "op_criada",
             tenant_id=str(tenant_id),
@@ -125,7 +133,8 @@ class ProducaoService:
     async def atualizar(
         self, op_id: UUID, tenant_id: UUID, data: AtualizarOrdemProducaoRequest
     ) -> OrdemProducaoResponse:
-        op = await self._repo.buscar_por_id(op_id, tenant_id)
+        await ReceitaRepository(self._repo._db).travar_composicao(tenant_id)
+        op = await self._repo.buscar_por_id(op_id, tenant_id, for_update=True)
         if not op:
             raise NotFoundError("Ordem de Produção", str(op_id))
         if op.status not in STATUS_EDITAVEIS:
@@ -138,6 +147,8 @@ class ProducaoService:
             r = await self._repo.buscar_receita(data.receita_id, tenant_id)
             if not r:
                 raise ValidationError(f"Receita {data.receita_id} não encontrada")
+            if data.receita_id != op.receita_id:
+                op.ficha_snapshot = await montar_snapshot(r, ReceitaRepository(self._repo._db), tenant_id)
         if data.pedido_id is not None:
             p = await self._repo.buscar_pedido(data.pedido_id, tenant_id)
             if not p:
@@ -180,7 +191,7 @@ class ProducaoService:
         novo_status: str,
         qtd_produzida: Decimal | None = None,
     ) -> OrdemProducaoResponse:
-        op = await self._repo.buscar_por_id(op_id, tenant_id)
+        op = await self._repo.buscar_por_id(op_id, tenant_id, for_update=True)
         if not op:
             raise NotFoundError("Ordem de Produção", str(op_id))
 
@@ -190,12 +201,16 @@ class ProducaoService:
             )
 
         de = op.status
+        if op.ficha_snapshot is None and op.receita and de == "planejada" and novo_status == STATUS_EM_PRODUCAO:
+            op.ficha_snapshot = await montar_snapshot(op.receita, ReceitaRepository(self._repo._db), tenant_id)
 
         if novo_status == STATUS_FINALIZADA:
             if qtd_produzida is None:
                 raise ValidationError(
                     "Informe a quantidade produzida ao finalizar a OP."
                 )
+            if qtd_produzida < 0:
+                raise ValidationError("Quantidade produzida não pode ser negativa")
             await self._consumir_e_produzir(op, tenant_id, qtd_produzida)
             op.qtd_produzida = qtd_produzida
         elif novo_status == STATUS_EM_PRODUCAO:
@@ -231,6 +246,9 @@ class ProducaoService:
         Necessário = ingrediente.quantidade × qtd_planejada da OP.
         Valida disponibilidade total antes de reservar (atômico).
         """
+        if op.ficha_snapshot:
+            await self._operar_snapshot(op, tenant_id, "reservar")
+            return
         receita = op.receita
         if receita is None or not receita.ingredientes:
             return  # receita sem ingredientes — nada a reservar
@@ -268,6 +286,11 @@ class ProducaoService:
         ingredientes foram efetivamente usados. A entrada no estoque PA reflete
         a quantidade real produzida — eventual perda é capturada na diferença.
         """
+        if op.ficha_snapshot:
+            await self._operar_snapshot(op, tenant_id, "consumir")
+            if qtd_produzida > 0:
+                await self._estoque_pa.incrementar(op.receita_id, tenant_id, qtd_produzida, f"op:{op.numero}")
+            return
         receita = op.receita
         if receita is None:
             raise ValidationError("Receita da OP não encontrada.")
@@ -306,6 +329,9 @@ class ProducaoService:
         self, op: OrdemProducao, tenant_id: UUID
     ) -> None:
         """Devolve quantidade_reservada quando OP em produção é cancelada."""
+        if op.ficha_snapshot:
+            await self._operar_snapshot(op, tenant_id, "estornar")
+            return
         receita = op.receita
         if receita is None:
             return
@@ -316,3 +342,40 @@ class ProducaoService:
             ing.quantidade_reservada = max(
                 Decimal("0"), ing.quantidade_reservada - ri.quantidade * op.qtd_planejada
             )
+
+    async def _operar_snapshot(self, op: OrdemProducao, tenant_id: UUID, acao: str) -> None:
+        """Reserva/consome materiais diretos e bases prontas sem expandir ingredientes."""
+        materiais = necessidade(op.ficha_snapshot, "materiais", op.qtd_planejada)
+        bases = necessidade(op.ficha_snapshot, "bases", op.qtd_planejada)
+        registros = {}
+        saldos = {}
+        # Locks ordenados e validação completa antes de qualquer mutação.
+        for alvo in sorted(materiais, key=str):
+            item = await self._estoque_ing.buscar_por_id(alvo, tenant_id, for_update=True)
+            if not item:
+                raise ValidationError("Material da produção não encontrado")
+            qty = materiais[alvo]
+            if acao == "reservar" and item.estoque_atual - item.quantidade_reservada < qty:
+                raise EstoqueInsuficienteError(item.nome, float(item.estoque_atual - item.quantidade_reservada), float(qty))
+            if acao == "consumir" and (item.estoque_atual < qty or item.quantidade_reservada < qty):
+                raise ValidationError("Estoque ou reserva do material insuficiente para concluir")
+            registros[alvo] = item
+        for alvo in sorted(bases, key=str):
+            saldo = await self._estoque_pa._repo.buscar_ou_criar(alvo, tenant_id, for_update=True)
+            qty = bases[alvo]
+            if acao == "reservar" and saldo.qtd_disponivel - saldo.qtd_reservada < qty:
+                raise EstoquePAInsuficienteError("Componente pronto", float(saldo.qtd_disponivel - saldo.qtd_reservada), float(qty))
+            if acao == "consumir" and (saldo.qtd_disponivel < qty or saldo.qtd_reservada < qty):
+                raise ValidationError("Estoque ou reserva da receita-base insuficiente para concluir")
+            saldos[alvo] = saldo
+        for alvo, item in registros.items():
+            qty = materiais[alvo]
+            item.quantidade_reservada += qty if acao == "reservar" else -qty
+            if acao == "consumir":
+                item.estoque_atual -= qty
+                await self._estoque_ing.salvar_movimentacao(tenant_id, alvo, "saida", qty, item.custo_medio, f"producao:{op.numero}")
+        for alvo, saldo in saldos.items():
+            qty = bases[alvo]
+            saldo.qtd_reservada += qty if acao == "reservar" else -qty
+            if acao == "consumir":
+                await self._estoque_pa.debitar(alvo, tenant_id, qty, f"montagem:{op.numero}")

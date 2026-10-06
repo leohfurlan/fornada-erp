@@ -50,10 +50,9 @@ class ProducaoRepository:
         return recarregada
 
     async def buscar_por_id(
-        self, op_id: UUID, tenant_id: UUID
+        self, op_id: UUID, tenant_id: UUID, *, for_update: bool = False
     ) -> OrdemProducao | None:
-        result = await self._db.execute(
-            select(OrdemProducao)
+        stmt = (select(OrdemProducao)
             .options(
                 selectinload(OrdemProducao.receita).selectinload(
                     Receita.ingredientes
@@ -66,6 +65,9 @@ class ProducaoRepository:
                 OrdemProducao.deleted_at.is_(None),
             )
         )
+        if for_update:
+            stmt = stmt.with_for_update().execution_options(populate_existing=True)
+        result = await self._db.execute(stmt)
         return result.scalar_one_or_none()
 
     async def listar(

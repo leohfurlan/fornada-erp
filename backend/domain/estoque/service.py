@@ -116,6 +116,11 @@ class EstoqueService:
 
     async def deletar_ingrediente(self, ingrediente_id: UUID, tenant_id: UUID) -> None:
         """Soft delete. Bloqueia se ingrediente está em uso em alguma receita."""
+        from domain.receitas.repository import ReceitaRepository
+        composicao = ReceitaRepository(self._repo._db)
+        await composicao.travar_composicao(tenant_id)
+        if await composicao.referencia_em_uso(ingrediente_id, tenant_id, "ingrediente_id"):
+            raise ConflictError("Este material está em uso em uma ficha ou produção. Remova o vínculo antes de excluir.")
         ingrediente = await self._repo.buscar_por_id(ingrediente_id, tenant_id)
         if not ingrediente:
             raise NotFoundError("Ingrediente", str(ingrediente_id))

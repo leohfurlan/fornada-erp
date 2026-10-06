@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronRight, DollarSign, ListChecks, HelpCircle } from "lucide-react";
 
 const cards = [
+  { href: "/configuracoes/whatsapp", titulo: "Acesso por WhatsApp", descricao: "Valide seu número para entrar com código", icone: HelpCircle },
   {
     href: "/configuracoes/geral",
     titulo: "Custos e Valor da Hora",

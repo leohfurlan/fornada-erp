@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useWhatsAppDisponivel } from "@/hooks/use-whatsapp-auth";
+import { WhatsAppAccess } from "@/components/shared/whatsapp-access";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -20,6 +22,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function CadastroPage() {
+  const whatsapp = useWhatsAppDisponivel();
   const router = useRouter();
   const { setTokens, setUsuario } = useAuthStore();
   const [erro, setErro] = useState<string | null>(null);
@@ -36,13 +39,14 @@ export default function CadastroPage() {
       const response = await api.post<TokenResponse>("/auth/register", data);
       setTokens(response.data.access_token, response.data.refresh_token);
       setUsuario(response.data.usuario);
-      router.push("/receitas");
+      router.push("/boas-vindas");
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setErro(detail ?? "Não foi possível criar sua conta. Tente novamente.");
     }
   };
 
+  if (whatsapp.data?.ativo) return <div className="min-h-screen flex items-center justify-center px-4 py-8"><WhatsAppAccess /></div>;
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-sm space-y-6">

@@ -1,0 +1,18 @@
+# Ajustes iniciais para homologacao em VM de 1 GB; medir consumo antes do aceite.
+# Usar com prod + pilot. As imagens devem ser construidas fora da VPS.
+services:
+  db:
+    command: postgres -c shared_buffers=32MB -c max_connections=20 -c work_mem=2MB
+  backend:
+    image: fornada-backend:pilot
+    environment:
+      MALLOC_ARENA_MAX: "2"
+  frontend:
+    image: fornada-frontend:pilot
+    environment:
+      NODE_OPTIONS: --max-old-space-size=192
+  celery:
+    # O webhook WhatsApp exige o worker: habilitar profile worker ao ativar Evolution.
+    profiles: [worker]
+    image: fornada-backend:pilot
+    command: celery -A infrastructure.celery.app worker --loglevel=info --concurrency=1

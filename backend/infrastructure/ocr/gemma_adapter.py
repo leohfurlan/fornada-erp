@@ -13,6 +13,7 @@ from pathlib import Path
 import structlog
 
 from core.config import settings
+from domain.exceptions import ValidationError
 
 logger = structlog.get_logger(__name__)
 
@@ -85,6 +86,8 @@ class GemmaOCRAdapter:
         """Processa imagem de cupom fiscal e retorna itens extraídos."""
         if not settings.google_ai_api_key:
             logger.warning("ocr_sem_api_key", fonte="gemma4")
+            if settings.is_production:
+                raise ValidationError("A leitura de cupons está indisponível. Tente novamente mais tarde.")
             return self._resultado_mock()
 
         try:
@@ -132,7 +135,7 @@ class GemmaOCRAdapter:
 
         except json.JSONDecodeError as e:
             logger.error("ocr_json_invalido", source="gemma4", error=str(e))
-            return self._resultado_mock()
+            raise ValidationError("Não conseguimos ler esse cupom. Tire uma nova foto e tente novamente.") from e
         except Exception as e:
             logger.error("ocr_erro", source="gemma4", error=str(e))
             raise

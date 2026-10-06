@@ -1,12 +1,34 @@
 # PRD — ERP Inteligente para Confeitarias Artesanais
 
-**Status:** Draft v1.0  
-**Data:** Maio 2026  
+**Status:** Draft v1.1 — revisão do piloto
+
+**Data:** Maio 2026; revisado em 6 de outubro de 2026
 **Responsável:** A definir  
 
 ---
 
 ## Nome do Produto
+
+## Revisão do piloto — outubro de 2026
+
+Esta revisão acrescenta requisitos ausentes do texto original. Detalhes, contratos e exemplos em [spec.md](docs/piloto-v2/spec.md), [contract.md](docs/piloto-v2/contract.md) e [plano/tickets](docs/piloto-v2/plan.md).
+
+| ID | Adição | Entrega |
+|---|---|---|
+| UX-01 | Início após entrada, boas-vindas/tutorial no novo cadastro e ação Nova Produção | Primeira fatia local |
+| AUTH-01 | Login por número WhatsApp internacional com país/região e máscara brasileira | Planejado |
+| AUTH-02 | Código de uso único gerado pelo ERP, enviado pela Evolution API, com expiração/limites | Planejado; instância externa pendente |
+| AUTH-03 | Onboarding após validação: usuário, loja, endereço e e-mail; migração/recuperação de contas atuais | Planejado |
+| FT-01 | Ficha por unidade, descrição, montagem ordenada, quantidades/faixas, embalagens e acabamento | Primeira fatia local |
+| FT-02 | Produto composto por receitas-base reutilizáveis, ingredientes e embalagens | Modelo aprovado; implementação seguinte |
+| FT-03 | Custo por rendimento e consumo consolidado, preservando camadas na montagem | Planejado |
+| FT-04 | Ficha congelada na produção e baixa de estoque sem duplicação | Planejado |
+
+O número cadastrado mantém o nono dígito brasileiro; eventual resolução do destinatário é responsabilidade do adaptador WhatsApp. Uma embalagem de 300 ml é uma unidade com capacidade declarada, não 300 g de ingredientes. Faixas exigem nominal explícito. A ficha editorial não altera custos; ativar composição usa os vínculos da montagem para custo e estoque.
+
+Continuação do piloto: composição reutilizável, custos, reservas de massas/recheios prontos e ficha congelada em produção implementados localmente. Fluxo OTP/onboarding e vínculo seguro de contas existentes também implementados, desativados até configurar e validar Evolution. Recuperação autônoma e entrega real permanecem pendentes. [Estado atual](docs/piloto-v2/plan.md).
+
+### Candidatos originais de nome
 
 Candidatos em avaliação:
 

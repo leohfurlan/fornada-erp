@@ -15,6 +15,7 @@ from sqlalchemy import (
     Time,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -51,6 +52,7 @@ class Tenant(TimestampMixin, Base):
     nome: Mapped[str] = mapped_column(String(200), nullable=False)
     plano: Mapped[str] = mapped_column(String(20), default="starter", nullable=False)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    endereco: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     usuarios: Mapped[list["Usuario"]] = relationship(back_populates="tenant")
 
@@ -62,6 +64,7 @@ class Usuario(TenantMixin, TimestampMixin, Base):
     email: Mapped[str] = mapped_column(String(254), unique=True, nullable=False, index=True)
     senha_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     nome: Mapped[str] = mapped_column(String(200), nullable=False)
+    telefone: Mapped[str | None] = mapped_column(String(20), unique=True, index=True, nullable=True)
     valor_hora: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0"), nullable=False)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -158,6 +161,8 @@ class Receita(TenantMixin, TimestampMixin, Base):
     # Modo de preparo em texto livre (quebras de linha preservadas na exibição).
     # Suporta markdown leve no futuro; por ora texto puro com whitespace-pre-wrap.
     modo_preparo: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ficha_tecnica: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    ficha_revisao: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
 
     ingredientes: Mapped[list["ReceitaIngrediente"]] = relationship(
         back_populates="receita", cascade="all, delete-orphan"
@@ -206,6 +211,7 @@ class EstoqueProdutoAcabado(TenantMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "estoque_produto_acabado"
+    qtd_reservada: Mapped[Decimal] = mapped_column(Numeric(12, 3), server_default="0", nullable=False)
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     receita_id: Mapped[UUID] = mapped_column(
@@ -350,6 +356,7 @@ class OrdemProducao(TenantMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "ordens_producao"
+    ficha_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     numero: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
