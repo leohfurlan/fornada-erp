@@ -3,8 +3,10 @@ from uuid import UUID
 
 import structlog
 
+from domain.compras.decisions import CatalogMatcher
+from domain.compras.extraction import ReceiptExtractor, validate_receipt
 from domain.compras.lista import calcular_sugestao_reposicao
-from domain.compras.matching import IngredienteRef, sugerir_match
+from domain.compras.matching import IngredienteRef
 from domain.compras.schemas import (
     ConfirmarCompraRequest,
     ConfirmarCompraResponse,
@@ -20,7 +22,6 @@ from domain.estoque.schemas import (
 )
 from domain.estoque.service import EstoqueService
 from domain.exceptions import ValidationError
-from infrastructure.ocr.gemma_adapter import GemmaOCRAdapter
 
 logger = structlog.get_logger(__name__)
 
@@ -34,15 +35,21 @@ class ComprasService:
     EstoqueService a entrada de estoque (que recalcula o custo médio).
     """
 
-    def __init__(self, estoque_service: EstoqueService, ocr_adapter: GemmaOCRAdapter) -> None:
+    def __init__(
+        self,
+        estoque_service: EstoqueService,
+        ocr_adapter: ReceiptExtractor,
+        matcher: CatalogMatcher | None = None,
+    ) -> None:
         self._estoque = estoque_service
         self._ocr = ocr_adapter
+        self._matcher = matcher or CatalogMatcher()
 
     async def processar_ocr(
         self, tenant_id: UUID, image_bytes: bytes, mime_type: str = "image/jpeg"
     ) -> OcrComprasResponse:
         """Extrai itens do cupom e sugere o match com ingredientes cadastrados."""
-        resultado = await self._ocr.processar_imagem(image_bytes, mime_type)
+        resultado = validate_receipt(await self._ocr.processar_imagem(image_bytes, mime_type))
 
         ingredientes = await self._estoque.listar(tenant_id)
         refs = [
@@ -52,7 +59,7 @@ class ComprasService:
 
         itens_sugeridos: list[ItemCompraSugerido] = []
         for item in resultado.itens:
-            sugestao = sugerir_match(item.descricao, item.unidade, refs)
+            sugestao = await self._matcher.suggest(item.descricao, item.unidade, refs)
             itens_sugeridos.append(
                 ItemCompraSugerido(
                     descricao=item.descricao,
@@ -60,7 +67,9 @@ class ComprasService:
                     unidade=item.unidade,
                     preco_unitario=item.preco_unitario,
                     preco_total=item.preco_total,
-                    ingrediente_id=UUID(sugestao.ingrediente_id) if sugestao.ingrediente_id else None,
+                    ingrediente_id=UUID(sugestao.ingrediente_id)
+                    if sugestao.ingrediente_id
+                    else None,
                     nome_match=sugestao.nome_match,
                     score=sugestao.score,
                     tipo_sugerido=sugestao.tipo_sugerido,
@@ -84,6 +93,7 @@ class ComprasService:
             estabelecimento=resultado.estabelecimento,
             fonte=resultado.fonte,
             confianca=resultado.confianca,
+            avisos=resultado.avisos,
         )
 
     async def confirmar(

@@ -1,5 +1,19 @@
 # Evolution API — cadastro e compras pela conversa
 
+## Ativação em produção — 06/10/2026
+
+Evolution 2.3.7 na VPS `atos-pd` (`https://evolution.atospd.com`), instância `fornada` pareada e em estado `open`. Backend da Fornada em `ssh fornada`, `/opt/fornada`, com migrations já aplicadas até `2798d1537c70`. Integração e autenticação WhatsApp ativadas no `.env.production`; token da instância e segredo de webhook transferidos por pipe SSH sem exposição. Backup restrito do ambiente anterior: `backups/env-before-whatsapp-20261006T184706Z`.
+
+Somente backend foi recriado e worker foi iniciado com concorrência 1, preservando banco, Redis, frontend e proxy. Backend saudável; worker registrou `whatsapp.process`; evento próprio de teste publicado e consumido pela fila terminou em `SUCCESS` sem dados de negócio ou mensagem real. Webhook autenticado configurado para `https://fornada.atospd.com/api/v1/whatsapp/webhook`, somente `MESSAGES_UPSERT`, `byEvents=false`, `base64=false`, header `X-Webhook-Secret`. Na versão 2.3.7, `byEvents` e `base64` são os campos da requisição; a resposta persistida usa `webhookByEvents` e `webhookBase64`.
+
+Validação de transporte: POST sem segredo 401; POST autenticado com evento próprio ignorado 202. Esses testes atestam infraestrutura e autenticação, não uma conversa real. Teste solicitado ao operador: enviar “Oi” de outro número e verificar resposta de cadastro. Nenhuma mensagem real de teste foi enviada pelo agente.
+
+**OCR ainda depende de configurar `GOOGLE_AI_API_KEY`** no ambiente de produção e recriar backend/worker. Sem a chave, fotos recebem aviso de leitura indisponível e não geram compras; cadastro e compra manual estão habilitados. Não usar cupons fictícios como compras reais durante o teste. Compra modifica estoque apenas depois de `CONFIRMAR`.
+
+Scripts operacionais: `deploy/evolution/activate_fornada.py` executa na Fornada, usa o lock de deploy e faz backup/restauração do ambiente; `connect_fornada.py` executa na Evolution para configurar/verificar/desligar o webhook. A ação `export` contém segredos: usar somente canalizada ao SSH da Fornada, nunca isoladamente no terminal ou em logs. Antes de nova ativação, verificar deploys simultâneos e preservar a configuração existente.
+
+## Implementação e validação anteriores
+
 Implementação local de 06/10/2026. Integração com Evolution API v2 externa. Não instala Evolution no servidor da Fornada e não publica nem envia mensagens reais durante os testes.
 
 ## Fluxo

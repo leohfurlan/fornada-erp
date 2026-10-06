@@ -1,0 +1,50 @@
+# VPS dedicada de 8 GB. Usar junto de compose.yml.
+services:
+  postgres:
+    command: postgres -c shared_buffers=64MB -c max_connections=30 -c work_mem=2MB
+    mem_limit: 256m
+    memswap_limit: 512m
+    cpus: 0.50
+  redis:
+    command: redis-server --appendonly yes --maxmemory 64mb --maxmemory-policy noeviction
+    mem_limit: 128m
+    memswap_limit: 256m
+    cpus: 0.25
+  api:
+    environment:
+      NODE_OPTIONS: --max-old-space-size=1536
+    mem_limit: 2g
+    memswap_limit: 3g
+    cpus: 2.0
+    pids_limit: 512
+    networks:
+      default:
+      edge:
+    healthcheck:
+      start_period: 180s
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      EVOLUTION_DOMAIN: ${EVOLUTION_DOMAIN:?Configure EVOLUTION_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+    mem_limit: 128m
+    memswap_limit: 256m
+    cpus: 0.25
+    pids_limit: 100
+    depends_on:
+      api:
+        condition: service_healthy
+networks:
+  edge:
+volumes:
+  caddy_data:
+  caddy_config:

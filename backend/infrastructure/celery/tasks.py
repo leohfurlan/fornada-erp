@@ -12,10 +12,10 @@ def processar_ocr_cupom(self, task_id: str, image_b64: str, mime_type: str = "im
     """Processa OCR de cupom fiscal de forma assíncrona."""
     import base64
 
-    from infrastructure.ocr.gemma_adapter import GemmaOCRAdapter
+    from infrastructure.ocr.factory import get_receipt_extractor
 
     async def _run() -> dict:
-        adapter = GemmaOCRAdapter()
+        adapter = get_receipt_extractor()
         image_bytes = base64.b64decode(image_b64)
         resultado = await adapter.processar_imagem(image_bytes, mime_type)
         return {

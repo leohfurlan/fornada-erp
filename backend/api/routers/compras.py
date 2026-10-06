@@ -16,18 +16,25 @@ from domain.estoque.repository import EstoqueRepository
 from domain.estoque.service import EstoqueService
 from domain.exceptions import ValidationError
 from infrastructure.database.session import get_db
-from infrastructure.ocr.gemma_adapter import GemmaOCRAdapter
+from infrastructure.ocr.factory import get_receipt_extractor
 
 router = APIRouter(prefix="/compras", tags=["Compras"])
 
 # Limite de tamanho do upload do cupom (evita abuso e estouro de memória).
 TAMANHO_MAX_BYTES = 8 * 1024 * 1024  # 8 MB
-MIMES_ACEITOS = {"image/jpeg", "image/png", "image/webp", "image/heic"}
+MIMES_ACEITOS = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/heic",
+    "application/xml",
+    "text/xml",
+}
 
 
 def get_compras_service(db: AsyncSession = Depends(get_db)) -> ComprasService:
     estoque_service = EstoqueService(EstoqueRepository(db))
-    return ComprasService(estoque_service, GemmaOCRAdapter())
+    return ComprasService(estoque_service, get_receipt_extractor())
 
 
 @router.post("/ocr", response_model=OcrComprasResponse)
@@ -45,7 +52,7 @@ async def processar_cupom(
     """
     if arquivo.content_type and arquivo.content_type not in MIMES_ACEITOS:
         raise ValidationError(
-            "Formato de imagem não suportado. Tire uma foto em JPG ou PNG."
+            "Formato não suportado. Envie uma foto em JPG/PNG ou um XML NF-e/NFC-e."
         )
 
     conteudo = await arquivo.read(TAMANHO_MAX_BYTES + 1)

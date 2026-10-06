@@ -165,7 +165,8 @@ class WhatsAppService:
                     expira_em=datetime.now(UTC) + timedelta(hours=24),
                 )
             )
-            return preview_text(items)
+            warnings = getattr(result, "avisos", []) if incoming.image else []
+            return "\n".join(warnings + [preview_text(items)])
         if command == "COMPRAR":
             return "Envie uma foto nítida do cupom (JPG, PNG ou WebP, até 8 MB)."
         if command == "REVISAR" and draft:
