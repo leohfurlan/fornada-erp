@@ -22,6 +22,8 @@ cat > "$TMP/bin/docker" <<'SH'
 #!/usr/bin/env bash
 echo "$*" >> "$TRACE"
 case "$*" in
+  *'compose '*'exec '*) echo 'Compose exec interativo proibido neste fluxo' >&2; exit 99 ;;
+  *'ps -q db'*) echo 'qa-db-container' ;;
   *'config --format json'*) echo '{"services":{"backend":{"environment":{"EVOLUTION_ENABLED":"false"}},"proxy":{"environment":{"APP_DOMAIN":"example.com"}}}}' ;;
   *'pg_dump '*) echo 'mock-dump' ;;
   *'pg_restore '*) cat >/dev/null; [[ ${FAIL_RESTORE:-0} != 1 ]] ;;
@@ -32,6 +34,7 @@ SH
 cat > "$TMP/bin/curl" <<'SH'
 #!/usr/bin/env bash
 echo "curl $*" >> "$TRACE"
+[[ "$*" == *'--retry-all-errors'* ]] || { echo 'Checagem HTTP sem retry para reset de conexão' >&2; exit 56; }
 SH
 cat > "$TMP/bin/flock" <<'SH'
 #!/usr/bin/env bash

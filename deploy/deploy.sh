@@ -74,19 +74,24 @@ mkdir -p backups
 chmod 700 backups
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)-$$
 BACKUP="$ROOT/backups/fornada-$STAMP.dump"
-"${DC[@]}" exec -T db pg_dump -U fornada -d fornada -Fc > "$BACKUP"
+DB_CONTAINER=$("${DC[@]}" ps -q db)
+[[ -n "$DB_CONTAINER" ]] || { echo 'Container PostgreSQL ausente.' >&2; exit 1; }
+echo 'Gerando backup PostgreSQL (sem entrada interativa)...'
+"${DOCKER[@]}" exec "$DB_CONTAINER" pg_dump -U fornada -d fornada -Fc > "$BACKUP"
 [[ -s "$BACKUP" ]] || { echo 'Backup vazio; deploy cancelado.' >&2; exit 1; }
 # Testar restauração em banco temporário antes de aplicar migrations.
 VERIFY_DB="fornada_restore_$(date -u +%s)_$$"
-"${DC[@]}" exec -T db createdb -U fornada "$VERIFY_DB"
-if ! "${DC[@]}" exec -T db pg_restore -U fornada -d "$VERIFY_DB" --exit-on-error < "$BACKUP"; then
-  "${DC[@]}" exec -T db dropdb -U fornada "$VERIFY_DB" || true
+echo 'Testando restauração em banco temporário...'
+"${DOCKER[@]}" exec "$DB_CONTAINER" createdb -U fornada "$VERIFY_DB"
+if ! "${DOCKER[@]}" exec -i "$DB_CONTAINER" pg_restore -U fornada -d "$VERIFY_DB" --exit-on-error < "$BACKUP"; then
+  "${DOCKER[@]}" exec "$DB_CONTAINER" dropdb -U fornada "$VERIFY_DB" || true
   echo 'Restauração de verificação falhou; serviços continuam parados e migrations não foram aplicadas.' >&2
   exit 1
 fi
-"${DC[@]}" exec -T db dropdb -U fornada "$VERIFY_DB"
+"${DOCKER[@]}" exec "$DB_CONTAINER" dropdb -U fornada "$VERIFY_DB"
 echo "Backup verificado: $BACKUP"
-"${DC[@]}" run --rm --pull never backend alembic upgrade head
+echo 'Aplicando migrations...'
+"${DC[@]}" run -T --rm --pull never backend alembic upgrade head </dev/null
 SERVICES=(backend frontend proxy)
 if [[ "$MODE" == production || "$WORKER" == true || "$WORKER" == 1 ]]; then SERVICES+=(celery); fi
 "${DC[@]}" up -d --no-build --pull never --wait --wait-timeout 240 "${SERVICES[@]}"
@@ -96,9 +101,9 @@ else
   DOMAIN=$("${DC[@]}" config --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["services"]["proxy"]["environment"]["APP_DOMAIN"])')
   URL="https://$DOMAIN"
 fi
-curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-connrefused --max-time 15 "$URL/health"
+curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-connrefused --retry-all-errors --max-time 15 "$URL/health"
 echo
-curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-connrefused --max-time 15 --output /dev/null "$URL/login"
+curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-connrefused --retry-all-errors --max-time 15 --output /dev/null "$URL/login"
 "${DC[@]}" ps
 echo "Deploy concluído. Valide login e operações de negócio. Backup: $BACKUP"
 if [[ "$MODE" == pilot ]]; then echo 'Acesso via túnel SSH para localhost:8080; a porta permanece privada.'; fi

@@ -15,6 +15,9 @@ as imagens, baixa PostgreSQL/Redis/Caddy, suspende os serviços da aplicação,
 faz backup com permissões restritas e testa a restauração em banco temporário.
 Depois aplica migrations, inicia serviços e verifica `/health` e `/login`.
 O worker do piloto é iniciado quando `EVOLUTION_ENABLED=true`.
+Backup, criação e remoção do banco temporário usam `docker exec` sem entrada
+interativa; somente a restauração usa `-i` para receber o arquivo. Isso evita
+o caminho de `docker compose exec` que ficou suspenso durante o piloto.
 As imagens devem corresponder aos fontes e migrations desta versão; o script
 não constrói imagens no modo piloto. Não envie `.env` ou backups ao Git.
 
