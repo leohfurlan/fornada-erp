@@ -71,4 +71,10 @@ if FAIL_MIGRATION=1 bash "$TMP/app/deploy/deploy.sh" >/dev/null 2>&1; then
   echo 'Falha de migration foi ignorada' >&2; exit 1
 fi
 if grep -q 'up -d --no-build' "$TRACE"; then echo 'Iniciou aplicação após migration falhar' >&2; exit 1; fi
-echo '4 cenários de deploy aprovados: check, sucesso, falha de restauração e falha de migration.'
+: > "$TRACE"
+touch "$TMP/app/.env.production"
+bash "$TMP/app/deploy/deploy.sh" --mode public-micro >/dev/null
+grep -q -- '--env-file .env.production -f docker-compose.prod.yml -f docker-compose.micro.yml' "$TRACE"
+grep -q 'curl .*https://example.com/login' "$TRACE"
+if grep -Eq 'docker-compose.pilot.yml| build ' "$TRACE"; then echo 'Modo público usou configuração privada ou build' >&2; exit 1; fi
+echo '5 cenários de deploy aprovados: check, sucesso, falha de restauração, falha de migration e HTTPS público micro.'

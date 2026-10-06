@@ -2,6 +2,21 @@
 
 ## Deploy por script
 
+### Domínio público na VPS de 1 GB
+
+Configure `.env.production` com os mesmos segredos do piloto, `APP_DOMAIN` com
+o hostname sem protocolo e `FRONTEND_URL` com a URL HTTPS. Aponte o DNS à VPS
+e permita TCP 80/443 na Oracle e no firewall do sistema.
+
+```sh
+bash deploy/deploy.sh --mode public-micro --check
+bash deploy/deploy.sh --mode public-micro
+```
+
+Esse modo combina prod + micro, preserva o projeto/volumes existentes, usa as
+imagens `:pilot` já carregadas e o Caddyfile público. Não faz build na VPS.
+O Caddy obtém e renova o certificado HTTPS usando os volumes persistentes.
+
 Na VPS, com os fontes atualizados em `/opt/fornada` e o `.env.pilot` existente:
 
 ```sh
