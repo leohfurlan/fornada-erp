@@ -1,14 +1,14 @@
 # OCR híbrido e decisões — situação em 06/10/2026
 
-Esta entrega está no worktree `ocr-hibrido`; não foi publicada na VPS. A stack de WhatsApp já ativada em produção continua com a configuração anterior.
+Implementação publicada na VPS Fornada em 06/10/2026, revisão `bae8bfa`, no modo híbrido com Gemma 4. Backend, frontend, proxy e worker foram atualizados; banco e integração Evolution foram preservados. Ver [evidências do deploy](deploy-ocr-2026-10-06.md).
 
 | Componente | Situação |
 | --- | --- |
 | Evolution, sessão fornada, webhook e worker | Ativados em produção anteriormente |
 | Cadastro guiado, onboarding e compras manuais | Implementados e habilitados; conversa real ainda precisa ser validada pelo operador |
-| Compras por foto, revisão e confirmação única | Fluxo existente; OCR real sem credencial na última inspeção de produção |
+| Compras por foto, revisão e confirmação única | Habilitadas; inferência real validada com cupom sintético, conversa real pendente |
 | Extração direta de XML NF-e/NFC-e pelo aplicativo | Implementada nesta entrega, sem IA |
-| OCR local Tesseract e fallback de visão | Implementados nesta entrega, opt-in por configuração |
+| OCR local Tesseract e fallback de visão | Publicados e ativos: hybrid + gemma |
 | Extração OpenAI com Responses API e Structured Outputs | Adapter implementado e contrato testado com HTTP fake; falta chave, modelo e avaliação real |
 | Validação de quantidade, preço e total da linha | Implementada com Decimal; campo ilegível não vira quantidade 1 ou preço zero |
 | Conferência do total do cupom | Avisos de divergência/total ausente exibidos na revisão do aplicativo e na primeira prévia WhatsApp |
@@ -70,7 +70,7 @@ Antes de publicar: configurar credenciais/modelo, testar cupons brasileiros de l
 
 ## Validação local
 
-Passaram 194 testes de unidade e integração de compras/WhatsApp com PostgreSQL descartável. Após adicionar a cobertura do upload XML, os 23 testes do módulo híbrido passaram, incluindo esse caso novo. Também passaram Ruff, TypeScript e `git diff --check`.
+Passaram 196 testes de unidade e integração de compras/WhatsApp com PostgreSQL descartável, incluindo upload XML e verificação dos parâmetros enviados ao Gemma. Passaram também os 34 testes frontend, Ruff, TypeScript e `git diff --check`.
 
 A imagem Docker de produção foi construída localmente. Dentro dela, sem rede, o Tesseract extraiu um item e o total de R$ 11,80 de uma imagem sintética, sem acionar visão. Isso confirma a instalação e o caminho local, mas não mede a precisão em cupons reais. O banco temporário foi removido. A publicação deve ser conferida pelo registro operacional do deploy, incluindo revisão, imagens e saúde dos serviços.
 
