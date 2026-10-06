@@ -5,7 +5,9 @@ export interface EtapaPadrao {
   id: string;
   nome: string;
   tipo_mao_obra: "direta" | "indireta";
-  duracao_minutos_default: number;
+  duracao_minutos_default: number | null;
+  instrucao?: string | null;
+  receita_origem?: string | null;
 }
 
 export interface ConfiguracaoCusto {
@@ -72,8 +74,8 @@ export function useAtualizarConfiguracaoCusto() {
       custo_operacional_mensal: number;
       horas_mensais: number;
       valor_hora: number;
-      taxa_ifood?: number;
-      taxa_cartao?: number;
+      taxa_ifood?: string;
+      taxa_cartao?: string;
     }
   >({
     mutationFn: async (payload) => {

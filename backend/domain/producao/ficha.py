@@ -5,6 +5,7 @@ from uuid import UUID
 
 from domain.exceptions import ValidationError
 from domain.receitas.composicao import converter_quantidade
+from domain.estoque.unidades import converter_para_principal
 from domain.receitas.repository import ReceitaRepository
 from infrastructure.database.models import Receita
 
@@ -31,13 +32,13 @@ async def montar_snapshot(receita: Receita, repo: ReceitaRepository, tenant_id: 
                 material = await repo.buscar_ingrediente(UUID(alvo), tenant_id)
                 if not material:
                     raise ValidationError("Material removido; revise a ficha técnica")
-                convertido = converter_quantidade(quantidade, passo["unidade"], material.unidade)
+                convertido = converter_para_principal(quantidade, passo["unidade"], material.unidade, material.unidades_alternativas)
                 materiais[alvo] = materiais.get(alvo, Decimal("0")) + convertido
                 detalhes[alvo] = {"tipo": "material", "id": alvo, "nome": material.nome, "unidade": material.unidade}
     else:
         for item in receita.ingredientes:
             alvo = str(item.ingrediente_id)
-            materiais[alvo] = materiais.get(alvo, Decimal("0")) + converter_quantidade(item.quantidade, item.unidade, item.ingrediente.unidade)
+            materiais[alvo] = materiais.get(alvo, Decimal("0")) + converter_para_principal(item.quantidade, item.unidade, item.ingrediente.unidade, item.ingrediente.unidades_alternativas)
             detalhes[alvo] = {"tipo": "material", "id": alvo, "nome": item.ingrediente.nome, "unidade": item.ingrediente.unidade}
     return {"ficha": ficha, "revisao": receita.ficha_revisao,
             "nome": receita.nome, "rendimento": str(receita.rendimento),

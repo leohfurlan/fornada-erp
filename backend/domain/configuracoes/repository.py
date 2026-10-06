@@ -38,6 +38,8 @@ class ConfiguracoesRepository:
             nome=data.nome,
             tipo_mao_obra=data.tipo_mao_obra,
             duracao_minutos_default=data.duracao_minutos_default,
+            instrucao=data.instrucao,
+            receita_origem=data.receita_origem,
         )
         self._db.add(etapa)
         await self._db.flush()

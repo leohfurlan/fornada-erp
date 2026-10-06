@@ -6,7 +6,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.estoque.schemas import CriarIngredienteRequest
-from infrastructure.database.models import Ingrediente, MovimentacaoEstoque, ReceitaIngrediente
+from infrastructure.database.models import Ingrediente, MovimentacaoEstoque, ReceitaIngrediente, Receita
 
 
 class EstoqueRepository:
@@ -33,6 +33,7 @@ class EstoqueRepository:
             tipo=data.tipo,
             nome=data.nome,
             unidade=data.unidade,
+            unidades_alternativas=[item.model_dump(mode="json") for item in data.unidades_alternativas],
             estoque_atual=data.estoque_inicial,
             quantidade_reservada=Decimal("0"),
             estoque_minimo=data.estoque_minimo,
@@ -69,6 +70,22 @@ class EstoqueRepository:
             .limit(1)
         )
         return result.scalar_one_or_none() is not None
+
+    async def unidades_receitas(self, ingrediente_id: UUID, tenant_id: UUID) -> list[str]:
+        """Unidades usadas em receitas/fichas ativas do mesmo tenant."""
+        result = await self._db.execute(select(ReceitaIngrediente.unidade).join(Receita).where(Receita.tenant_id == tenant_id, Receita.deleted_at.is_(None), ReceitaIngrediente.ingrediente_id == ingrediente_id))
+        unidades = list(result.scalars().all())
+        fichas = await self._db.execute(select(Receita.ficha_tecnica).where(Receita.tenant_id == tenant_id, Receita.deleted_at.is_(None)))
+        for ficha in fichas.scalars():
+            if ficha and ficha.get("composicao_ativa"):
+                unidades.extend(p["unidade"] for p in ficha.get("passos", []) if p.get("ingrediente_id") == str(ingrediente_id))
+        return unidades
+
+    async def unidade_em_uso(self, ingrediente_id: UUID, tenant_id: UUID) -> bool:
+        """Preserva unidade após histórico, uso em receitas ou produções."""
+        from domain.receitas.repository import ReceitaRepository
+        movimento = await self._db.execute(select(MovimentacaoEstoque.id).where(MovimentacaoEstoque.tenant_id == tenant_id, MovimentacaoEstoque.ingrediente_id == ingrediente_id).limit(1))
+        return movimento.scalar_one_or_none() is not None or bool(await self.unidades_receitas(ingrediente_id, tenant_id)) or await ReceitaRepository(self._db).referencia_em_uso(ingrediente_id, tenant_id, "ingrediente_id")
 
     async def soft_delete(self, ingrediente: Ingrediente) -> None:
         ingrediente.deleted_at = datetime.now(UTC)

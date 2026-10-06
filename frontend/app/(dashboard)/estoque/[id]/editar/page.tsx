@@ -11,6 +11,7 @@ import {
   useIngrediente,
 } from "@/hooks/use-estoque";
 import { DecimalInput } from "@/components/shared/decimal-input";
+import { UnidadesAlternativas, type UnidadeAlternativa } from "@/components/shared/unidades-alternativas";
 import { UnidadeSelect } from "@/components/shared/unidade-select";
 import { TIPOS_PRODUTO } from "@/lib/unidades";
 import type { ApiError } from "@/types";
@@ -20,6 +21,7 @@ interface FormData {
   nome: string;
   tipo: string;
   unidade: string;
+  unidades_alternativas: UnidadeAlternativa[];
   estoque_minimo: number;
 }
 
@@ -33,6 +35,7 @@ export default function EditarIngredientePage() {
   const {
     register,
     control,
+    watch,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
@@ -41,6 +44,7 @@ export default function EditarIngredientePage() {
       nome: "",
       tipo: "ingrediente",
       unidade: "",
+      unidades_alternativas: [],
       estoque_minimo: 0,
     },
   });
@@ -51,6 +55,7 @@ export default function EditarIngredientePage() {
         nome: ingrediente.nome,
         tipo: ingrediente.tipo,
         unidade: ingrediente.unidade,
+        unidades_alternativas: ingrediente.unidades_alternativas || [],
         estoque_minimo: parseFloat(ingrediente.estoque_minimo),
       });
     }
@@ -128,7 +133,7 @@ export default function EditarIngredientePage() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium">Unidade de medida</label>
+          <label className="text-sm font-medium">Unidade principal</label>
           <Controller
             name="unidade"
             control={control}
@@ -141,6 +146,8 @@ export default function EditarIngredientePage() {
             <p className="text-xs text-destructive">{errors.unidade.message}</p>
           )}
         </div>
+
+        <Controller name="unidades_alternativas" control={control} render={({ field }) => <UnidadesAlternativas principal={watch("unidade")} value={field.value} onChange={field.onChange} />} />
 
         <div className="space-y-1">
           <label className="text-sm font-medium">Estoque mínimo</label>

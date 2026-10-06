@@ -19,6 +19,7 @@ from domain.receitas.calculos import (
 )
 from domain.receitas.repository import ReceitaRepository
 from domain.receitas.composicao import converter_quantidade
+from domain.estoque.unidades import converter_para_principal
 from domain.receitas.schemas import (
     AtualizarReceitaRequest,
     CriarReceitaRequest,
@@ -46,7 +47,7 @@ class ReceitaService:
                 raise ValidationError(
                     f"Ingrediente {item.ingrediente_id} não encontrado no estoque"
                 )
-            converter_quantidade(item.quantidade, item.unidade, ingrediente.unidade)
+            converter_para_principal(item.quantidade, item.unidade, ingrediente.unidade, ingrediente.unidades_alternativas)
 
         receita = await self._repo.criar(tenant_id, data)
 
@@ -92,7 +93,7 @@ class ReceitaService:
                     raise ValidationError(
                         f"Ingrediente {item.ingrediente_id} não encontrado no estoque"
                     )
-                converter_quantidade(item.quantidade, item.unidade, ingrediente.unidade)
+                converter_para_principal(item.quantidade, item.unidade, ingrediente.unidade, ingrediente.unidades_alternativas)
 
         campos_atualizaveis = data.model_dump(
             exclude_unset=True,
@@ -175,7 +176,7 @@ class ReceitaService:
         itens_ingredientes = [
             ItemIngredienteCalculo(
                 nome=ri.ingrediente.nome,
-                quantidade=converter_quantidade(ri.quantidade, ri.unidade, ri.ingrediente.unidade),
+                quantidade=converter_para_principal(ri.quantidade, ri.unidade, ri.ingrediente.unidade, ri.ingrediente.unidades_alternativas),
                 custo_medio_por_unidade=ri.ingrediente.custo_medio,
             )
             for ri in receita.ingredientes
@@ -184,7 +185,7 @@ class ReceitaService:
         itens_embalagem = [
             ItemIngredienteCalculo(
                 nome=ri.ingrediente.nome,
-                quantidade=converter_quantidade(ri.quantidade, ri.unidade, ri.ingrediente.unidade),
+                quantidade=converter_para_principal(ri.quantidade, ri.unidade, ri.ingrediente.unidade, ri.ingrediente.unidades_alternativas),
                 custo_medio_por_unidade=ri.ingrediente.custo_medio,
             )
             for ri in receita.ingredientes
@@ -227,7 +228,7 @@ class ReceitaService:
                     material = await self._repo.buscar_ingrediente(UUID(passo["ingrediente_id"]), tenant_id)
                     if not material:
                         raise ValidationError("Um material foi removido. Revise a ficha técnica.")
-                    consumo = converter_quantidade(quantidade, passo["unidade"], material.unidade)
+                    consumo = converter_para_principal(quantidade, passo["unidade"], material.unidade, material.unidades_alternativas)
                     campo = "custo_embalagem" if material.tipo == "embalagem" else "custo_ingredientes"
                     totais[campo] += consumo * material.custo_medio
             custo = replace(custo, **{campo: valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) for campo, valor in totais.items()})
@@ -273,7 +274,7 @@ class ReceitaService:
                 nome_ingrediente=ri.ingrediente.nome if ri.ingrediente else "",
                 quantidade=ri.quantidade,
                 unidade=ri.unidade,
-                custo_total=(converter_quantidade(ri.quantidade, ri.unidade, ri.ingrediente.unidade) * ri.ingrediente.custo_medio).quantize(Decimal("0.01"))
+                custo_total=(converter_para_principal(ri.quantidade, ri.unidade, ri.ingrediente.unidade, ri.ingrediente.unidades_alternativas) * ri.ingrediente.custo_medio).quantize(Decimal("0.01"))
                 if ri.ingrediente
                 else Decimal("0"),
             )

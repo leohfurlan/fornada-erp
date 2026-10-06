@@ -120,6 +120,7 @@ class ComprasService:
                         quantidade=item.quantidade,
                         custo_unitario=item.custo_unitario,
                         origem="compra",
+                        unidade=item.unidade,
                     ),
                 )
                 resultados.append(atualizado)

@@ -9,10 +9,14 @@ MODE=pilot
 ENV_FILE=
 IMAGES=
 CHECK=false
+SKIP_PULL=false
+ARGS=("$@")
 usage() {
-  echo 'Uso: bash deploy/deploy.sh [--mode pilot|production] [--env-file ARQUIVO] [--images TAR] [--check]'
+  echo 'Uso: bash deploy/deploy.sh [--mode pilot|public-micro|production] [--env-file ARQUIVO] [--images TAR] [--check]'
   echo 'Pilot: usa imagens prontas e acesso privado 127.0.0.1:8080. Production: constrói imagens no servidor.'
+  echo 'Public-micro: usa imagens prontas e ajustes de 1 GB com HTTPS público nas portas 80/443.'
   echo '--check valida configuração e imagens sem alterar serviços. --images carrega um docker save antes do deploy.'
+  echo 'Atualiza main com git pull --ff-only antes do deploy. --skip-pull usa os fontes atuais.'
 }
 while (($#)); do
   case "$1" in
@@ -25,18 +29,39 @@ while (($#)); do
       esac
       shift 2 ;;
     --check) CHECK=true; shift ;;
+    --skip-pull) SKIP_PULL=true; shift ;;
     --help|-h) usage; exit 0 ;;
     *) usage; exit 2 ;;
   esac
 done
-[[ "$MODE" == pilot || "$MODE" == production ]] || { usage; exit 2; }
-[[ -n "$ENV_FILE" ]] || ENV_FILE=".env.$MODE"
+[[ "$MODE" == pilot || "$MODE" == public-micro || "$MODE" == production ]] || { usage; exit 2; }
+if [[ -z "$ENV_FILE" ]]; then
+  if [[ "$MODE" == pilot ]]; then ENV_FILE=.env.pilot; else ENV_FILE=.env.production; fi
+fi
 [[ -f "$ENV_FILE" ]] || { echo "Arquivo ausente: $ENV_FILE. Configure os segredos no servidor." >&2; exit 1; }
 for cmd in docker python3 curl flock; do
   command -v "$cmd" >/dev/null || { echo "Instale $cmd antes de continuar." >&2; exit 1; }
 done
 exec 9>"$ROOT/.deploy.lock"
 flock -n 9 || { echo 'Outro deploy está em execução.' >&2; exit 1; }
+if [[ "$CHECK" == false && "$SKIP_PULL" == false ]]; then
+  command -v git >/dev/null || { echo 'Instale git antes de continuar.' >&2; exit 1; }
+  [[ "$(git rev-parse --show-toplevel 2>/dev/null)" == "$ROOT" ]] || {
+    echo 'A pasta da instalação deve ser um repositório Git. Use --skip-pull somente para pacote de fontes.' >&2; exit 1;
+  }
+  git diff --quiet && git diff --cached --quiet || {
+    echo 'Há alterações locais em arquivos versionados. Preserve-as antes de atualizar; deploy cancelado.' >&2; exit 1;
+  }
+  REMOTE=origin
+  if ! git remote get-url origin >/dev/null 2>&1; then REMOTE=https://github.com/leohfurlan/fornada-erp.git; fi
+  echo 'Atualizando fontes da main (fast-forward somente)...'
+  GIT_TERMINAL_PROMPT=0 git pull --ff-only "$REMOTE" main || {
+    echo 'Falha no git pull; serviços preservados.' >&2; exit 1;
+  }
+  # Executar a versão recém-atualizada do script, sem repetir o pull.
+  exec 9>&-
+  exec bash "$ROOT/deploy/deploy.sh" "${ARGS[@]}" --skip-pull
+fi
 DOCKER=(docker)
 if ! docker info >/dev/null 2>&1; then
   DOCKER=(sudo docker)
@@ -45,12 +70,14 @@ fi
 DC=("${DOCKER[@]}" compose --env-file "$ENV_FILE" -f docker-compose.prod.yml)
 if [[ "$MODE" == pilot ]]; then
   DC+=(-f docker-compose.pilot.yml -f docker-compose.micro.yml)
+elif [[ "$MODE" == public-micro ]]; then
+  DC+=(-f docker-compose.micro.yml)
 fi
 "${DC[@]}" config --quiet
 # Ler a configuração efetiva sem imprimir segredos nem executar o arquivo .env.
 WORKER=$("${DC[@]}" config --format json | python3 -c 'import json,sys; c=json.load(sys.stdin); print(str(c["services"]["backend"]["environment"].get("EVOLUTION_ENABLED", "false")).lower())')
 if [[ "$WORKER" == true || "$WORKER" == 1 ]]; then DC+=(--profile worker); fi
-if [[ "$MODE" == pilot ]]; then
+if [[ "$MODE" != production ]]; then
   if [[ -n "$IMAGES" ]]; then
     [[ -f "$IMAGES" ]] || { echo "Arquivo de imagens ausente: $IMAGES" >&2; exit 1; }
     if [[ "$CHECK" == false ]]; then "${DOCKER[@]}" image load -i "$IMAGES"; fi

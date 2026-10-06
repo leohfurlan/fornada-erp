@@ -61,7 +61,7 @@ async def atualizar_etapa(
     if not etapa:
         raise NotFoundError("Etapa padrão", str(etapa_id))
     for campo, valor in data.model_dump(exclude_unset=True).items():
-        if valor is not None:
+        if valor is not None or campo in {"duracao_minutos_default", "instrucao", "receita_origem"}:
             setattr(etapa, campo, valor)
     await db.commit()
     return EtapaPadraoResponse.model_validate(etapa)

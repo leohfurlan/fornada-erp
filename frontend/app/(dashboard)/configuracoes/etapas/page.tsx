@@ -180,7 +180,7 @@ function SecaoEtapas({
 }: {
   titulo: string;
   descricao: string;
-  etapas: Array<{ id: string; nome: string; duracao_minutos_default: number }>;
+  etapas: Array<{ id: string; nome: string; duracao_minutos_default: number | null; instrucao?: string | null; receita_origem?: string | null }>;
   onDeletar: (id: string, nome: string) => void;
 }) {
   if (!etapas.length) return null;
@@ -195,9 +195,11 @@ function SecaoEtapas({
           <div key={e.id} className="flex items-center justify-between px-4 py-3">
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm">{e.nome}</p>
+              {e.receita_origem && <p className="text-xs text-muted-foreground">{e.receita_origem}</p>}
+              {e.instrucao && <details className="mt-1 text-xs"><summary className="cursor-pointer text-primary">Ver modo de preparo</summary><p className="mt-2 whitespace-pre-wrap">{e.instrucao}</p></details>}
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
-                {formatMinutos(e.duracao_minutos_default)}
+                {e.duracao_minutos_default === null ? "Tempo pendente" : formatMinutos(e.duracao_minutos_default)}
               </div>
             </div>
             <button

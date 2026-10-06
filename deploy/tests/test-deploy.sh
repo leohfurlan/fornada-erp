@@ -40,6 +40,17 @@ cat > "$TMP/bin/flock" <<'SH'
 #!/usr/bin/env bash
 exit 0
 SH
+cat > "$TMP/bin/git" <<'SH'
+#!/usr/bin/env bash
+echo "git $*" >> "$TRACE"
+case "$*" in
+  'rev-parse --show-toplevel') pwd ;;
+  'diff --quiet'|'diff --cached --quiet') [[ ${DIRTY_GIT:-0} != 1 ]] ;;
+  'remote get-url origin') echo 'https://github.com/leohfurlan/fornada-erp.git' ;;
+  'pull --ff-only origin main') [[ ${FAIL_PULL:-0} != 1 ]] ;;
+esac
+exit ${PIPESTATUS[0]:-0}
+SH
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
 
@@ -50,6 +61,7 @@ fi
 : > "$TRACE"
 bash "$TMP/app/deploy/deploy.sh" >/dev/null
 grep -q 'pg_dump ' "$TRACE"
+[[ $(grep -c 'git pull --ff-only origin main' "$TRACE") == 1 ]]
 grep -q 'pg_restore ' "$TRACE"
 grep -q 'alembic upgrade head' "$TRACE"
 grep -q 'curl .*127.0.0.1:8080/login' "$TRACE"
@@ -71,4 +83,18 @@ if FAIL_MIGRATION=1 bash "$TMP/app/deploy/deploy.sh" >/dev/null 2>&1; then
   echo 'Falha de migration foi ignorada' >&2; exit 1
 fi
 if grep -q 'up -d --no-build' "$TRACE"; then echo 'Iniciou aplicação após migration falhar' >&2; exit 1; fi
-echo '4 cenários de deploy aprovados: check, sucesso, falha de restauração e falha de migration.'
+: > "$TRACE"
+touch "$TMP/app/.env.production"
+bash "$TMP/app/deploy/deploy.sh" --mode public-micro >/dev/null
+grep -q -- '--env-file .env.production -f docker-compose.prod.yml -f docker-compose.micro.yml' "$TRACE"
+grep -q 'curl .*https://example.com/login' "$TRACE"
+if grep -Eq 'docker-compose.pilot.yml| build ' "$TRACE"; then echo 'Modo público usou configuração privada ou build' >&2; exit 1; fi
+for failure in DIRTY_GIT FAIL_PULL; do
+  : > "$TRACE"
+  if env "$failure=1" bash "$TMP/app/deploy/deploy.sh" >/dev/null 2>&1; then echo "Falha Git ignorada: $failure" >&2; exit 1; fi
+  if grep -q 'compose\|pg_dump' "$TRACE"; then echo 'Git falhou mas deploy continuou' >&2; exit 1; fi
+done
+: > "$TRACE"
+bash "$TMP/app/deploy/deploy.sh" --skip-pull >/dev/null
+if grep -q 'git pull' "$TRACE"; then echo 'skip-pull ignorado' >&2; exit 1; fi
+echo '8 cenários de deploy aprovados, incluindo pull único, falhas Git e skip-pull.'
