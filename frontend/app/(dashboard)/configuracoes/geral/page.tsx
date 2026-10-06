@@ -5,6 +5,7 @@ import { ArrowLeft, Info } from "lucide-react";
 import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { DecimalInput } from "@/components/shared/decimal-input";
+import { percentualParaTaxa, taxaParaPercentual } from "@/lib/taxas";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { useAtualizarConfiguracaoCusto, useConfiguracaoCusto } from "@/hooks/use-configuracoes";
 
@@ -14,8 +15,8 @@ interface FormData {
   valor_hora: number;
   // Em porcentagem (12 = 12%) para facilitar a digitação. Convertido para
   // decimal no envio.
-  taxa_ifood_pct: number;
-  taxa_cartao_pct: number;
+  taxa_ifood_pct: string;
+  taxa_cartao_pct: string;
 }
 
 export default function ConfiguracoesGeralPage() {
@@ -27,8 +28,8 @@ export default function ConfiguracoesGeralPage() {
       custo_operacional_mensal: 0,
       horas_mensais: 160,
       valor_hora: 0,
-      taxa_ifood_pct: 0,
-      taxa_cartao_pct: 0,
+      taxa_ifood_pct: "0",
+      taxa_cartao_pct: "0",
     },
   });
 
@@ -39,8 +40,8 @@ export default function ConfiguracoesGeralPage() {
         custo_operacional_mensal: parseFloat(config.custo_operacional_mensal),
         horas_mensais: parseFloat(config.horas_mensais),
         valor_hora: parseFloat(config.valor_hora),
-        taxa_ifood_pct: parseFloat(config.taxa_ifood) * 100,
-        taxa_cartao_pct: parseFloat(config.taxa_cartao) * 100,
+        taxa_ifood_pct: taxaParaPercentual(config.taxa_ifood),
+        taxa_cartao_pct: taxaParaPercentual(config.taxa_cartao),
       });
     }
   }, [config, reset]);
@@ -57,8 +58,8 @@ export default function ConfiguracoesGeralPage() {
       custo_operacional_mensal: data.custo_operacional_mensal,
       horas_mensais: data.horas_mensais,
       valor_hora: data.valor_hora,
-      taxa_ifood: (data.taxa_ifood_pct || 0) / 100,
-      taxa_cartao: (data.taxa_cartao_pct || 0) / 100,
+      taxa_ifood: percentualParaTaxa(data.taxa_ifood_pct),
+      taxa_cartao: percentualParaTaxa(data.taxa_cartao_pct),
     });
   };
 
@@ -162,7 +163,7 @@ export default function ConfiguracoesGeralPage() {
                   name="taxa_ifood_pct"
                   control={control}
                   render={({ field }) => (
-                    <DecimalInput value={field.value} onChange={field.onChange} placeholder="12" />
+                    <input {...field} aria-label="Comissão iFood (%)" type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="12" className="w-full rounded-lg border px-3 py-2.5 text-sm" />
                   )}
                 />
               </div>
@@ -172,7 +173,7 @@ export default function ConfiguracoesGeralPage() {
                   name="taxa_cartao_pct"
                   control={control}
                   render={({ field }) => (
-                    <DecimalInput value={field.value} onChange={field.onChange} placeholder="3" />
+                    <input {...field} aria-label="Taxa do cartão (%)" type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="3" className="w-full rounded-lg border px-3 py-2.5 text-sm" />
                   )}
                 />
               </div>

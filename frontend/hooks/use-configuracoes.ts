@@ -72,8 +72,8 @@ export function useAtualizarConfiguracaoCusto() {
       custo_operacional_mensal: number;
       horas_mensais: number;
       valor_hora: number;
-      taxa_ifood?: number;
-      taxa_cartao?: number;
+      taxa_ifood?: string;
+      taxa_cartao?: string;
     }
   >({
     mutationFn: async (payload) => {
