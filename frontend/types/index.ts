@@ -27,6 +27,7 @@ export interface Ingrediente {
   tipo: TipoIngrediente;
   nome: string;
   unidade: string;
+  unidades_alternativas?: Array<{ unidade: string; fator: string; observacao?: string | null }>;
   estoque_atual: string;
   quantidade_reservada: string;
   saldo: string;

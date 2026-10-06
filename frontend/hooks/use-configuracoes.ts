@@ -5,7 +5,9 @@ export interface EtapaPadrao {
   id: string;
   nome: string;
   tipo_mao_obra: "direta" | "indireta";
-  duracao_minutos_default: number;
+  duracao_minutos_default: number | null;
+  instrucao?: string | null;
+  receita_origem?: string | null;
 }
 
 export interface ConfiguracaoCusto {

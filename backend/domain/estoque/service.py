@@ -4,7 +4,7 @@ from uuid import UUID
 
 import structlog
 
-from domain.exceptions import ConflictError, NotFoundError
+from domain.exceptions import ConflictError, NotFoundError, ValidationError
 from domain.estoque.repository import EstoqueRepository
 from domain.estoque.schemas import (
     AtualizarIngredienteRequest,
@@ -14,9 +14,24 @@ from domain.estoque.schemas import (
     MovimentacaoResponse,
 )
 from domain.receitas.calculos import calcular_custo_medio_novo
+from domain.estoque.unidades import converter_para_principal, normalizar_unidade
+from domain.receitas.composicao import converter_quantidade
 from infrastructure.database.models import Ingrediente
 
 logger = structlog.get_logger(__name__)
+
+
+def _validar_alternativas(principal: str, alternativas: list) -> None:
+    """Não permite redefinir a unidade principal nem equivalências métricas."""
+    for item in alternativas:
+        if item.unidade == normalizar_unidade(principal):
+            raise ConflictError("A unidade principal não deve ser repetida nas alternativas.")
+        try:
+            fator_exato = converter_quantidade(Decimal("1"), item.unidade, principal)
+        except ValidationError:
+            continue
+        if fator_exato != item.fator:
+            raise ConflictError("Conversões métricas exatas não podem ser alteradas.")
 
 
 def _status_estoque(ingrediente: Ingrediente) -> str:
@@ -41,6 +56,7 @@ def _to_response(ingrediente: Ingrediente) -> IngredienteResponse:
         tipo=ingrediente.tipo,
         nome=ingrediente.nome,
         unidade=ingrediente.unidade,
+        unidades_alternativas=ingrediente.unidades_alternativas or [],
         estoque_atual=ingrediente.estoque_atual,
         quantidade_reservada=ingrediente.quantidade_reservada,
         saldo=saldo,
@@ -59,6 +75,7 @@ class EstoqueService:
         self, tenant_id: UUID, data: CriarIngredienteRequest
     ) -> IngredienteResponse:
         """Cadastra novo ingrediente. Se houver estoque inicial, registra entrada."""
+        _validar_alternativas(data.unidade, data.unidades_alternativas)
         ingrediente = await self._repo.criar_ingrediente(tenant_id, data)
 
         if data.estoque_inicial > 0 and data.custo_inicial > 0:
@@ -101,8 +118,19 @@ class EstoqueService:
         if not ingrediente:
             raise NotFoundError("Ingrediente", str(ingrediente_id))
 
+        if data.unidade is not None and data.unidade != ingrediente.unidade:
+            if ingrediente.estoque_atual != 0 or ingrediente.custo_medio != 0 or await self._repo.unidade_em_uso(ingrediente_id, tenant_id):
+                raise ConflictError("Unidade principal em uso. Cadastre uma alternativa em vez de alterar os saldos existentes.")
+        alternativas = data.unidades_alternativas
+        principal = data.unidade or ingrediente.unidade
+        if alternativas is not None:
+            _validar_alternativas(principal, alternativas)
+            for unidade in await self._repo.unidades_receitas(ingrediente_id, tenant_id):
+                converter_para_principal(Decimal("1"), unidade, principal, [item.model_dump(mode="json") for item in alternativas])
         for campo, valor in data.model_dump(exclude_unset=True).items():
             if valor is not None:
+                if campo == "unidades_alternativas":
+                    valor = [item.model_dump(mode="json") for item in alternativas or []]
                 setattr(ingrediente, campo, valor)
 
         logger.info(
@@ -164,14 +192,17 @@ class EstoqueService:
         if not ingrediente:
             raise NotFoundError("Ingrediente", str(data.ingrediente_id))
 
+        fator = converter_para_principal(Decimal("1"), data.unidade or ingrediente.unidade, ingrediente.unidade, ingrediente.unidades_alternativas)
+        quantidade = data.quantidade * fator
+        custo_unitario = data.custo_unitario / fator
         novo_custo_medio = calcular_custo_medio_novo(
             estoque_atual=ingrediente.estoque_atual,
             custo_medio_atual=ingrediente.custo_medio,
-            quantidade_nova=data.quantidade,
-            preco_novo=data.custo_unitario,
+            quantidade_nova=quantidade,
+            preco_novo=custo_unitario,
         )
 
-        ingrediente.estoque_atual += data.quantidade
+        ingrediente.estoque_atual += quantidade
         custo_anterior = ingrediente.custo_medio
         ingrediente.custo_medio = novo_custo_medio
         if novo_custo_medio != custo_anterior:
@@ -181,8 +212,8 @@ class EstoqueService:
             tenant_id=tenant_id,
             ingrediente_id=ingrediente.id,
             tipo="entrada",
-            quantidade=data.quantidade,
-            custo_unitario=data.custo_unitario,
+            quantidade=quantidade,
+            custo_unitario=custo_unitario,
             origem=data.origem,
         )
 

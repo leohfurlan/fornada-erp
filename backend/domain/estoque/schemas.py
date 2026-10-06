@@ -2,12 +2,38 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
+from domain.estoque.unidades import normalizar_unidade
 
 TIPOS_VALIDOS = {"ingrediente", "embalagem", "insumo", "descartavel", "outro"}
 
 
-class CriarIngredienteRequest(BaseModel):
+class UnidadeAlternativa(BaseModel):
+    unidade: str = Field(min_length=1, max_length=40)
+    fator: Decimal = Field(gt=0, max_digits=16, decimal_places=8)
+    observacao: str | None = Field(default=None, max_length=500)
+
+    @field_validator("unidade")
+    @classmethod
+    def normalizar(cls, value: str) -> str:
+        unidade = normalizar_unidade(value)
+        if not unidade:
+            raise ValueError("Informe a unidade alternativa")
+        return unidade
+
+
+class UnidadesIngrediente(BaseModel):
+    unidades_alternativas: list[UnidadeAlternativa] = Field(default_factory=list)
+
+    @field_validator("unidades_alternativas")
+    @classmethod
+    def sem_duplicatas(cls, values: list[UnidadeAlternativa]) -> list[UnidadeAlternativa]:
+        if len({item.unidade for item in values}) != len(values):
+            raise ValueError("Unidades alternativas repetidas")
+        return values
+
+
+class CriarIngredienteRequest(UnidadesIngrediente):
     nome: str
     tipo: str = "ingrediente"
     unidade: str
@@ -35,6 +61,12 @@ class AtualizarIngredienteRequest(BaseModel):
     tipo: str | None = None
     unidade: str | None = None
     estoque_minimo: Decimal | None = None
+    unidades_alternativas: list[UnidadeAlternativa] | None = None
+
+    @field_validator("unidades_alternativas")
+    @classmethod
+    def sem_duplicatas(cls, values: list[UnidadeAlternativa] | None) -> list[UnidadeAlternativa] | None:
+        return UnidadesIngrediente.sem_duplicatas(values) if values is not None else None
 
     @field_validator("tipo")
     @classmethod
@@ -49,6 +81,7 @@ class EntradaEstoqueRequest(BaseModel):
     quantidade: Decimal
     custo_unitario: Decimal
     origem: str = "compra"
+    unidade: str | None = None
 
     @field_validator("quantidade", "custo_unitario")
     @classmethod
@@ -65,6 +98,7 @@ class IngredienteResponse(BaseModel):
     tipo: str
     nome: str
     unidade: str
+    unidades_alternativas: list[UnidadeAlternativa] = Field(default_factory=list)
     estoque_atual: Decimal
     quantidade_reservada: Decimal
     saldo: Decimal  # estoque_atual - quantidade_reservada

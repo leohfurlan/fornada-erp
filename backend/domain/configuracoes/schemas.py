@@ -9,7 +9,9 @@ from pydantic import BaseModel, field_validator
 class CriarEtapaPadraoRequest(BaseModel):
     nome: str
     tipo_mao_obra: str = "direta"
-    duracao_minutos_default: int = 30
+    duracao_minutos_default: int | None = None
+    instrucao: str | None = None
+    receita_origem: str | None = None
 
     @field_validator("tipo_mao_obra")
     @classmethod
@@ -20,8 +22,8 @@ class CriarEtapaPadraoRequest(BaseModel):
 
     @field_validator("duracao_minutos_default")
     @classmethod
-    def positivo(cls, v: int) -> int:
-        if v <= 0:
+    def positivo(cls, v: int | None) -> int | None:
+        if v is not None and v <= 0:
             raise ValueError("Duração deve ser maior que zero")
         return v
 
@@ -30,13 +32,22 @@ class AtualizarEtapaPadraoRequest(BaseModel):
     nome: str | None = None
     tipo_mao_obra: str | None = None
     duracao_minutos_default: int | None = None
+    instrucao: str | None = None
+    receita_origem: str | None = None
+
+    @field_validator("duracao_minutos_default")
+    @classmethod
+    def positivo(cls, v: int | None) -> int | None:
+        return CriarEtapaPadraoRequest.positivo(v)
 
 
 class EtapaPadraoResponse(BaseModel):
     id: UUID
     nome: str
     tipo_mao_obra: str
-    duracao_minutos_default: int
+    duracao_minutos_default: int | None
+    instrucao: str | None = None
+    receita_origem: str | None = None
 
     model_config = {"from_attributes": True}
 

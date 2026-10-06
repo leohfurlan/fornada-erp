@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { useCriarIngrediente } from "@/hooks/use-estoque";
 import { DecimalInput } from "@/components/shared/decimal-input";
+import { UnidadesAlternativas, type UnidadeAlternativa } from "@/components/shared/unidades-alternativas";
 import { UnidadeSelect } from "@/components/shared/unidade-select";
 import { TIPOS_PRODUTO } from "@/lib/unidades";
 
@@ -13,6 +14,7 @@ interface FormData {
   nome: string;
   tipo: string;
   unidade: string;
+  unidades_alternativas: UnidadeAlternativa[];
   estoque_minimo: number;
   estoque_inicial: number;
   custo_inicial: number;
@@ -25,6 +27,7 @@ export default function NovoIngredientePage() {
   const {
     register,
     control,
+    watch,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
@@ -32,6 +35,7 @@ export default function NovoIngredientePage() {
       nome: "",
       tipo: "ingrediente",
       unidade: "",
+      unidades_alternativas: [],
       estoque_minimo: 0,
       estoque_inicial: 0,
       custo_inicial: 0,
@@ -83,7 +87,7 @@ export default function NovoIngredientePage() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium">Unidade de medida</label>
+          <label className="text-sm font-medium">Unidade principal</label>
           <Controller
             name="unidade"
             control={control}
@@ -96,6 +100,8 @@ export default function NovoIngredientePage() {
             <p className="text-xs text-destructive">{errors.unidade.message}</p>
           )}
         </div>
+
+        <Controller name="unidades_alternativas" control={control} render={({ field }) => <UnidadesAlternativas principal={watch("unidade")} value={field.value} onChange={field.onChange} />} />
 
         <div className="space-y-1">
           <label className="text-sm font-medium">Estoque mínimo</label>

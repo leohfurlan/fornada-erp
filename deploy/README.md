@@ -2,6 +2,14 @@
 
 ## Deploy por script
 
+O deploy atualiza os fontes da `main` com `git pull --ff-only` antes de alterar
+serviços e executa novamente o script atualizado. Arquivos versionados com
+alterações locais ou falha no pull interrompem o deploy. Usa `origin`; se não
+existir, usa a URL do repositório Fornada. Não faz reset, clean ou stash.
+`--check` não faz pull. `--skip-pull` permite usar um pacote de fontes ou uma
+versão já conferida. O pull não reconstrói imagens nos modos micro: transferir
+imagens compatíveis com a versão atualizada continua necessário.
+
 ### Domínio público na VPS de 1 GB
 
 Configure `.env.production` com os mesmos segredos do piloto, `APP_DOMAIN` com

@@ -58,6 +58,7 @@ export function FormReceita({
     handleSubmit,
     control,
     setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ReceitaFormValues>({
     defaultValues: { ...defaultsForm, ...valoresIniciais },
@@ -80,7 +81,12 @@ export function FormReceita({
     if (!ep) return;
     setValue(`etapas.${index}.nome`, ep.nome);
     setValue(`etapas.${index}.tipo_mao_obra`, ep.tipo_mao_obra);
-    setValue(`etapas.${index}.duracao_minutos`, ep.duracao_minutos_default);
+    setValue(`etapas.${index}.duracao_minutos`, ep.duracao_minutos_default ?? 0);
+    if (ep.instrucao) {
+      const preparo = watch("modo_preparo");
+      const texto = `${ep.receita_origem ? ep.receita_origem + "\n" : ""}${ep.instrucao}`;
+      if (!preparo.includes(texto)) setValue("modo_preparo", preparo ? `${preparo}\n\n${texto}` : texto);
+    }
   };
 
   const aplicarUnidadeDoIngrediente = (index: number, ingredienteId: string) => {
@@ -282,6 +288,7 @@ export function FormReceita({
                       className="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
                     >
                       <option value="">Unidade...</option>
+                      {(ingredientes?.find(i => i.id === watch(`ingredientes.${index}.ingrediente_id`))?.unidades_alternativas || []).map(u => <option key={`alt-${u.unidade}`} value={u.unidade}>{u.unidade}</option>)}
                       {UNIDADES_MEDIDA.map((u) => (
                         <option key={u.value} value={u.value}>
                           {u.value}
@@ -339,7 +346,7 @@ export function FormReceita({
                 {etapasPadrao.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.nome} — {e.tipo_mao_obra === "direta" ? "direta" : "indireta"} (
-                    {e.duracao_minutos_default}min)
+                    {e.duracao_minutos_default === null ? "tempo pendente" : `${e.duracao_minutos_default}min`})
                   </option>
                 ))}
               </select>
@@ -358,14 +365,16 @@ export function FormReceita({
                 <Controller
                   name={`etapas.${index}.duracao_minutos`}
                   control={control}
+                  rules={{ validate: value => value > 0 || "Informe o tempo desta etapa para calcular o custo." }}
                   render={({ field }) => (
                     <DecimalInput
-                      value={field.value}
+                      value={field.value || ""}
                       onChange={(v) => field.onChange(Math.round(v))}
                       placeholder="30"
                     />
                   )}
                 />
+                {errors.etapas?.[index]?.duracao_minutos && <p className="text-xs text-destructive">{errors.etapas[index]?.duracao_minutos?.message}</p>}
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Tipo</label>

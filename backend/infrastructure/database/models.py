@@ -104,6 +104,7 @@ class Ingrediente(TenantMixin, TimestampMixin, Base):
     tipo: Mapped[str] = mapped_column(String(30), default="ingrediente", nullable=False, index=True)
     nome: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     unidade: Mapped[str] = mapped_column(String(20), nullable=False)
+    unidades_alternativas: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     estoque_atual: Mapped[Decimal] = mapped_column(
         Numeric(12, 4), default=Decimal("0"), nullable=False
     )
@@ -200,7 +201,9 @@ class EtapaPadrao(TenantMixin, TimestampMixin, Base):
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     nome: Mapped[str] = mapped_column(String(200), nullable=False)
     tipo_mao_obra: Mapped[str] = mapped_column(String(20), default="direta", nullable=False)
-    duracao_minutos_default: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
+    duracao_minutos_default: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    instrucao: Mapped[str | None] = mapped_column(Text, nullable=True)
+    receita_origem: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
 
 class EstoqueProdutoAcabado(TenantMixin, TimestampMixin, Base):

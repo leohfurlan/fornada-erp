@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from domain.exceptions import ConflictError, NotFoundError, ValidationError
 from domain.receitas.repository import ReceitaRepository
 from domain.receitas.composicao import converter_quantidade
+from domain.estoque.unidades import converter_para_principal
 from domain.receitas.ficha_tecnica import FichaTecnicaInput, FichaTecnicaResponse
 from infrastructure.database.models import Receita, Tenant
 
@@ -65,7 +66,7 @@ class FichaTecnicaService:
                     material = await repo.buscar_ingrediente(passo.ingrediente_id, tenant_id)
                     if not material:
                         raise ValidationError("Material não encontrado nesta loja")
-                    converter_quantidade(passo.quantidade, passo.unidade, material.unidade)
+                    converter_para_principal(passo.quantidade, passo.unidade, material.unidade, material.unidades_alternativas)
                     if (passo.tipo == "embalagem") != (material.tipo == "embalagem"):
                         raise ValidationError("O tipo da etapa deve corresponder ao cadastro da embalagem")
         documento = data.model_dump(mode="json", exclude={"revisao"})
