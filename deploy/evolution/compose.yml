@@ -1,0 +1,104 @@
+name: fornada-evolution
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: evolution
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: ${EVOLUTION_DB_PASSWORD:?Configure EVOLUTION_DB_PASSWORD}
+    command: postgres -c shared_buffers=16MB -c max_connections=15 -c work_mem=1MB
+    mem_limit: 96m
+    memswap_limit: 192m
+    cpus: 0.25
+    pids_limit: 100
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U evolution -d evolution"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 24mb --maxmemory-policy noeviction
+    mem_limit: 48m
+    memswap_limit: 96m
+    cpus: 0.10
+    pids_limit: 50
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  api:
+    image: ${EVOLUTION_IMAGE:-evoapicloud/evolution-api:v2.3.7}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SERVER_TYPE: http
+      SERVER_PORT: "8080"
+      NODE_OPTIONS: --max-old-space-size=256
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:${EVOLUTION_DB_PASSWORD:?Configure EVOLUTION_DB_PASSWORD}@postgres:5432/evolution?schema=public&connection_limit=5
+      DATABASE_CONNECTION_CLIENT_NAME: fornada_evolution
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_LABELS: "false"
+      DATABASE_SAVE_DATA_HISTORIC: "false"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/0
+      CACHE_REDIS_PREFIX_KEY: fornada_evolution
+      CACHE_REDIS_TTL: "86400"
+      CACHE_REDIS_SAVE_INSTANCES: "false"
+      CACHE_LOCAL_ENABLED: "false"
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "false"
+      TELEMETRY_ENABLED: "false"
+      LOG_LEVEL: ERROR,WARN
+      LOG_BAILEYS: error
+      CORS_CREDENTIALS: "false"
+      DEL_INSTANCE: "false"
+      WEBHOOK_GLOBAL_ENABLED: "false"
+      WEBSOCKET_ENABLED: "false"
+      RABBITMQ_ENABLED: "false"
+      S3_ENABLED: "false"
+      TYPEBOT_ENABLED: "false"
+      CHATWOOT_ENABLED: "false"
+      OPENAI_ENABLED: "false"
+      DIFY_ENABLED: "false"
+      WEBHOOK_REQUEST_TIMEOUT_MS: "15000"
+      WEBHOOK_RETRY_MAX_ATTEMPTS: "5"
+    ports:
+      - 127.0.0.1:8081:8080
+    mem_limit: 384m
+    memswap_limit: 768m
+    cpus: 0.50
+    pids_limit: 200
+    volumes:
+      - instances:/evolution/instances
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - --spider
+        - http://127.0.0.1:8080/
+      interval: 30s
+      timeout: 10s
+      start_period: 600s
+      retries: 5
+volumes:
+  postgres_data:
+  redis_data:
+  instances:

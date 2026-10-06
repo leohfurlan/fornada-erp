@@ -72,6 +72,7 @@ export default function ComprasPage() {
   const [itens, setItens] = useState<ItemEditavel[]>([]);
   const [estabelecimento, setEstabelecimento] = useState<string | null>(null);
   const [fonte, setFonte] = useState<string>("");
+  const [avisos, setAvisos] = useState<string[]>([]);
   const [resumo, setResumo] = useState<ConfirmarCompraResponse | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -88,6 +89,7 @@ export default function ComprasPage() {
     setItens(itensDaResposta(resp));
     setEstabelecimento(resp.estabelecimento);
     setFonte(resp.fonte);
+    setAvisos(resp.avisos ?? []);
     setEtapa("revisao");
   };
 
@@ -144,15 +146,15 @@ export default function ComprasPage() {
         <div className="space-y-1">
           <h1 className="text-xl font-bold">Entrada por cupom</h1>
           <p className="text-sm text-muted-foreground">
-            Tire uma foto do cupom da compra. A gente lê os itens e atualiza seu
-            estoque e o custo médio automaticamente.
+            Envie uma foto do cupom ou o XML da nota. Revise os itens e confirme
+            para atualizar seu estoque e o custo médio.
           </p>
         </div>
 
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.xml,application/xml,text/xml"
           capture="environment"
           className="hidden"
           onChange={(e) => onArquivo(e.target.files?.[0])}
@@ -260,6 +262,11 @@ export default function ComprasPage() {
           {estabelecimento ? `${estabelecimento} · ` : ""}
           Revise quantidades e preços antes de salvar.
         </p>
+        {avisos.length > 0 && (
+          <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            {avisos.map((aviso) => <p key={aviso}>{aviso}</p>)}
+          </div>
+        )}
         {fonte === "mock" && (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
             Modo demonstração (sem chave de OCR): itens de exemplo. Configure a
