@@ -16,7 +16,7 @@ A versão 2 usa URLs `/brand/forno-v2/`, evitando reaproveitar URLs de ícones t
 - Assets do frontend conferidos contra os mestres da versão 2.
 - Manifest e seis ícones declarados responderam HTTP 200, com cores e caminhos da versão 2; PNGs confirmados em 180/192/512 px. Nenhum erro de console no painel.
 
-Os dados e a sessão do painel nas imagens são fictícios e locais. Alterações de outros trabalhos foram preservadas. Não houve commit, push ou deploy; instalação em aparelhos Android/iOS não foi realizada.
+Os dados e a sessão do painel nas imagens são fictícios e locais. Alterações de outros trabalhos foram preservadas. Na etapa de validação local, ainda não havia commit, push ou deploy. A publicação autorizada foi concluída em 07/10/2026; veja o [registro da VPS e do PR #7](../deploy-vps-2026-10-07.md). Instalação em aparelhos Android/iOS não foi realizada.
 
 ## Prévias
 
