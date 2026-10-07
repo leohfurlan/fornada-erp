@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { useDashboardResumo } from "@/hooks/use-dashboard";
 import { SupportBanner } from "@/components/shared/support-banner";
+import { BrandLogo } from "@/components/shared/brand-logo";
 
 interface NavItem {
   href: string;
@@ -49,8 +50,8 @@ const navMais: NavItemMais[] = [
     label: "Vendas",
     icon: ShoppingBag,
     subtitulo: "Pronta entrega e multicanal",
-    iconBg: "bg-orange-50",
-    iconColor: "text-orange-500",
+    iconBg: "bg-brand-brown/30",
+    iconColor: "text-primary",
   },
   {
     href: "/estoque",
@@ -116,7 +117,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Header mobile */}
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
         <div className="flex h-14 items-center justify-between px-4">
-          <span className="font-bold text-primary text-lg">Fornada</span>
+          <Link href="/" className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Fornada — início">
+            <BrandLogo className="w-40 sm:w-44" priority />
+          </Link>
           <div className="flex items-center gap-2">
             {usuario?.is_superuser && <Link href="/admin" className="text-sm font-medium text-primary">Administração</Link>}
             <span className="text-sm text-muted-foreground hidden sm:block">{usuario?.nome}</span>

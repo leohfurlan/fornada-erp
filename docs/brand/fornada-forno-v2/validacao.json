@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-07",
+  "passed": true,
+  "checks": [
+    "Geometria original preservada",
+    "Cópia do frontend e vetor: svg/logo-horizontal-primary.svg",
+    "Cópia do frontend e vetor: svg/logo-horizontal-ink.svg",
+    "Cópia do frontend e vetor: svg/logo-horizontal-white.svg",
+    "Cópia do frontend e vetor: svg/simbolo-primary.svg",
+    "Cópia do frontend e vetor: svg/simbolo-ink.svg",
+    "Cópia do frontend e vetor: svg/simbolo-white.svg",
+    "Cópia do frontend e vetor: favicon/favicon.svg",
+    "Cópia do frontend e vetor: favicon/favicon.ico",
+    "Cópia do frontend e vetor: app/apple-touch-icon.png",
+    "Cópia do frontend e vetor: app/app-icon-192.png",
+    "Cópia do frontend e vetor: app/app-icon-512.png",
+    "Cópia do frontend e vetor: app/app-maskable-512.png",
+    "Dimensão correta: app/apple-touch-icon.png",
+    "Dimensão correta: app/app-icon-192.png",
+    "Dimensão correta: app/app-icon-512.png",
+    "Dimensão correta: app/app-maskable-512.png",
+    "Dimensão correta: favicon/favicon-16.png",
+    "Dimensão correta: favicon/favicon-32.png",
+    "Dimensão correta: favicon/favicon-48.png",
+    "Dimensão correta: favicon/favicon-64.png",
+    "ICO com quatro tamanhos",
+    "Símbolo e contorno dentro da área segura maskable"
+  ],
+  "maskableMaxRadius": 162.1866209032052,
+  "safeRadius": 204.8
+}

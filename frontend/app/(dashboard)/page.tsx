@@ -61,8 +61,8 @@ export default function DashboardPage() {
           valor={formatMoney(data?.faturamento_semana)}
           label="Faturado esta semana"
           loading={isLoading}
-          className="border-orange-200 bg-orange-50"
-          valorClassName="text-orange-700"
+          className="border-brand-outline bg-brand-rose/15"
+          valorClassName="text-primary"
         />
         <MetricaCard
           valor={String(data?.pedidos_em_aberto ?? 0)}
@@ -118,8 +118,8 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 gap-3">
           <AcaoRapida
             icon={ChefHat}
-            iconBg="bg-orange-100"
-            iconColor="text-orange-600"
+            iconBg="bg-brand-brown/30"
+            iconColor="text-primary"
             label="Nova Produção"
             subtitulo="Planejar sua próxima produção"
             onClick={() => router.push("/producao/nova")}
