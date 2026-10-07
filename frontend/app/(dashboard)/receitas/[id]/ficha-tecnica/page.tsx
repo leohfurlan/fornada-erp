@@ -48,7 +48,7 @@ function Editor({ id }: { id: string }) {
     <Link href={`/receitas/${id}`} className="text-sm text-primary">← Voltar à receita</Link>
     <h1 className="text-xl font-bold">Ficha técnica do produto</h1>
     <p className="text-sm text-muted-foreground">Descreva uma unidade do produto na ordem de montagem. Vincule receitas-base, ingredientes e embalagens para calcular custos e consumir o estoque de componentes prontos.</p>
-    <label className="flex items-start gap-2"><input type="checkbox" checked={!!ficha.composicao_ativa} onChange={e => setFicha({ ...ficha, composicao_ativa: e.target.checked })} />Usar esta montagem como composição do produto</label>
+    <label className="flex items-start gap-2"><input type="checkbox" checked={!!ficha.composicao_ativa} onChange={e => setFicha({ ...ficha, composicao_ativa: e.target.checked })} />Produto final - Usar montagem com materiais listados para calcular custo.</label>
     {ficha.composicao_ativa && <p className="text-sm text-muted-foreground">O custo usa os componentes abaixo e o tempo de montagem da receita. A lista antiga de ingredientes é preservada, mas não é somada novamente.</p>}
     {consulta.data?.composicao_ativa && <section className="space-y-2 rounded-xl bg-muted/40 p-4">
       <h2 className="font-semibold">Composição salva — por fornada</h2>
