@@ -38,4 +38,20 @@ describe("montagem", () => {
     await screen.findByText(/Não foi possível salvar/);
     expect(screen.getByDisplayValue("Minha alteração")).toBeTruthy();
   });
+
+  it("salva Markdown da descrição e montagem sem converter o conteúdo", async () => {
+    mocks.salvar.mockImplementation(async (data) => ({ ...data, revisao: 3 }));
+    render(<FichaPage />);
+    await screen.findByDisplayValue("Sedução");
+    const description = "## Sedução\n\n**Chocolate** com morango.";
+    const instruction = "1. Coloque **brigadeiro**.\n2. Finalize com *morango*.";
+    fireEvent.change(screen.getByLabelText("Descrição do produto"), { target: { value: description } });
+    fireEvent.change(screen.getAllByLabelText("Instrução de montagem")[0], { target: { value: instruction } });
+    fireEvent.click(screen.getByRole("button", { name: "Descrição do produto: prévia" }));
+    expect(screen.getByRole("heading", { name: "Sedução" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Salvar ficha técnica" }));
+    await waitFor(() => expect(mocks.salvar).toHaveBeenCalledOnce());
+    expect(mocks.salvar.mock.calls[0][0].descricao_produto).toBe(description);
+    expect(mocks.salvar.mock.calls[0][0].passos[0].instrucao).toBe(instruction);
+  });
 });

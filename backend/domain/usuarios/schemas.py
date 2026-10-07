@@ -34,6 +34,7 @@ class UsuarioResponse(BaseModel):
     nome: str
     valor_hora: Decimal
     telefone: str | None = None
+    is_superuser: bool = False
 
     model_config = {"from_attributes": True}
 

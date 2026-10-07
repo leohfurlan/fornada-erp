@@ -43,6 +43,12 @@ Regras:
 - quantidade e preços devem ser números decimais com ponto
 - Se não conseguir ler algum campo, use null
 - Inclua TODOS os itens do cupom
+- Preserve a quantidade e a unidade fiscais. O peso da embalagem é um campo separado.
+- Quando visíveis, inclua por item: marca, fabricante, variante, conteudo_embalagem,
+  unidade_conteudo, codigo_loja, gtin e desconto_item. Use null quando não visível.
+- Não deduza fabricante pela marca nem variante (branco/ao leite) pela marca.
+- Não trate código interno da loja como GTIN. Inclua cnpj e identidade_nota no cabeçalho
+  somente quando legíveis. A identidade_nota é a chave fiscal de 44 dígitos.
 """
 
 

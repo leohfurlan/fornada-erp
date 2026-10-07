@@ -187,8 +187,16 @@ class EstoqueService:
     async def registrar_entrada(
         self, tenant_id: UUID, data: EntradaEstoqueRequest
     ) -> IngredienteResponse:
+        """Registra entrada preservando o contrato público existente."""
+        resultado, _ = await self.registrar_entrada_com_movimento(tenant_id, data)
+        return resultado
+
+    async def registrar_entrada_com_movimento(
+        self, tenant_id: UUID, data: EntradaEstoqueRequest
+    ) -> tuple[IngredienteResponse, UUID]:
         """Registra entrada de estoque (compra) e recalcula custo médio."""
-        ingrediente = await self._repo.buscar_por_id(data.ingrediente_id, tenant_id)
+        await self._repo.travar_tenant(tenant_id)
+        ingrediente = await self._repo.buscar_por_id(data.ingrediente_id, tenant_id, for_update=True)
         if not ingrediente:
             raise NotFoundError("Ingrediente", str(data.ingrediente_id))
 
@@ -208,7 +216,7 @@ class EstoqueService:
         if novo_custo_medio != custo_anterior:
             ingrediente.data_custo_atualizado = datetime.now(UTC)
 
-        await self._repo.salvar_movimentacao(
+        movimento = await self._repo.salvar_movimentacao(
             tenant_id=tenant_id,
             ingrediente_id=ingrediente.id,
             tipo="entrada",
@@ -226,4 +234,4 @@ class EstoqueService:
             quantidade=str(data.quantidade),
             novo_custo_medio=str(novo_custo_medio),
         )
-        return _to_response(ingrediente)
+        return _to_response(ingrediente), movimento.id

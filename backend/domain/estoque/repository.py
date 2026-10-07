@@ -6,12 +6,16 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.estoque.schemas import CriarIngredienteRequest
-from infrastructure.database.models import Ingrediente, MovimentacaoEstoque, ReceitaIngrediente, Receita
+from infrastructure.database.models import Ingrediente, MovimentacaoEstoque, ReceitaIngrediente, Receita, Tenant
 
 
 class EstoqueRepository:
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
+
+    async def travar_tenant(self, tenant_id: UUID) -> None:
+        """Usa a mesma ordem de lock das operações de produção e composição."""
+        await self._db.execute(select(Tenant.id).where(Tenant.id == tenant_id).with_for_update())
 
     async def _proximo_codigo(self, tenant_id: UUID) -> int:
         """Próximo código sequencial dentro do tenant (1, 2, 3...)."""

@@ -48,10 +48,12 @@ class UsuarioRepository:
 
     async def buscar_por_id(self, usuario_id: UUID, tenant_id: UUID) -> Usuario | None:
         result = await self._db.execute(
-            select(Usuario).where(
+            select(Usuario).join(Tenant).where(
                 Usuario.id == usuario_id,
                 Usuario.tenant_id == tenant_id,
                 Usuario.deleted_at.is_(None),
+                Tenant.ativo.is_(True),
+                Tenant.deleted_at.is_(None),
             )
         )
         return result.scalar_one_or_none()

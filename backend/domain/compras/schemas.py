@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
@@ -44,6 +45,7 @@ class ItemConfirmado(BaseModel):
     unidade: str
     quantidade: Decimal
     custo_unitario: Decimal
+    descricao_original: str | None = None
 
     @field_validator("tipo")
     @classmethod
@@ -65,6 +67,7 @@ class ConfirmarCompraRequest(BaseModel):
 
     itens: list[ItemConfirmado]
     estabelecimento: str | None = None
+    data_compra: date | None = None
 
     @field_validator("itens")
     @classmethod

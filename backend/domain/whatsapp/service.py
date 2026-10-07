@@ -2,12 +2,14 @@
 
 import hashlib
 from datetime import UTC, datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 
 from pydantic import ValidationError as SchemaError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
+from domain.compras.comercial_schemas import CompraRevisada, ItemRevisado
 from domain.compras.matching import normalizar_unidade
 from domain.compras.schemas import ConfirmarCompraRequest, ItemConfirmado
 from domain.compras.service import ComprasService
@@ -101,7 +103,28 @@ class WhatsAppService:
         if command == "CONFIRMAR":
             if not draft:
                 return "Não há compra pendente. Envie COMPRAR para começar."
-            await self.compras.confirmar(user.tenant_id, ConfirmarCompraRequest(itens=draft.itens))
+            contexto = draft.contexto or {}
+            if contexto.get("compra_v2"):
+                comerciais = self.compras.comercial(self.db)
+                await comerciais.confirmar(
+                    user.tenant_id,
+                    CompraRevisada.model_validate(contexto["compra_v2"]),
+                    draft.id,
+                    usuario=user.id,
+                    origem="whatsapp",
+                )
+            else:
+                await self.compras.confirmar(
+                    user.tenant_id,
+                    ConfirmarCompraRequest(
+                        itens=draft.itens,
+                        estabelecimento=contexto.get("estabelecimento"),
+                        data_compra=contexto.get("data_compra"),
+                    ),
+                    chave=draft.id,
+                    usuario=user.id,
+                    origem="whatsapp",
+                )
             draft.status = "confirmada"
             return "Compra salva! Estoque e custos atualizados.\n" + MENU
         if command.startswith("CORRIGIR "):
@@ -118,22 +141,78 @@ class WhatsAppService:
                 replacement.ingrediente_id = previous.ingrediente_id
                 replacement.criar_novo = previous.criar_novo
                 replacement.tipo = previous.tipo
+                replacement.descricao_original = previous.descricao_original
                 if previous.ingrediente_id and replacement.unidade != previous.unidade:
                     return "Mantenha a unidade do ingrediente vinculado ou cancele a prévia."
                 items[position] = replacement
             except ValueError:
                 return "Use: CORRIGIR 1; Açúcar; 2; kg; 5,90."
             draft.itens = [item.model_dump(mode="json") for item in items]
+            if (draft.contexto or {}).get("compra_v2"):
+                compra = CompraRevisada.model_validate(draft.contexto["compra_v2"])
+                revisado = compra.itens[position]
+                revisado.quantidade = replacement.quantidade
+                revisado.custo_unitario = replacement.custo_unitario
+                revisado.preco_total = (
+                    replacement.quantidade * replacement.custo_unitario
+                ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                draft.contexto = {**draft.contexto, "compra_v2": compra.model_dump(mode="json")}
             return preview_text(items)
         if incoming.image or command.startswith("ITEM "):
             if draft:
                 return "Existe uma prévia pendente. CONFIRMAR ou CANCELAR antes de outra compra."
+            contexto: dict = {}
             if incoming.image:
                 content, mime = await self.adapter.image(incoming.raw)
-                result = await self.compras.processar_ocr(user.tenant_id, content, mime)
+                comerciais = self.compras.comercial(self.db)
+                result = await self.compras.ler_comercial(self.db, user.tenant_id, content, mime)
                 if result.fonte == "mock" or not result.itens or len(result.itens) > 30:
                     return "Não conseguimos extrair este cupom. Envie outra foto ou use ITEM."
                 if any(
+                    item.quantidade is None
+                    or item.preco_unitario is None
+                    or item.preco_total is None
+                    or item.unidade is None
+                    for item in result.itens
+                ):
+                    return "Há dados ilegíveis. Envie outra foto ou use ITEM para revisar."
+                contexto = {
+                    "estabelecimento": result.estabelecimento,
+                    "data_compra": result.data_compra.isoformat() if result.data_compra else None,
+                    "data_original": result.data_original,
+                    "total_nota": str(result.total_nota) if result.total_nota else None,
+                }
+                if result.fornecedor_id and all(
+                    i.produto_id and i.ingrediente_id for i in result.itens
+                ):
+                    compra = CompraRevisada(
+                        fornecedor_id=result.fornecedor_id,
+                        estabelecimento=result.estabelecimento,
+                        data_compra=result.data_compra,
+                        total_nota=result.total_nota,
+                        itens=[
+                            ItemRevisado(
+                                ingrediente_id=i.ingrediente_id,
+                                descricao_original=i.descricao,
+                                quantidade=i.quantidade,
+                                unidade=i.unidade,
+                                custo_unitario=i.preco_unitario,
+                                preco_total=i.preco_total,
+                                desconto_item=i.desconto_item or Decimal("0"),
+                                produto_id=i.produto_id,
+                                produto_revisao=i.produto_revisao,
+                            )
+                            for i in result.itens
+                        ],
+                    )
+                    previa = await comerciais.prever(user.tenant_id, compra)
+                    if not previa.pode_confirmar:
+                        return (
+                            "Esta compra precisa revisar aprovações. "
+                            "Confira os produtos no Fornada antes de salvar."
+                        )
+                    contexto["compra_v2"] = compra.model_dump(mode="json")
+                if not contexto.get("compra_v2") and any(
                     normalizar_unidade(item.unidade) != item.unidade_sugerida
                     or item.unidade_sugerida not in {"g", "kg", "ml", "l", "un"}
                     for item in result.itens
@@ -148,9 +227,12 @@ class WhatsAppService:
                         criar_novo=item.ingrediente_id is None,
                         nome=item.nome_match or item.descricao,
                         tipo=item.tipo_sugerido,
-                        unidade=item.unidade_sugerida,
+                        unidade=item.unidade
+                        if contexto.get("compra_v2")
+                        else item.unidade_sugerida,
                         quantidade=item.quantidade,
                         custo_unitario=item.preco_unitario,
+                        descricao_original=item.descricao,
                     )
                     for item in result.itens
                 ]
@@ -162,6 +244,7 @@ class WhatsAppService:
                     usuario_id=user.id,
                     telefone=incoming.phone,
                     itens=[item.model_dump(mode="json") for item in items],
+                    contexto=contexto,
                     expira_em=datetime.now(UTC) + timedelta(hours=24),
                 )
             )

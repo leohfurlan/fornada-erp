@@ -1,7 +1,9 @@
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.compras.decisions import CatalogMatcher
 from domain.compras.extraction import ReceiptExtractor, validate_receipt
@@ -15,15 +17,14 @@ from domain.compras.schemas import (
     ListaComprasResponse,
     OcrComprasResponse,
 )
-from domain.estoque.schemas import (
-    CriarIngredienteRequest,
-    EntradaEstoqueRequest,
-    IngredienteResponse,
-)
 from domain.estoque.service import EstoqueService
 from domain.exceptions import ValidationError
 
 logger = structlog.get_logger(__name__)
+
+if TYPE_CHECKING:
+    from domain.compras.comercial import ComprasComerciais
+    from domain.compras.comercial_schemas import LeituraCompra
 
 
 class ComprasService:
@@ -44,6 +45,22 @@ class ComprasService:
         self._estoque = estoque_service
         self._ocr = ocr_adapter
         self._matcher = matcher or CatalogMatcher()
+
+    def comercial(self, db: AsyncSession) -> "ComprasComerciais":
+        """Compartilha o núcleo de compras com os adaptadores web e WhatsApp."""
+        from domain.compras.comercial import ComprasComerciais
+        from domain.compras.repository import ComprasRepository
+
+        return ComprasComerciais(ComprasRepository(db), self._estoque)
+
+    async def ler_comercial(
+        self, db: AsyncSession, tenant_id: UUID, content: bytes, mime: str
+    ) -> "LeituraCompra":
+        from domain.compras.reconhecimento import ReconhecimentoCompras
+
+        return await ReconhecimentoCompras(self.comercial(db), self._ocr).ler(
+            tenant_id, content, mime
+        )
 
     async def processar_ocr(
         self, tenant_id: UUID, image_bytes: bytes, mime_type: str = "image/jpeg"
@@ -97,64 +114,60 @@ class ComprasService:
         )
 
     async def confirmar(
-        self, tenant_id: UUID, data: ConfirmarCompraRequest
+        self,
+        tenant_id: UUID,
+        data: ConfirmarCompraRequest,
+        *,
+        chave: UUID | None = None,
+        usuario: UUID | None = None,
+        operador: UUID | None = None,
+        origem: str = "legado",
     ) -> ConfirmarCompraResponse:
-        """
-        Grava a compra: cria ingredientes novos e dá entrada nos existentes.
+        """Adapta consumidores existentes ao núcleo atômico com histórico básico."""
+        from decimal import ROUND_HALF_UP
+        from uuid import uuid4
 
-        Cada entrada recalcula o custo médio do ingrediente (EstoqueService).
-        """
-        criados = 0
-        atualizados = 0
-        resultados: list[IngredienteResponse] = []
+        from domain.compras.comercial import ComprasComerciais
+        from domain.compras.comercial_schemas import CompraRevisada, ItemRevisado
+        from domain.compras.repository import ComprasRepository
 
+        revisados: list[ItemRevisado] = []
         for item in data.itens:
-            if item.criar_novo:
-                novo = await self._estoque.criar_ingrediente(
-                    tenant_id,
-                    CriarIngredienteRequest(
-                        nome=item.nome,
-                        tipo=item.tipo,
-                        unidade=item.unidade,
-                        estoque_inicial=item.quantidade,
-                        custo_inicial=item.custo_unitario,
-                    ),
-                )
-                resultados.append(novo)
-                criados += 1
-            elif item.ingrediente_id is not None:
-                atualizado = await self._estoque.registrar_entrada(
-                    tenant_id,
-                    EntradaEstoqueRequest(
-                        ingrediente_id=item.ingrediente_id,
-                        quantidade=item.quantidade,
-                        custo_unitario=item.custo_unitario,
-                        origem="compra",
-                        unidade=item.unidade,
-                    ),
-                )
-                resultados.append(atualizado)
-                atualizados += 1
-            else:
+            if not item.criar_novo and item.ingrediente_id is None:
                 raise ValidationError(
                     f"O item '{item.nome}' precisa ser vinculado a um ingrediente "
                     "existente ou marcado para cadastro."
                 )
-
-        logger.info(
-            "compra_confirmada",
-            tenant_id=str(tenant_id),
-            action="confirmar",
-            entity="compra",
-            criados=criados,
-            atualizados=atualizados,
+            revisados.append(
+                ItemRevisado(
+                    ingrediente_id=item.ingrediente_id,
+                    criar_novo=item.criar_novo,
+                    nome=item.nome,
+                    tipo=item.tipo,
+                    unidade=item.unidade,
+                    descricao_original=item.descricao_original or item.nome,
+                    quantidade=item.quantidade,
+                    custo_unitario=item.custo_unitario,
+                    preco_total=(item.quantidade * item.custo_unitario).quantize(
+                        Decimal("0.01"), rounding=ROUND_HALF_UP
+                    ),
+                    aceitar_excecao=True,
+                )
+            )
+        request = CompraRevisada(
+            itens=revisados, estabelecimento=data.estabelecimento, data_compra=data.data_compra
         )
-
-        return ConfirmarCompraResponse(
-            ingredientes_criados=criados,
-            ingredientes_atualizados=atualizados,
-            itens=resultados,
+        service = ComprasComerciais(ComprasRepository(self._estoque._repo._db), self._estoque)
+        result = await service.confirmar(
+            tenant_id,
+            request,
+            chave or uuid4(),
+            usuario=usuario,
+            operador=operador,
+            origem=origem,
+            legado=not all(i.descricao_original for i in data.itens),
         )
+        return ConfirmarCompraResponse.model_validate(result.model_dump())
 
     async def lista_reposicao(self, tenant_id: UUID) -> ListaComprasResponse:
         """

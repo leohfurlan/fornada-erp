@@ -11,6 +11,7 @@ import {
   useIngrediente,
 } from "@/hooks/use-estoque";
 import { DecimalInput } from "@/components/shared/decimal-input";
+import { ProdutosAprovados } from "@/components/shared/produtos-aprovados";
 import { UnidadesAlternativas, type UnidadeAlternativa } from "@/components/shared/unidades-alternativas";
 import { UnidadeSelect } from "@/components/shared/unidade-select";
 import { TIPOS_PRODUTO } from "@/lib/unidades";
@@ -179,6 +180,8 @@ export default function EditarIngredientePage() {
           {isSubmitting || atualizar.isPending ? "Salvando..." : "Salvar alterações"}
         </button>
       </form>
+
+      <ProdutosAprovados ingredienteId={id} />
 
       <div className="border-t pt-5 space-y-3">
         <h2 className="text-sm font-medium text-destructive">Zona de risco</h2>

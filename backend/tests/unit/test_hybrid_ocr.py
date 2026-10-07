@@ -228,3 +228,34 @@ async def test_openai_refusal_and_incomplete_response_do_not_create_items(monkey
     )
     with pytest.raises(ValidationError):
         await OpenAIReceiptExtractor().processar_imagem(b"image")
+
+
+def test_commercial_metadata_survives_receipt_validation():
+    from domain.compras.extraction import validate_receipt
+
+    data = mapping()
+    data.update(cnpj="38533519000108", identidade_nota="1" * 44)
+    data["itens"][0].update(
+        marca="Dr. Oetker",
+        variante="branco",
+        conteudo_embalagem="1.01",
+        unidade_conteudo="kg",
+        codigo_loja="123",
+        gtin="789",
+        fabricante="Fabricante",
+    )
+    result = validate_receipt(receipt_from_mapping(data, "gemma4"))
+    assert result.cnpj == data["cnpj"] and result.identidade_nota == data["identidade_nota"]
+    item = result.itens[0]
+    assert item.marca == "Dr. Oetker" and item.variante == "branco"
+    assert item.conteudo_embalagem == "1.01" and item.codigo_loja == "123"
+
+
+def test_commercial_discount_reconciles_without_changing_original_price():
+    data = mapping()
+    data["itens"][0].update(desconto_item="1.80", preco_total="10.00")
+    data["total"] = "10.00"
+    result = receipt_from_mapping(data, "gemma4")
+    assert result.itens[0].preco_unitario == Decimal("5.90")
+    assert result.itens[0].desconto_item == Decimal("1.80")
+    assert result.total == Decimal("10.00")

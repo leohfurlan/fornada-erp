@@ -1,5 +1,6 @@
 import axios, { AxiosError } from "axios";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { getSupportSession } from "@/lib/admin-session";
 
 /**
  * URL base do backend, resolvida dinamicamente.
@@ -40,6 +41,11 @@ api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  const support = getSupportSession();
+  const actor = useAuthStore.getState().usuario;
+  if (support && support.operador_id === actor?.id && !config.url?.startsWith("/admin/")) {
+    config.headers["X-Admin-Session"] = support.id;
   }
   return config;
 });

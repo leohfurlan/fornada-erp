@@ -1,6 +1,6 @@
 """Contrato de extração e conferência financeira, independente do fornecedor."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 from typing import Protocol
 
@@ -14,6 +14,15 @@ class ItemOCR:
     unidade: str | None
     preco_unitario: Decimal | float | None
     preco_total: Decimal | float | None
+    marca: str | None = None
+    fabricante: str | None = None
+    variante: str | None = None
+    conteudo_embalagem: Decimal | None = None
+    unidade_conteudo: str | None = None
+    codigo_loja: str | None = None
+    gtin: str | None = None
+    desconto_item: Decimal | None = None
+    campos_pendentes: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -25,6 +34,8 @@ class ResultadoOCR:
     fonte: str = "gemma3"
     confianca: float | None = None
     avisos: list[str] = field(default_factory=list)
+    cnpj: str | None = None
+    identidade_nota: str | None = None
 
 
 class ReceiptExtractor(Protocol):
@@ -59,11 +70,26 @@ def validate_receipt(result: ResultadoOCR) -> ResultadoOCR:
         q, unit, total = map(
             decimal_value, (item.quantidade, item.preco_unitario, item.preco_total)
         )
-        if abs(q * unit - total) > Decimal("0.02"):
+        discount = (
+            Decimal(str(item.desconto_item)) if item.desconto_item is not None else Decimal(0)
+        )
+        if not discount.is_finite() or discount < 0:
+            raise ValidationError("Desconto inválido no cupom. Confira os valores.")
+        if abs(q * unit - discount - total) > Decimal("0.02"):
             raise ValidationError(
                 "Quantidade, preço e total de um item não conferem. Envie outra foto ou use ITEM."
             )
-        items.append(ItemOCR(item.descricao.strip(), q, item.unidade.strip(), unit, total))
+        items.append(
+            replace(
+                item,
+                descricao=item.descricao.strip(),
+                quantidade=q,
+                unidade=item.unidade.strip(),
+                preco_unitario=unit,
+                preco_total=total,
+                desconto_item=discount if item.desconto_item is not None else None,
+            )
+        )
     receipt_total = decimal_value(result.total) if result.total is not None else None
     warnings = list(result.avisos)
     if receipt_total is None:
@@ -77,15 +103,7 @@ def validate_receipt(result: ResultadoOCR) -> ResultadoOCR:
             "A soma dos itens difere do total do cupom. "
             "Confira descontos, acréscimos e itens faltantes."
         )
-    return ResultadoOCR(
-        items,
-        receipt_total,
-        result.estabelecimento,
-        result.data,
-        result.fonte,
-        result.confianca,
-        list(dict.fromkeys(warnings)),
-    )
+    return replace(result, itens=items, total=receipt_total, avisos=list(dict.fromkeys(warnings)))
 
 
 def receipt_from_mapping(data: dict, source: str) -> ResultadoOCR:
@@ -97,11 +115,32 @@ def receipt_from_mapping(data: dict, source: str) -> ResultadoOCR:
                 item["unidade"],
                 item["preco_unitario"],
                 item["preco_total"],
+                **{
+                    key: item.get(key)
+                    for key in (
+                        "marca",
+                        "fabricante",
+                        "variante",
+                        "conteudo_embalagem",
+                        "unidade_conteudo",
+                        "codigo_loja",
+                        "gtin",
+                        "desconto_item",
+                    )
+                },
             )
             for item in data["itens"]
         ]
         return validate_receipt(
-            ResultadoOCR(items, data["total"], data["estabelecimento"], data["data"], fonte=source)
+            ResultadoOCR(
+                items,
+                data["total"],
+                data["estabelecimento"],
+                data["data"],
+                fonte=source,
+                cnpj=data.get("cnpj"),
+                identidade_nota=data.get("identidade_nota"),
+            )
         )
     except (KeyError, TypeError, AttributeError):
         raise ValidationError(

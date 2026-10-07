@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
 from api.routers import (
+    admin,
     agenda,
     auth,
     compras,
@@ -86,6 +87,7 @@ app.add_middleware(
 )
 
 # Routers
+app.include_router(admin.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 from api.routers import whatsapp_auth
 app.include_router(whatsapp_auth.router, prefix="/api/v1")
@@ -99,6 +101,8 @@ app.include_router(vendas.router, prefix="/api/v1")
 app.include_router(agenda.router, prefix="/api/v1")
 app.include_router(dashboard.router, prefix="/api/v1")
 app.include_router(compras.router, prefix="/api/v1")
+from api.routers import compras_comerciais
+app.include_router(compras_comerciais.router, prefix="/api/v1")
 app.include_router(whatsapp.router, prefix="/api/v1")
 
 

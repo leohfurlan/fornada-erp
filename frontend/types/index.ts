@@ -4,6 +4,7 @@ export interface Usuario {
   email: string;
   nome: string;
   valor_hora: string;
+  is_superuser?: boolean;
 }
 
 export interface TokenResponse {
