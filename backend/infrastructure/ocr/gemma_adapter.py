@@ -1,17 +1,18 @@
 """
-Adapter OCR usando Gemma 4 via Google AI Studio.
+Adapter de visão usando Gemma 4 via Google AI Studio.
 
 Envia a imagem do cupom fiscal e extrai itens, quantidades e preços
 via prompt de visão estruturado. Retorna lista padronizada de itens.
 """
 
+import asyncio
 import json
-from dataclasses import dataclass, field
 from decimal import Decimal
 
 import structlog
 
 from core.config import settings
+from domain.compras.extraction import ItemOCR, ResultadoOCR, receipt_from_mapping
 from domain.exceptions import ValidationError
 
 logger = structlog.get_logger(__name__)
@@ -51,41 +52,11 @@ Regras:
 """
 
 
-@dataclass
-class ItemOCR:
-    descricao: str
-    quantidade: float
-    unidade: str
-    preco_unitario: float
-    preco_total: float
-    marca: str | None = None
-    fabricante: str | None = None
-    variante: str | None = None
-    conteudo_embalagem: Decimal | None = None
-    unidade_conteudo: str | None = None
-    codigo_loja: str | None = None
-    gtin: str | None = None
-    desconto_item: Decimal | None = None
-    campos_pendentes: list[str] = field(default_factory=list)
-
-
-@dataclass
-class ResultadoOCR:
-    itens: list[ItemOCR]
-    total: float | None
-    estabelecimento: str | None
-    data: str | None
-    fonte: str = "gemma4"
-    confianca: float = 0.9
-    cnpj: str | None = None
-    identidade_nota: str | None = None
-
-
 class GemmaOCRAdapter:
-    """OCR de cupons fiscais usando Gemma 4 Vision via Google AI Studio."""
+    """OCR de cupons com validação independente da resposta do modelo."""
 
     def __init__(self) -> None:
-        self._model_name = "gemma-3-27b-it"  # Gemma 4 multimodal
+        self._model_name = settings.gemma_ocr_model
         self._client = None
 
     def _get_client(self):  # type: ignore[no-untyped-def]
@@ -112,11 +83,18 @@ class GemmaOCRAdapter:
 
         try:
             client = self._get_client()
-
             from google.genai import types
 
-            response = client.models.generate_content(
+            response = await asyncio.to_thread(
+                client.models.generate_content,
                 model=self._model_name,
+                config=types.GenerateContentConfig(
+                    temperature=settings.gemma_ocr_temperature,
+                    thinking_config=types.ThinkingConfig(
+                        thinking_level=settings.gemma_ocr_thinking_level.upper(),
+                        include_thoughts=False,
+                    ),
+                ),
                 contents=[
                     types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
                     _PROMPT_OCR,
@@ -125,56 +103,28 @@ class GemmaOCRAdapter:
 
             raw_text = response.text.strip()
             dados = json.loads(raw_text, parse_float=Decimal)
-
-            itens = [
-                ItemOCR(
-                    descricao=item.get("descricao", ""),
-                    quantidade=Decimal(str(item.get("quantidade") or 1)),
-                    unidade=item.get("unidade") or "un",
-                    preco_unitario=Decimal(str(item.get("preco_unitario") or 0)),
-                    preco_total=Decimal(str(item.get("preco_total") or 0)),
-                    marca=item.get("marca"),
-                    fabricante=item.get("fabricante"),
-                    variante=item.get("variante"),
-                    conteudo_embalagem=item.get("conteudo_embalagem"),
-                    unidade_conteudo=item.get("unidade_conteudo"),
-                    codigo_loja=item.get("codigo_loja"),
-                    gtin=item.get("gtin"),
-                    desconto_item=item.get("desconto_item"),
-                    campos_pendentes=[
-                        campo
-                        for campo in ("quantidade", "unidade", "preco_unitario", "preco_total")
-                        if item.get(campo) is None
-                    ],
-                )
-                for item in dados.get("itens", [])
-            ]
+            result = receipt_from_mapping(dados, "gemma4")
 
             logger.info(
                 "ocr_concluido",
                 source="gemma4",
-                confidence=0.9,
-                raw_text=raw_text[:200],
-                itens_extraidos=len(itens),
+                itens_extraidos=len(result.itens),
             )
 
-            return ResultadoOCR(
-                itens=itens,
-                total=dados.get("total"),
-                estabelecimento=dados.get("estabelecimento"),
-                data=dados.get("data"),
-                cnpj=dados.get("cnpj"),
-                identidade_nota=dados.get("identidade_nota"),
-            )
+            return result
 
         except json.JSONDecodeError as e:
-            logger.error("ocr_json_invalido", source="gemma4", error=str(e))
+            logger.warning("ocr_json_invalido", source="gemma4")
             raise ValidationError(
                 "Não conseguimos ler esse cupom. Tire uma nova foto e tente novamente."
             ) from e
-        except Exception as e:
-            logger.error("ocr_erro", source="gemma4", error=str(e))
+        except ValidationError:
             raise
+        except Exception:
+            logger.warning("ocr_erro", source="gemma4")
+            raise ValidationError(
+                "Não conseguimos ler esse cupom. Envie outra foto ou use ITEM."
+            ) from None
 
     def _resultado_mock(self) -> ResultadoOCR:
         """Retorna dados fictícios quando API key não está configurada."""

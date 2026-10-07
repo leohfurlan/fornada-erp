@@ -13,6 +13,7 @@ from domain.compras.comercial_schemas import (
     LeituraCompra,
     ReconhecerResponse,
 )
+from domain.compras.extraction import ReceiptExtractor
 from domain.compras.identificadores import (
     normalizar_descricao,
     validar_cnpj,
@@ -22,7 +23,6 @@ from domain.compras.identificadores import (
 )
 from domain.compras.matching import IngredienteRef, sugerir_match
 from domain.exceptions import ValidationError
-from infrastructure.ocr.gemma_adapter import GemmaOCRAdapter
 
 
 def data_lida(value: str | None) -> date | None:
@@ -51,7 +51,7 @@ def decimal_lido(value: object) -> Decimal | None:
 class ReconhecimentoCompras:
     """Não grava catálogo ou estoque durante a leitura."""
 
-    def __init__(self, compras: ComprasComerciais, ocr: GemmaOCRAdapter) -> None:
+    def __init__(self, compras: ComprasComerciais, ocr: ReceiptExtractor) -> None:
         self.compras, self.ocr = compras, ocr
         self.repo = compras.repo
 
@@ -257,5 +257,6 @@ class ReconhecimentoCompras:
             identidade_nota=getattr(result, "identidade_nota", None),
             fonte=result.fonte,
             confianca=result.confianca,
+            avisos=getattr(result, "avisos", []),
             aviso_mock=result.fonte == "mock",
         )

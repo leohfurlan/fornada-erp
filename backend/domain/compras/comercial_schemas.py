@@ -308,7 +308,8 @@ class LeituraCompra(ReconhecerResponse):
     identidade_nota: str | None = None
     identidade_confirmada: bool = False
     fonte: str
-    confianca: float
+    confianca: float | None
+    avisos: list[str] = Field(default_factory=list)
     aviso_mock: bool
 
 

@@ -1,0 +1,12 @@
+# Habilitar somente ao publicar o subdomínio no Caddy já existente.
+services:
+  api:
+    networks:
+      default:
+      fornada_proxy:
+        aliases:
+          - evolution-api
+networks:
+  fornada_proxy:
+    external: true
+    name: fornada-prod_default

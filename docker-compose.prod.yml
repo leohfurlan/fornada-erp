@@ -44,6 +44,13 @@ services:
       ENVIRONMENT: production
       DEBUG: "false"
       GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY:-}
+      GEMMA_OCR_MODEL: ${GEMMA_OCR_MODEL:-gemma-4-26b-a4b-it}
+      GEMMA_OCR_TEMPERATURE: ${GEMMA_OCR_TEMPERATURE:-0.1}
+      GEMMA_OCR_THINKING_LEVEL: ${GEMMA_OCR_THINKING_LEVEL:-minimal}
+      OCR_PROVIDER: ${OCR_PROVIDER:-gemma}
+      OCR_VISION_PROVIDER: ${OCR_VISION_PROVIDER:-gemma}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_OCR_MODEL: ${OPENAI_OCR_MODEL:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
     depends_on:
       db:

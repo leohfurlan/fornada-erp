@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from domain.estoque.schemas import TIPOS_VALIDOS, IngredienteResponse
 
@@ -30,8 +30,9 @@ class OcrComprasResponse(BaseModel):
     itens: list[ItemCompraSugerido]
     total: Decimal | None
     estabelecimento: str | None
-    fonte: str  # gemma4 | mock
-    confianca: float
+    fonte: str
+    confianca: float | None
+    avisos: list[str] = Field(default_factory=list)
 
 
 class ItemConfirmado(BaseModel):

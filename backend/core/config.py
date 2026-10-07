@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -22,6 +24,13 @@ class Settings(BaseSettings):
 
     # IA e OCR
     google_ai_api_key: str = ""
+    gemma_ocr_model: str = "gemma-4-26b-a4b-it"
+    gemma_ocr_temperature: float = 0.1
+    gemma_ocr_thinking_level: Literal["minimal"] = "minimal"
+    ocr_provider: Literal["gemma", "openai", "hybrid"] = "gemma"
+    ocr_vision_provider: Literal["gemma", "openai"] = "gemma"
+    openai_api_key: str = ""
+    openai_ocr_model: str = ""
 
     # WhatsApp — Evolution API v2 (serviço externo)
     evolution_enabled: bool = False
@@ -41,12 +50,20 @@ class Settings(BaseSettings):
         """Impede inicialização de produção com configuração insegura."""
         if self.whatsapp_auth_enabled:
             from urllib.parse import urlsplit
+
             parsed = urlsplit(self.evolution_api_url)
-            if parsed.scheme not in ("http", "https") or not parsed.hostname or not self.evolution_api_key.strip() or not self.evolution_instance.strip():
+            if (
+                parsed.scheme not in ("http", "https")
+                or not parsed.hostname
+                or not self.evolution_api_key.strip()
+                or not self.evolution_instance.strip()
+            ):
                 raise ValueError("Configure URL, API key e instância para o login por WhatsApp")
         if self.evolution_enabled:
             if not self.whatsapp_auth_enabled:
-                raise ValueError("Ative WHATSAPP_AUTH_ENABLED para acesso às contas criadas na conversa")
+                raise ValueError(
+                    "Ative WHATSAPP_AUTH_ENABLED para acesso às contas criadas na conversa"
+                )
             if not all((self.evolution_api_url, self.evolution_api_key, self.evolution_instance)):
                 raise ValueError("Configure URL, API key e instância da Evolution API")
             if len(self.evolution_webhook_secret) < 32:

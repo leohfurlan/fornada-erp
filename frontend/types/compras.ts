@@ -86,7 +86,8 @@ export interface LeituraCompra {
   identidade_nota: string | null;
   identidade_confirmada: boolean;
   fonte: string;
-  confianca: number;
+  confianca: number | null;
+  avisos?: string[];
   aviso_mock: boolean;
 }
 export interface ItemRevisado {

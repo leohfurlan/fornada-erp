@@ -294,8 +294,9 @@ export interface OcrComprasResponse {
   itens: ItemCompraSugerido[];
   total: string | null;
   estabelecimento: string | null;
-  fonte: string; // gemma4 | mock
-  confianca: number;
+  fonte: string;
+  confianca: number | null;
+  avisos?: string[];
 }
 
 export interface ItemConfirmadoPayload {

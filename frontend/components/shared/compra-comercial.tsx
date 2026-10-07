@@ -192,6 +192,7 @@ export default function CompraComercialPage() {
     <button className={botao} disabled={salvar.isPending} onClick={() => { invalidar(); sequenciaLoja.current += 1; setEtapa("captura"); }}>← Refazer ou cancelar</button>
     <h1 className="text-xl font-bold">Conferir itens</h1>
     <p className="text-sm text-muted-foreground">Vincule o produto comprado ao material da receita. Quantidade da nota e quantidade de estoque são conferidas separadamente.</p>
+    {leitura?.avisos?.map((aviso) => <p key={aviso} className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{aviso}</p>)}
     {leitura?.aviso_mock && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Modo demonstração: itens de exemplo, sem leitura real.</p>}
     <fieldset disabled={salvar.isPending} className="space-y-5">
       <div className="space-y-3 rounded-xl border p-3">
