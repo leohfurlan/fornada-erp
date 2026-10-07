@@ -6,6 +6,7 @@ import { ArrowLeft, Plus, Trash2, Clock } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { cn, formatMinutos } from "@/lib/utils";
 import { DecimalInput } from "@/components/shared/decimal-input";
+import { MarkdownContent } from "@/components/shared/markdown-content";
 import {
   useCriarEtapaPadrao,
   useDeletarEtapaPadrao,
@@ -196,7 +197,7 @@ function SecaoEtapas({
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm">{e.nome}</p>
               {e.receita_origem && <p className="text-xs text-muted-foreground">{e.receita_origem}</p>}
-              {e.instrucao && <details className="mt-1 text-xs"><summary className="cursor-pointer text-primary">Ver modo de preparo</summary><p className="mt-2 whitespace-pre-wrap">{e.instrucao}</p></details>}
+              {e.instrucao && <details className="mt-1 text-xs"><summary className="cursor-pointer text-primary">Ver modo de preparo</summary><MarkdownContent className="mt-2">{e.instrucao}</MarkdownContent></details>}
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
                 {e.duracao_minutos_default === null ? "Tempo pendente" : formatMinutos(e.duracao_minutos_default)}

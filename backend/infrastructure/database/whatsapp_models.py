@@ -39,4 +39,5 @@ class WhatsAppCompra(TenantMixin, TimestampMixin, Base):
     telefone: Mapped[str] = mapped_column(String(15), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="pendente", nullable=False)
     itens: Mapped[list] = mapped_column(JSONB, nullable=False)
+    contexto: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -5,10 +5,9 @@ Envia a imagem do cupom fiscal e extrai itens, quantidades e preços
 via prompt de visão estruturado. Retorna lista padronizada de itens.
 """
 
-import base64
 import json
-from dataclasses import dataclass
-from pathlib import Path
+from dataclasses import dataclass, field
+from decimal import Decimal
 
 import structlog
 
@@ -43,6 +42,12 @@ Regras:
 - quantidade e preços devem ser números decimais com ponto
 - Se não conseguir ler algum campo, use null
 - Inclua TODOS os itens do cupom
+- Preserve a quantidade e a unidade fiscais. O peso da embalagem é um campo separado.
+- Quando visíveis, inclua por item: marca, fabricante, variante, conteudo_embalagem,
+  unidade_conteudo, codigo_loja, gtin e desconto_item. Use null quando não visível.
+- Não deduza fabricante pela marca nem variante (branco/ao leite) pela marca.
+- Não trate código interno da loja como GTIN. Inclua cnpj e identidade_nota no cabeçalho
+  somente quando legíveis. A identidade_nota é a chave fiscal de 44 dígitos.
 """
 
 
@@ -53,6 +58,15 @@ class ItemOCR:
     unidade: str
     preco_unitario: float
     preco_total: float
+    marca: str | None = None
+    fabricante: str | None = None
+    variante: str | None = None
+    conteudo_embalagem: Decimal | None = None
+    unidade_conteudo: str | None = None
+    codigo_loja: str | None = None
+    gtin: str | None = None
+    desconto_item: Decimal | None = None
+    campos_pendentes: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -63,6 +77,8 @@ class ResultadoOCR:
     data: str | None
     fonte: str = "gemma4"
     confianca: float = 0.9
+    cnpj: str | None = None
+    identidade_nota: str | None = None
 
 
 class GemmaOCRAdapter:
@@ -79,20 +95,23 @@ class GemmaOCRAdapter:
 
                 self._client = genai.Client(api_key=settings.google_ai_api_key)
             except ImportError:
-                raise RuntimeError("Instale google-genai: pip install google-genai")
+                raise RuntimeError("Instale google-genai: pip install google-genai") from None
         return self._client
 
-    async def processar_imagem(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ResultadoOCR:
+    async def processar_imagem(
+        self, image_bytes: bytes, mime_type: str = "image/jpeg"
+    ) -> ResultadoOCR:
         """Processa imagem de cupom fiscal e retorna itens extraídos."""
         if not settings.google_ai_api_key:
             logger.warning("ocr_sem_api_key", fonte="gemma4")
             if settings.is_production:
-                raise ValidationError("A leitura de cupons está indisponível. Tente novamente mais tarde.")
+                raise ValidationError(
+                    "A leitura de cupons está indisponível. Tente novamente mais tarde."
+                )
             return self._resultado_mock()
 
         try:
             client = self._get_client()
-            image_b64 = base64.b64encode(image_bytes).decode()
 
             from google.genai import types
 
@@ -105,15 +124,28 @@ class GemmaOCRAdapter:
             )
 
             raw_text = response.text.strip()
-            dados = json.loads(raw_text)
+            dados = json.loads(raw_text, parse_float=Decimal)
 
             itens = [
                 ItemOCR(
                     descricao=item.get("descricao", ""),
-                    quantidade=float(item.get("quantidade") or 1),
+                    quantidade=Decimal(str(item.get("quantidade") or 1)),
                     unidade=item.get("unidade") or "un",
-                    preco_unitario=float(item.get("preco_unitario") or 0),
-                    preco_total=float(item.get("preco_total") or 0),
+                    preco_unitario=Decimal(str(item.get("preco_unitario") or 0)),
+                    preco_total=Decimal(str(item.get("preco_total") or 0)),
+                    marca=item.get("marca"),
+                    fabricante=item.get("fabricante"),
+                    variante=item.get("variante"),
+                    conteudo_embalagem=item.get("conteudo_embalagem"),
+                    unidade_conteudo=item.get("unidade_conteudo"),
+                    codigo_loja=item.get("codigo_loja"),
+                    gtin=item.get("gtin"),
+                    desconto_item=item.get("desconto_item"),
+                    campos_pendentes=[
+                        campo
+                        for campo in ("quantidade", "unidade", "preco_unitario", "preco_total")
+                        if item.get(campo) is None
+                    ],
                 )
                 for item in dados.get("itens", [])
             ]
@@ -131,11 +163,15 @@ class GemmaOCRAdapter:
                 total=dados.get("total"),
                 estabelecimento=dados.get("estabelecimento"),
                 data=dados.get("data"),
+                cnpj=dados.get("cnpj"),
+                identidade_nota=dados.get("identidade_nota"),
             )
 
         except json.JSONDecodeError as e:
             logger.error("ocr_json_invalido", source="gemma4", error=str(e))
-            raise ValidationError("Não conseguimos ler esse cupom. Tire uma nova foto e tente novamente.") from e
+            raise ValidationError(
+                "Não conseguimos ler esse cupom. Tire uma nova foto e tente novamente."
+            ) from e
         except Exception as e:
             logger.error("ocr_erro", source="gemma4", error=str(e))
             raise

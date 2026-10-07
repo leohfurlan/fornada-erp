@@ -4,14 +4,17 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Clock, Copy, Pencil, Trash2 } from "lucide-react";
 import { useDeletarReceita, useDuplicarReceita, useReceita } from "@/hooks/use-receitas";
+import { useFichaTecnica } from "@/hooks/use-ficha-tecnica";
 import { CustoCard } from "@/components/shared/custo-card";
 import { MoneyDisplay } from "@/components/shared/money-display";
+import { MarkdownContent } from "@/components/shared/markdown-content";
 import { formatDataHora, formatMinutos, formatQuantidade } from "@/lib/utils";
 
 export default function ReceitaPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { data: receita, isLoading } = useReceita(id);
+  const { data: ficha } = useFichaTecnica(id);
   const deletar = useDeletarReceita();
   const duplicar = useDuplicarReceita();
 
@@ -88,6 +91,14 @@ export default function ReceitaPage() {
       </div>
 
       {receita.custo && <CustoCard custo={receita.custo} />}
+      {ficha?.descricao_produto && <section className="space-y-2">
+        <h2 className="font-semibold">Descrição do produto</h2>
+        <MarkdownContent className="rounded-xl border bg-card p-4">{ficha.descricao_produto}</MarkdownContent>
+      </section>}
+      {ficha?.especificacao_final && <section className="space-y-2">
+        <h2 className="font-semibold">Apresentação final e dimensões</h2>
+        <MarkdownContent className="rounded-xl border bg-card p-4">{ficha.especificacao_final}</MarkdownContent>
+      </section>}
       <Link href={`/receitas/${id}/ficha-tecnica`} className="block rounded-xl border p-4 font-medium text-primary">Ficha técnica e montagem do produto →</Link>
 
       {/* Ingredientes */}
@@ -136,9 +147,9 @@ export default function ReceitaPage() {
       {receita.modo_preparo ? (
         <section className="space-y-2">
           <h2 className="font-semibold">Modo de preparo</h2>
-          <div className="rounded-xl border bg-card p-4 text-sm whitespace-pre-wrap leading-relaxed">
+          <MarkdownContent className="rounded-xl border bg-card p-4">
             {receita.modo_preparo}
-          </div>
+          </MarkdownContent>
         </section>
       ) : (
         <section className="space-y-2">

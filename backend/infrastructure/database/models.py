@@ -69,6 +69,19 @@ class Usuario(TenantMixin, TimestampMixin, Base):
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     tenant: Mapped["Tenant"] = relationship(back_populates="usuarios")
+    is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+
+
+class SessaoAdministrativa(TenantMixin, TimestampMixin, Base):
+    """Acesso temporário atribuído ao operador e à conta de destino."""
+
+    __tablename__ = "sessoes_administrativas"
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    operador_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False, index=True)
+    usuario_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False, index=True)
+    motivo: Mapped[str] = mapped_column(String(500), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class ConfiguracaoCusto(TenantMixin, TimestampMixin, Base):

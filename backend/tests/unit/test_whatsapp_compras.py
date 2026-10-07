@@ -75,7 +75,12 @@ def service_with(*rows):
     db = MagicMock()
     db.scalar = AsyncMock(side_effect=list(rows))
     db.commit = AsyncMock()
-    compras = SimpleNamespace(confirmar=AsyncMock(), processar_ocr=AsyncMock())
+    compras = SimpleNamespace(
+        confirmar=AsyncMock(),
+        processar_ocr=AsyncMock(),
+        comercial=MagicMock(),
+        ler_comercial=AsyncMock(),
+    )
     adapter = SimpleNamespace(
         send_text=AsyncMock(), image=AsyncMock(return_value=(b"image", "image/png"))
     )
@@ -157,9 +162,18 @@ async def test_send_retry_replays_only_outbox():
 @pytest.mark.asyncio
 async def test_unit_mismatch_does_not_create_draft():
     service = service_with(user(), None)
-    service.compras.processar_ocr.return_value = SimpleNamespace(
+    service.compras.ler_comercial.return_value = SimpleNamespace(
         fonte="gemma4",
-        itens=[SimpleNamespace(unidade="kg", unidade_sugerida="g")],
+        estabelecimento="Mercado",
+        data_compra=None,
+        data_original=None,
+        total_nota=None,
+        fornecedor_id=None,
+        itens=[
+            SimpleNamespace(
+                unidade="kg", unidade_sugerida="g", quantidade=1, preco_unitario=5, preco_total=5
+            )
+        ],
     )
     result = await service.handle(incoming("", image=True))
     assert "unidades diferentes" in result

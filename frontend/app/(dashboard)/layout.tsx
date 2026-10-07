@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { useDashboardResumo } from "@/hooks/use-dashboard";
+import { SupportBanner } from "@/components/shared/support-banner";
 
 interface NavItem {
   href: string;
@@ -117,6 +118,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex h-14 items-center justify-between px-4">
           <span className="font-bold text-primary text-lg">Fornada</span>
           <div className="flex items-center gap-2">
+            {usuario?.is_superuser && <Link href="/admin" className="text-sm font-medium text-primary">Administração</Link>}
             <span className="text-sm text-muted-foreground hidden sm:block">{usuario?.nome}</span>
             <button
               onClick={() => {
@@ -131,6 +133,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </header>
+      <SupportBanner />
 
       {/* Conteúdo */}
       <main className="flex-1 px-4 py-6 pb-24 max-w-2xl md:max-w-5xl mx-auto w-full">

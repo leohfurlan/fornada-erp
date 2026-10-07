@@ -9,6 +9,7 @@ import { useIngredientes } from "@/hooks/use-estoque";
 import { formatQuantidade } from "@/lib/utils";
 import { sanitizeDecimalInput } from "@/lib/decimal";
 import { MoneyDisplay } from "@/components/shared/money-display";
+import { MarkdownField } from "@/components/shared/markdown-field";
 import { useConsumoComposicao } from "@/hooks/use-ficha-tecnica";
 import { useFichaTecnica, useSalvarFichaTecnica, type FichaTecnica, type PassoMontagem } from "@/hooks/use-ficha-tecnica";
 
@@ -48,7 +49,7 @@ function Editor({ id }: { id: string }) {
     <Link href={`/receitas/${id}`} className="text-sm text-primary">← Voltar à receita</Link>
     <h1 className="text-xl font-bold">Ficha técnica do produto</h1>
     <p className="text-sm text-muted-foreground">Descreva uma unidade do produto na ordem de montagem. Vincule receitas-base, ingredientes e embalagens para calcular custos e consumir o estoque de componentes prontos.</p>
-    <label className="flex items-start gap-2"><input type="checkbox" checked={!!ficha.composicao_ativa} onChange={e => setFicha({ ...ficha, composicao_ativa: e.target.checked })} />Usar esta montagem como composição do produto</label>
+    <label className="flex items-start gap-2"><input type="checkbox" checked={!!ficha.composicao_ativa} onChange={e => setFicha({ ...ficha, composicao_ativa: e.target.checked })} />Produto final - Usar montagem com materiais listados para calcular custo.</label>
     {ficha.composicao_ativa && <p className="text-sm text-muted-foreground">O custo usa os componentes abaixo e o tempo de montagem da receita. A lista antiga de ingredientes é preservada, mas não é somada novamente.</p>}
     {consulta.data?.composicao_ativa && <section className="space-y-2 rounded-xl bg-muted/40 p-4">
       <h2 className="font-semibold">Composição salva — por fornada</h2>
@@ -57,8 +58,8 @@ function Editor({ id }: { id: string }) {
       {receitas.data?.find(r => r.id === id)?.custo && <p className="text-sm">Custo salvo por unidade de rendimento: <MoneyDisplay value={receitas.data.find(r => r.id === id)?.custo?.custo_por_unidade} /></p>}
       <p className="text-xs text-muted-foreground">Este resumo é atualizado ao salvar. As camadas continuam separadas na montagem.</p>
     </section>}
-    <label className="block">Descrição do produto<textarea required maxLength={2000} className={campo} value={ficha.descricao_produto} onChange={e => setFicha({ ...ficha, descricao_produto: e.target.value })} /></label>
-    <label className="block">Apresentação final e dimensões<textarea maxLength={1000} className={campo} value={ficha.especificacao_final} onChange={e => setFicha({ ...ficha, especificacao_final: e.target.value })} /></label>
+    <MarkdownField label="Descrição do produto" required maxLength={2000} value={ficha.descricao_produto} onChange={value => setFicha({ ...ficha, descricao_produto: value })} />
+    <MarkdownField label="Apresentação final e dimensões" maxLength={1000} value={ficha.especificacao_final} onChange={value => setFicha({ ...ficha, especificacao_final: value })} />
     <ol className="space-y-4">{ficha.passos.map((passo, index) => <li key={index} className="space-y-3 rounded-xl border p-4">
       <div className="flex flex-wrap items-center gap-3"><strong>Etapa {index + 1}</strong>
         <button type="button" disabled={index === 0} onClick={() => mover(index, index - 1)} aria-label={`Subir etapa ${index + 1}`}>↑</button>
@@ -82,8 +83,8 @@ function Editor({ id }: { id: string }) {
         <label>Mínimo (opcional)<QuantidadeCampo value={passo.quantidade_minima} onChange={valor => editar(index, { quantidade_minima: valor })} /></label>
         <label>Máximo (opcional)<QuantidadeCampo value={passo.quantidade_maxima} onChange={valor => editar(index, { quantidade_maxima: valor })} /></label>
       </div>
-      <label className="block">Dimensões, capacidade ou padrão<input maxLength={500} className={campo} placeholder="Ex.: copo de 300 ml; camada de 15 × 15 cm" value={passo.especificacao} onChange={e => editar(index, { especificacao: e.target.value })} /></label>
-      <label className="block">Instrução de montagem<textarea maxLength={1000} className={campo} value={passo.instrucao} onChange={e => editar(index, { instrucao: e.target.value })} /></label>
+      <MarkdownField label="Dimensões, capacidade ou padrão" rows={2} maxLength={500} placeholder="Ex.: copo de **300 ml**; camada de 15 × 15 cm" value={passo.especificacao} onChange={value => editar(index, { especificacao: value })} />
+      <MarkdownField label="Instrução de montagem" maxLength={1000} value={passo.instrucao} onChange={value => editar(index, { instrucao: value })} />
     </li>)}</ol>
     <button type="button" className="rounded-lg border px-4 py-2" disabled={ficha.passos.length >= 100} onClick={() => setFicha({ ...ficha, passos: [...ficha.passos, { descricao: "", tipo: "componente", quantidade: "", quantidade_minima: null, quantidade_maxima: null, unidade: "g", especificacao: "", instrucao: "" }] })}>Adicionar etapa</button>
     <div className="flex flex-wrap gap-3"><button disabled={salvar.isPending || !ficha.passos.length} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">{salvar.isPending ? "Salvando..." : "Salvar ficha técnica"}</button>

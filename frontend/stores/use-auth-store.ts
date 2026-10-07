@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Usuario } from "@/types";
+import { clearSupportSession } from "@/lib/admin-session";
 
 interface AuthState {
   accessToken: string | null;
@@ -26,13 +27,15 @@ export const useAuthStore = create<AuthState>()(
 
       setUsuario: (usuario) => set({ usuario }),
 
-      logout: () =>
+      logout: () => {
+        clearSupportSession();
         set({
           accessToken: null,
           refreshToken: null,
           usuario: null,
           isAuthenticated: false,
-        }),
+        });
+      },
     }),
     {
       name: "fornada-auth",

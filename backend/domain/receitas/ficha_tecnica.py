@@ -1,10 +1,19 @@
 """Contrato de montagem por unidade; não substitui o motor de custos/estoque."""
 
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
+
+TextoMarkdown = Annotated[str, StringConstraints(strip_whitespace=False)]
 
 
 class PassoMontagem(BaseModel):
@@ -16,8 +25,8 @@ class PassoMontagem(BaseModel):
     quantidade_minima: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=4)
     quantidade_maxima: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=4)
     unidade: Literal["g", "kg", "ml", "l", "un"]
-    especificacao: str = Field(default="", max_length=500)
-    instrucao: str = Field(default="", max_length=1000)
+    especificacao: TextoMarkdown = Field(default="", max_length=500)
+    instrucao: TextoMarkdown = Field(default="", max_length=1000)
     receita_base_id: UUID | None = None
     ingrediente_id: UUID | None = None
 
@@ -39,16 +48,28 @@ class PassoMontagem(BaseModel):
 class FichaTecnicaInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    descricao_produto: str = Field(min_length=1, max_length=2000)
-    especificacao_final: str = Field(default="", max_length=1000)
+    descricao_produto: TextoMarkdown = Field(min_length=1, max_length=2000)
+    especificacao_final: TextoMarkdown = Field(default="", max_length=1000)
     passos: list[PassoMontagem] = Field(min_length=1, max_length=100)
     revisao: int = Field(ge=0)
     composicao_ativa: bool = False
 
+    @field_validator("descricao_produto")
+    @classmethod
+    def validar_descricao(cls, value: str) -> str:
+        """Exige conteúdo sem remover indentação ou espaços do Markdown."""
+        if not value.strip():
+            raise ValueError("Informe a descrição do produto")
+        return value
+
     @model_validator(mode="after")
     def validar_vinculos(self) -> "FichaTecnicaInput":
-        if self.composicao_ativa and any(not (p.receita_base_id or p.ingrediente_id) for p in self.passos):
-            raise ValueError("Vincule cada etapa a uma receita-base ou material para calcular a composição")
+        if self.composicao_ativa and any(
+            not (p.receita_base_id or p.ingrediente_id) for p in self.passos
+        ):
+            raise ValueError(
+                "Vincule cada etapa a uma receita-base ou material para calcular a composição"
+            )
         return self
 
 

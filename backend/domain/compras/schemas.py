@@ -1,9 +1,10 @@
+from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
-from domain.estoque.schemas import IngredienteResponse, TIPOS_VALIDOS
+from domain.estoque.schemas import TIPOS_VALIDOS, IngredienteResponse
 
 
 class ItemCompraSugerido(BaseModel):
@@ -43,6 +44,7 @@ class ItemConfirmado(BaseModel):
     unidade: str
     quantidade: Decimal
     custo_unitario: Decimal
+    descricao_original: str | None = None
 
     @field_validator("tipo")
     @classmethod
@@ -64,6 +66,7 @@ class ConfirmarCompraRequest(BaseModel):
 
     itens: list[ItemConfirmado]
     estabelecimento: str | None = None
+    data_compra: date | None = None
 
     @field_validator("itens")
     @classmethod

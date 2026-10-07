@@ -11,6 +11,18 @@
 
 ## Revisão do piloto — outubro de 2026
 
+### Compras, produtos aprovados e histórico de preços — 7 de outubro de 2026
+
+Proposta aceita pelo usuário em 07/10/2026: vincular produtos comerciais a ingredientes/matérias-primas, cadastrar marcas, fabricantes e fornecedores aprovados, reutilizar a associação nas próximas leituras e guardar loja, data, marca e preço para comparação futura. Marca ou loja ainda não aprovada deve pedir revisão e permitir aprovação na hora. Os requisitos `CMP-01` a `CMP-04`, o exemplo do cupom e os critérios de aceite estão no [planejamento de compras, revisão 2](docs/compras-produtos-aprovados.md), extensão deste PRD. Primeiro incremento aprovado: CMP-01 a CMP-03, cadastro, reconhecimento revisado e histórico; comparação de locais de compra é futura. [Especificações e sequência](docs/compras/README.md). CMP-01 a CMP-03 implementados e validados localmente em 07/10/2026. [Relatório e evidências](docs/compras/implementacao-2026-10-07.md). CMP-04 permanece futuro; publicação e migração de produção são etapas separadas.
+
+### Produtos, finalização e catálogo — 7 de outubro de 2026
+
+Regra confirmada: brownie, pão e bolo precisam ter a transformação da receita-base em produto vendável descrita no cadastro de Produto, incluindo corte ou porcionamento quando aplicável, acabamento e embalagem. A condição de produto final não deve depender apenas de ativar o cálculo pela montagem. Os requisitos `PROD-01` e `PROD-02`, exemplos e decisões pendentes estão em [Produtos e catálogo](docs/produtos-finalizacao-catalogo.md), extensão deste PRD. A regra de finalização está confirmada; o escopo completo do cadastro e do catálogo permanece uma proposta, sem implementação nesta revisão.
+
+### Administração da plataforma — 7 de outubro de 2026
+
+Objetivo solicitado: conta de superusuário para acessar outras contas e painel para gestão e manutenção por interface. O catálogo `ADM-01` a `ADM-06`, critérios de aceite, dependências e sequência de entrega estão no [planejamento administrativo](docs/painel-admin.md), extensão deste PRD. ADM-01 foi publicado com autorização explícita, conta criada e acesso validado por HTTPS em 07/10/2026; as demais funções são propostas para decisão. [Evidências da entrega](docs/admin-entrega-2026-10-07.md).
+
 Esta revisão acrescenta requisitos ausentes do texto original. Detalhes, contratos e exemplos em [spec.md](docs/piloto-v2/spec.md), [contract.md](docs/piloto-v2/contract.md) e [plano/tickets](docs/piloto-v2/plan.md).
 
 | ID | Adição | Entrega |

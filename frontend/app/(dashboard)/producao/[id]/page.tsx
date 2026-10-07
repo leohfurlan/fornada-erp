@@ -12,6 +12,7 @@ import {
 import { useReceita } from "@/hooks/use-receitas";
 import { OpStatusBadge, STATUS_OP_LABEL } from "@/components/shared/op-status-badge";
 import { DecimalInput } from "@/components/shared/decimal-input";
+import { MarkdownContent } from "@/components/shared/markdown-content";
 import { formatDataHora, formatQuantidade } from "@/lib/utils";
 import type { ApiError, StatusOP } from "@/types";
 import type { AxiosError } from "axios";
@@ -107,11 +108,13 @@ export default function OrdemProducaoDetalhePage() {
     <div className="space-y-5 pb-8">
       {op.ficha_snapshot?.ficha.passos?.length ? <section className="space-y-3 rounded-xl border p-4">
         <h2 className="font-semibold">Ficha de montagem desta produção</h2>
-        <p className="text-sm text-muted-foreground">{op.ficha_snapshot.ficha.descricao_produto} · revisão {op.ficha_snapshot.revisao}</p>
+        <MarkdownContent>{op.ficha_snapshot.ficha.descricao_produto}</MarkdownContent>
+        <p className="text-xs text-muted-foreground">Revisão {op.ficha_snapshot.revisao}</p>
+        {op.ficha_snapshot.ficha.especificacao_final && <MarkdownContent>{op.ficha_snapshot.ficha.especificacao_final}</MarkdownContent>}
         <p className="text-sm">Quantidades por unidade do produto; consumo reservado considera todas as fornadas planejadas.</p>
         <ol className="space-y-2">{op.ficha_snapshot.ficha.passos.map((passo, i) => <li key={i} className="text-sm"><strong>{i + 1}. {passo.descricao}</strong> — {formatQuantidade(passo.quantidade)} {passo.unidade}
           {passo.quantidade_minima && <> ({formatQuantidade(passo.quantidade_minima)}–{formatQuantidade(passo.quantidade_maxima ?? "")} {passo.unidade})</>}
-          {passo.especificacao && <p>{passo.especificacao}</p>}{passo.instrucao && <p className="text-muted-foreground">{passo.instrucao}</p>}
+          {passo.especificacao && <MarkdownContent>{passo.especificacao}</MarkdownContent>}{passo.instrucao && <MarkdownContent>{passo.instrucao}</MarkdownContent>}
         </li>)}</ol>
       </section> : null}
       <Link href="/producao" className="flex items-center gap-1 text-sm text-muted-foreground">
