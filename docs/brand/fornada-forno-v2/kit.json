@@ -1,0 +1,41 @@
+{
+  "version": "2.0",
+  "status": "Identidade oficial aprovada: rosa e marrom com contorno",
+  "approved": true,
+  "approvedAt": "2026-10-07",
+  "date": "2026-10-07",
+  "colors": {
+    "rose": "#E7A0B3",
+    "brown": "#D8BDA6",
+    "outline": "#8E6D5A",
+    "ink": "#694B3D",
+    "cream": "#FFF7FA",
+    "primary": "#A34568",
+    "border": "#AD8870",
+    "white": "#FFFFFF"
+  },
+  "geometry": "Preservada da versão 1; apenas fill/stroke foram alterados.",
+  "contour": {
+    "logo": 18,
+    "favicon": 64,
+    "app": 36
+  },
+  "wordmark": {
+    "font": "Segoe UI Semibold",
+    "outlined": true
+  },
+  "runtimeFiles": [
+    "svg/logo-horizontal-primary.svg",
+    "svg/logo-horizontal-ink.svg",
+    "svg/logo-horizontal-white.svg",
+    "svg/simbolo-primary.svg",
+    "svg/simbolo-ink.svg",
+    "svg/simbolo-white.svg",
+    "favicon/favicon.svg",
+    "favicon/favicon.ico",
+    "app/apple-touch-icon.png",
+    "app/app-icon-192.png",
+    "app/app-icon-512.png",
+    "app/app-maskable-512.png"
+  ]
+}

@@ -46,10 +46,9 @@ export default function CadastroPage() {
     }
   };
 
-  if (whatsapp.data?.ativo) return <div className="min-h-screen flex items-center justify-center px-4 py-8"><WhatsAppAccess /></div>;
+  if (whatsapp.data?.ativo) return <WhatsAppAccess />;
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
-      <div className="w-full max-w-sm space-y-6">
+      <div className="space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Criar sua conta</h1>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -143,7 +142,6 @@ export default function CadastroPage() {
             Entrar
           </Link>
         </p>
-      </div>
     </div>
   );
 }

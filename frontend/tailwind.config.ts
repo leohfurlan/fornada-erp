@@ -11,6 +11,13 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        brand: {
+          rose: "hsl(var(--brand-rose))",
+          brown: "hsl(var(--brand-brown))",
+          outline: "hsl(var(--brand-outline))",
+          ink: "hsl(var(--brand-ink))",
+          cream: "hsl(var(--brand-cream))",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
