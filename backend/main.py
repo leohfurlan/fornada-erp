@@ -5,6 +5,8 @@ import sentry_sdk
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from slowapi.errors import RateLimitExceeded
 
 from api.routers import (
@@ -106,6 +108,8 @@ from api.routers import compras_comerciais
 app.include_router(compras_comerciais.router, prefix="/api/v1")
 app.include_router(whatsapp.router, prefix="/api/v1")
 app.include_router(ifood.router, prefix="/api/v1")
+from api.routers import central
+app.include_router(central.router, prefix="/api/v1")
 
 
 # Tratamento de erros de domínio — mensagens em português, sem jargão técnico
@@ -161,3 +165,10 @@ async def domain_error_handler(request: Request, exc: FornadaError) -> JSONRespo
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok", "version": "0.1.0"}
+
+
+@app.exception_handler(RequestValidationError)
+async def central_validation_handler(request: Request, exc: RequestValidationError):
+    if request.url.path.startswith("/api/v1/central/"):
+        return JSONResponse(status_code=422, content={"detail": "Solicitação inválida"})
+    return await request_validation_exception_handler(request, exc)

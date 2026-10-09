@@ -257,5 +257,6 @@ class ReconhecimentoCompras:
             identidade_nota=getattr(result, "identidade_nota", None),
             fonte=result.fonte,
             confianca=result.confianca,
+            avisos=getattr(result, "avisos", []),
             aviso_mock=result.fonte == "mock",
         )

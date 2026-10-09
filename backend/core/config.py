@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     debug: bool = False
     cors_origins: list[str] = []
 
+    # A central opera por API; não compartilha sessões de usuários.
+    central_enabled: bool = False
+    central_service_token: SecretStr = SecretStr("")
+    central_business_tenants: dict[UUID, UUID] = {}
+    central_local_ocr_enabled: bool = False
+
     @field_validator("ifood_client_id", "ifood_tenant_id", "ifood_test_merchant_id",
                      "ifood_notifications_since", mode="before")
     @classmethod
@@ -62,6 +68,11 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_production(self) -> "Settings":
         """Impede inicialização de produção com configuração insegura."""
+        if self.central_enabled and (
+            len(self.central_service_token.get_secret_value()) < 32
+            or not self.central_business_tenants
+        ):
+            raise ValueError("Configure credencial dedicada e vínculos de negócios da central")
         if self.ifood_poll_interval_seconds < 30:
             raise ValueError("O intervalo de consulta iFood deve ser de pelo menos 30 segundos")
         if self.ifood_notifications_enabled and (
