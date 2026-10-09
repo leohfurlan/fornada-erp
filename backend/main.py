@@ -23,6 +23,7 @@ from api.routers import (
 )
 from core.config import settings
 from api.routers import whatsapp
+from api.routers import ifood
 from core.logging import configure_logging
 from core.rate_limit import limiter
 from domain.exceptions import (
@@ -104,6 +105,7 @@ app.include_router(compras.router, prefix="/api/v1")
 from api.routers import compras_comerciais
 app.include_router(compras_comerciais.router, prefix="/api/v1")
 app.include_router(whatsapp.router, prefix="/api/v1")
+app.include_router(ifood.router, prefix="/api/v1")
 
 
 # Tratamento de erros de domínio — mensagens em português, sem jargão técnico

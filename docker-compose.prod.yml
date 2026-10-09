@@ -45,6 +45,18 @@ services:
       DEBUG: "false"
       GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
+      IFOOD_ENABLED: ${IFOOD_ENABLED:-false}
+      IFOOD_MODE: ${IFOOD_MODE:-test}
+      IFOOD_CLIENT_ID: ${IFOOD_CLIENT_ID:-}
+      IFOOD_CLIENT_SECRET: ${IFOOD_CLIENT_SECRET:-}
+      IFOOD_TENANT_ID: ${IFOOD_TENANT_ID:-}
+      IFOOD_TEST_MERCHANT_ID: ${IFOOD_TEST_MERCHANT_ID:-}
+      IFOOD_TEST_MERCHANT_NAME: ${IFOOD_TEST_MERCHANT_NAME:-}
+      IFOOD_POLL_INTERVAL_SECONDS: ${IFOOD_POLL_INTERVAL_SECONDS:-30}
+      IFOOD_NOTIFICATIONS_ENABLED: ${IFOOD_NOTIFICATIONS_ENABLED:-false}
+      IFOOD_NOTIFICATIONS_SINCE: ${IFOOD_NOTIFICATIONS_SINCE:-}
+      IFOOD_WHATSAPP_ENABLED: ${IFOOD_WHATSAPP_ENABLED:-false}
+      IFOOD_WHATSAPP_PHONE: ${IFOOD_WHATSAPP_PHONE:-}
     depends_on:
       db:
         condition: service_healthy
@@ -67,6 +79,19 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+  ifood:
+    profiles: [ifood]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    environment: *backend_environment
+    command: python -m scripts.monitorar_ifood
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 192m
+    pids_limit: 64
   frontend:
     build:
       context: ./frontend
