@@ -1,6 +1,7 @@
 """OCR local primeiro; extração de visão quando texto não basta."""
 
 import asyncio
+import os
 import re
 import subprocess
 import tempfile
@@ -49,6 +50,56 @@ def parse_receipt_text(text: str) -> ResultadoOCR | None:
     return result if not result.avisos else None
 
 
+def parse_partial_receipt_text(text: str) -> ResultadoOCR | None:
+    """Recognize split NFC-e item rows; never infer a missing receipt total."""
+    detail = re.compile(
+        rf"^[\s'’.,:;-]*({_NUMBER})\s+(kg|g|mg|l|ml|un|und|pct|cx)\s+"
+        rf"(?:[xX×]\s*)?({_NUMBER})\s+({_NUMBER})$",
+        re.IGNORECASE,
+    )
+    heading = re.compile(r"^\s*\d{3,14}\s+([A-Za-zÀ-ÿ].+)$")
+    items = []
+    description = None
+    for line in text.splitlines():
+        line = line.strip()
+        header = heading.fullmatch(line)
+        if header:
+            description = header[1]
+            continue
+        values = detail.fullmatch(line)
+        if values and description:
+            quantity, unit, price, total = values.groups()
+            items.append(
+                ItemOCR(
+                    description,
+                    Decimal(quantity.replace(",", ".")),
+                    unit.lower(),
+                    Decimal(price.replace(",", ".")),
+                    Decimal(total.replace(",", ".")),
+                )
+            )
+            description = None
+        elif description and re.match(r"^[A-Za-zÀ-ÿ]", line):
+            description += " " + line
+        elif line:
+            description = None
+    if not items:
+        return None
+    try:
+        return validate_receipt(
+            ResultadoOCR(
+                items,
+                None,
+                None,
+                None,
+                fonte="tesseract",
+                avisos=["Leitura parcial do cupom: confira a foto, todos os itens, loja e data."],
+            )
+        )
+    except ValidationError:
+        return None
+
+
 class TesseractTextExtractor:
     async def extract(self, image: bytes) -> str:
         def run():
@@ -59,6 +110,7 @@ class TesseractTextExtractor:
                     ["tesseract", str(path), "stdout", "-l", "por", "--psm", "6"],
                     check=True,
                     capture_output=True,
+                    env={**os.environ, "OMP_THREAD_LIMIT": "1"},
                     timeout=15,
                 )
                 return result.stdout.decode("utf-8", errors="replace")[:100000]
@@ -79,5 +131,8 @@ class HybridReceiptExtractor:
         parsed = parse_receipt_text(text)
         if parsed is not None:
             return parsed
+        partial = parse_partial_receipt_text(text)
+        if partial is not None:
+            return partial
         # Nenhum item parcial é mesclado: a visão relê o documento inteiro.
         return validate_receipt(await self.vision.processar_imagem(image_bytes, mime_type))
