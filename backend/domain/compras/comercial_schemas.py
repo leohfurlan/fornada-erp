@@ -312,8 +312,8 @@ class LeituraCompra(ReconhecerResponse):
     identidade_confirmada: bool = False
     fonte: str
     confianca: float | None
-    aviso_mock: bool
     avisos: list[str] = Field(default_factory=list)
+    aviso_mock: bool
 
 
 class CompraResumo(BaseModel):
