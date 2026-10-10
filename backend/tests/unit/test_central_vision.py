@@ -95,3 +95,15 @@ async def test_provider_uses_bounded_single_attempt_and_minimal_thinking(monkeyp
     )
     result = await CentralVisionExtractor(settings).processar_imagem(b"synthetic")
     assert len(calls) == 1 and len(result.itens) == 1
+
+
+def test_repeated_lines_count_is_checked_without_inventing_an_item():
+    result = parse_vision(payload(quantidade_itens=2))
+    assert len(result.itens) == 1
+    assert any("2 itens" in warning for warning in result.avisos)
+
+
+def test_non_food_category_is_preserved_for_approval():
+    data = json.loads(payload())
+    data["itens"][0]["tipo_material"] = "descartavel"
+    assert parse_vision(json.dumps(data)).itens[0].tipo_material == "descartavel"

@@ -107,3 +107,21 @@ def test_multiple_exact_products_require_disambiguation():
     ]
     with pytest.raises(ValidationError):
         propose_purchase(reading(), products, [material], [])
+
+
+def test_repeated_lines_propose_one_catalog_entry_with_all_quantities_and_discounts():
+    r = reading()
+    r.itens = [r.itens[0].model_copy(deep=True) for _ in range(4)]
+    for index, item in enumerate(r.itens):
+        item.indice = index
+        item.preco_unitario = Decimal("6.29")
+        item.desconto_item = Decimal(".81")
+        item.preco_total = Decimal("5.48")
+        item.tipo_observado = "embalagem"
+    r.total_nota = Decimal("21.92")
+    proposal = propose_purchase(r, [], [], [])
+    assert len(r.itens) == 4 and len(proposal.itens) == 1
+    assert proposal.itens[0].quantidade == 4
+    assert proposal.itens[0].desconto_item == Decimal("3.24")
+    assert proposal.itens[0].preco_total == Decimal("21.92")
+    assert proposal.itens[0].tipo == "embalagem"

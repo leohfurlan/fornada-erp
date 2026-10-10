@@ -313,7 +313,10 @@ async def extract(data: Extract, db: AsyncSession = Depends(get_db)) -> dict:
         if not (
             settings.central_public_ocr_enabled
             and prior.estado == "review"
-            and prior.leitura.get("fonte") == "unavailable"
+            and (
+                prior.leitura.get("fonte") == "unavailable"
+                or (prior.leitura.get("fonte") == "google_vision" and prior.leitura.get("avisos"))
+            )
             and not prior.revisada
             and not prior.resumo_hash
             and not prior.aprovacao_ref

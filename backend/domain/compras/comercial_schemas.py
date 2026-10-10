@@ -253,6 +253,9 @@ class ItemObservado(Contrato):
     preco_unitario: Decimal | None = None
     preco_total: Decimal | None = None
     desconto_item: Decimal | None = None
+    tipo_observado: Literal["ingrediente", "embalagem", "insumo", "descartavel", "outro"] | None = (
+        None
+    )
     marca_observada: str | None = None
     fabricante_observado: str | None = None
     variante_observada: str | None = None

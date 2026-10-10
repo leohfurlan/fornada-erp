@@ -1,5 +1,6 @@
 """Turn a complete reading into an approval proposal, without writing the catalog."""
 
+import json
 from decimal import ROUND_HALF_UP, Decimal
 
 from domain.compras.comercial_schemas import (
@@ -109,7 +110,7 @@ def propose_purchase(reading, products, materials, suppliers):
                 ingrediente_id=material.id if material else None,
                 criar_novo=material is None,
                 nome=material.nome if material else item.descricao[:200],
-                tipo=material.tipo if material else "ingrediente",
+                tipo=material.tipo if material else (item.tipo_observado or item.tipo_sugerido),
                 unidade_principal=principal,
                 descricao_original=item.descricao,
                 quantidade=item.quantidade,
@@ -135,6 +136,31 @@ def propose_purchase(reading, products, materials, suppliers):
                 guardar_vinculo=True,
             )
         )
+    # Reading retains every fiscal line; identical proposal rows share one new catalog entry.
+    grouped = {}
+    for item in items:
+        key = json.dumps(
+            item.model_dump(mode="json", exclude={"quantidade", "desconto_item", "preco_total"}),
+            sort_keys=True,
+        )
+        if key not in grouped:
+            grouped[key] = item
+            continue
+        previous = grouped[key]
+        merged = previous.model_dump()
+        for field in ("quantidade", "desconto_item", "preco_total"):
+            merged[field] += getattr(item, field)
+        combined = ItemRevisado.model_validate(merged)
+        expected = (
+            combined.quantidade * combined.custo_unitario - combined.desconto_item
+        ).quantize(Decimal(".01"), rounding=ROUND_HALF_UP)
+        if expected != combined.preco_total:
+            fail("Linhas repetidas exigem revisão do arredondamento.")
+        grouped[key] = combined
+    items = list(grouped.values())
+    new_names = [normalizar_descricao(i.nome) for i in items if i.criar_novo]
+    if len(new_names) != len(set(new_names)):
+        fail("Novos materiais repetidos com condições diferentes exigem revisão.")
     if sum((i.preco_total for i in items), Decimal(0)) != reading.total_nota:
         fail("A soma dos itens difere do total do cupom.")
     return CompraRevisada(

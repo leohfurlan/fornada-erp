@@ -23,6 +23,7 @@ class ItemOCR:
     gtin: str | None = None
     desconto_item: Decimal | None = None
     campos_pendentes: list[str] = field(default_factory=list)
+    tipo_material: str | None = None
 
 
 @dataclass
