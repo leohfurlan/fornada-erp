@@ -38,7 +38,7 @@ def test_split_receipt_lines_prefill_without_inventing_receipt_total():
     from infrastructure.ocr.hybrid import parse_partial_receipt_text
 
     result = parse_partial_receipt_text(
-        "123456 COBERTURA EM BARRA\n' 1 UN 35,99000 35,99\nTOTAL ILEGIVEL"
+        "123456 COBERTURA EM BARRA\n1,01K6\n' 1 UN 35,99000 35,99\nTOTAL ILEGIVEL"
     )
     assert result and result.fonte == "tesseract"
     assert result.itens[0].quantidade == Decimal("1")
@@ -48,10 +48,15 @@ def test_split_receipt_lines_prefill_without_inventing_receipt_total():
     assert len(result.avisos) >= 2
 
 
-def test_split_receipt_rejects_inconsistent_item_amounts():
+def test_split_receipt_keeps_inconsistent_item_amounts_pending():
     from infrastructure.ocr.hybrid import parse_partial_receipt_text
 
-    assert parse_partial_receipt_text("123456 FARINHA\n2 UN 10,00 10,00") is None
+    result = parse_partial_receipt_text("123456 FARINHA\n2 UN 10,00 10,00")
+    assert result and result.avisos and result.total is None
+    assert result.itens[0].quantidade is None
+    assert result.itens[0].preco_unitario is None
+    assert result.itens[0].preco_total is None
+    assert set(result.itens[0].campos_pendentes) == {"quantidade", "preco_unitario", "preco_total"}
 
 
 async def test_hybrid_returns_partial_rows_for_mandatory_review_without_public_vision():

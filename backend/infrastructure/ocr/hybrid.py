@@ -79,7 +79,9 @@ def parse_partial_receipt_text(text: str) -> ResultadoOCR | None:
                 )
             )
             description = None
-        elif description and re.match(r"^[A-Za-zÀ-ÿ]", line):
+        elif description and (
+            re.match(r"^[A-Za-zÀ-ÿ]", line) or re.fullmatch(r"\d[^\s]{0,29}", line)
+        ):
             description += " " + line
         elif line:
             description = None
@@ -97,7 +99,23 @@ def parse_partial_receipt_text(text: str) -> ResultadoOCR | None:
             )
         )
     except ValidationError:
-        return None
+        for item in items:
+            try:
+                validate_receipt(ResultadoOCR([item], None, None, None))
+            except ValidationError:
+                item.quantidade = item.preco_unitario = item.preco_total = None
+                item.campos_pendentes = ["quantidade", "preco_unitario", "preco_total"]
+        return ResultadoOCR(
+            items,
+            None,
+            None,
+            None,
+            fonte="tesseract",
+            avisos=[
+                "Leitura parcial: confira todos os itens, loja, data e total da nota.",
+                "Valores inconsistentes ficaram em branco para revisão; nenhum valor foi inferido.",
+            ],
+        )
 
 
 class TesseractTextExtractor:
