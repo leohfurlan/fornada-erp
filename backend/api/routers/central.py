@@ -16,8 +16,9 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
+from domain.compras.automatic import propose_purchase
 from domain.compras.comercial import ComprasComerciais
-from domain.compras.comercial_schemas import CompraRevisada, ItemRevisado, LeituraCompra
+from domain.compras.comercial_schemas import CompraRevisada, LeituraCompra
 from domain.compras.reconhecimento import ReconhecimentoCompras
 from domain.compras.repository import ComprasRepository
 from domain.estoque.repository import EstoqueRepository
@@ -26,6 +27,7 @@ from domain.exceptions import ValidationError
 from infrastructure.database.central_models import CentralCompra
 from infrastructure.database.models import Tenant, Usuario
 from infrastructure.database.session import get_db
+from infrastructure.ocr.central_vision import CentralVisionExtractor
 from infrastructure.ocr.hybrid import HybridReceiptExtractor
 
 
@@ -214,7 +216,12 @@ class NoPublicVision:
 
 
 def recognition(db: AsyncSession) -> ReconhecimentoCompras:
-    return ReconhecimentoCompras(commercial(db), HybridReceiptExtractor(NoPublicVision()))
+    extractor = (
+        CentralVisionExtractor(settings)
+        if settings.central_public_ocr_enabled
+        else HybridReceiptExtractor(NoPublicVision())
+    )
+    return ReconhecimentoCompras(commercial(db), extractor)
 
 
 @router.post("/resolve")
@@ -248,50 +255,19 @@ async def resolve(data: Identity, db: AsyncSession = Depends(get_db)) -> dict:
 
 
 async def prepare_known(db: AsyncSession, row: CentralCompra) -> None:
-    """Only exact approved bindings with a complete reconciled local reading."""
-    if row.leitura.get("fonte") != "tesseract":
-        return
-    reading = LeituraCompra.model_validate(row.leitura)
-    if (
-        reading.avisos
-        or reading.aviso_mock
-        or not reading.fornecedor_id
-        or not reading.total_nota
-        or not reading.itens
-    ):
-        return
-    if any(
-        item.pendencias
-        or not item.produto_id
-        or not item.ingrediente_id
-        or item.reconhecimento not in {"gtin_confirmado", "descricao", "codigo_loja"}
-        for item in reading.itens
-    ):
+    """Prepare catalog changes and stock receipt for explicit recipient approval."""
+    if row.leitura.get("fonte") not in {"tesseract", "google_vision"}:
         return
     try:
-        reviewed = CompraRevisada(
-            itens=[
-                ItemRevisado(
-                    ingrediente_id=item.ingrediente_id,
-                    produto_id=item.produto_id,
-                    produto_revisao=item.produto_revisao,
-                    descricao_original=item.descricao,
-                    quantidade=item.quantidade,
-                    unidade=item.unidade,
-                    custo_unitario=item.preco_unitario,
-                    preco_total=item.preco_total,
-                    desconto_item=item.desconto_item or 0,
-                    codigo_loja=item.codigo_loja,
-                )
-                for item in reading.itens
-            ],
-            fornecedor_id=reading.fornecedor_id,
-            estabelecimento=reading.estabelecimento,
-            data_compra=reading.data_compra,
-            total_nota=reading.total_nota,
-            origem="web_ocr",
+        reading = LeituraCompra.model_validate(row.leitura)
+        service = commercial(db)
+        reviewed = propose_purchase(
+            reading,
+            await service.repo.produtos(row.tenant_id),
+            await service.estoque.listar(row.tenant_id),
+            await service.repo.fornecedores(row.tenant_id),
         )
-        preview = await commercial(db).prever(row.tenant_id, reviewed)
+        preview = await service.prever(row.tenant_id, reviewed)
         if (
             not preview.pode_confirmar
             or preview.duplicidade
@@ -300,7 +276,7 @@ async def prepare_known(db: AsyncSession, row: CentralCompra) -> None:
             return
         row.revisada, row.previa = reviewed.model_dump(mode="json"), preview.model_dump(mode="json")
         row.resumo_hash = digest({"reviewed": row.revisada, "preview": row.previa})
-        row.revisao, row.estado = 2, "awaiting_approval"
+        row.revisao, row.estado = (row.revisao or 1) + 1, "awaiting_approval"
     except (ValueError, ValidationError):
         return
 
@@ -334,9 +310,19 @@ async def extract(data: Extract, db: AsyncSession = Depends(get_db)) -> dict:
     if prior:
         if prior.usuario_id != user.id or prior.conversation_id != data.conversation_id:
             raise HTTPException(409, "Cupom precisa de revisão no atendimento")
-        return view(prior)
+        if not (
+            settings.central_public_ocr_enabled
+            and prior.estado == "review"
+            and prior.leitura.get("fonte") == "unavailable"
+            and not prior.revisada
+            and not prior.resumo_hash
+            and not prior.aprovacao_ref
+            and not prior.operation_id
+            and not prior.resultado
+        ):
+            return view(prior)
     reading: dict
-    if settings.central_local_ocr_enabled:
+    if settings.central_local_ocr_enabled or settings.central_public_ocr_enabled:
         try:
             extracted = await recognition(db).ler(user.tenant_id, content, data.mime)
             if extracted.aviso_mock or extracted.fonte == "mock":
@@ -345,7 +331,7 @@ async def extract(data: Extract, db: AsyncSession = Depends(get_db)) -> dict:
         except ValidationError:
             reading = {
                 "itens": [],
-                "avisos": ["Revise o cupom no atendimento; leitura local incompleta."],
+                "avisos": ["Revise o cupom no atendimento; leitura incompleta ou indisponível."],
                 "fonte": "unavailable",
             }
     else:
@@ -354,7 +340,7 @@ async def extract(data: Extract, db: AsyncSession = Depends(get_db)) -> dict:
             "avisos": ["Leitura local ainda não habilitada; revisão humana necessária."],
             "fonte": "unavailable",
         }
-    row = CentralCompra(
+    row = prior or CentralCompra(
         tenant_id=user.tenant_id,
         business_id=data.business_id,
         usuario_id=user.id,
@@ -365,6 +351,10 @@ async def extract(data: Extract, db: AsyncSession = Depends(get_db)) -> dict:
         leitura=reading,
         expira_em=datetime.now(UTC) + timedelta(hours=24),
     )
+    if prior:
+        row.leitura = reading
+        row.revisao += 1
+        row.expira_em = datetime.now(UTC) + timedelta(hours=24)
     db.add(row)
     await prepare_known(db, row)
     await db.commit()

@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     central_service_token: SecretStr = SecretStr("")
     central_business_tenants: dict[UUID, UUID] = {}
     central_local_ocr_enabled: bool = False
+    central_public_ocr_enabled: bool = False
+    central_ocr_model: Literal["gemma-4-31b-it", "gemma-4-26b-a4b-it"] = "gemma-4-31b-it"
 
     @field_validator("ifood_client_id", "ifood_tenant_id", "ifood_test_merchant_id",
                      "ifood_notifications_since", mode="before")
