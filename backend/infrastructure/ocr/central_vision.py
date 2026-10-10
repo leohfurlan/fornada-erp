@@ -102,12 +102,18 @@ class CentralVisionExtractor:
 
             with genai.Client(
                 api_key=self.settings.google_ai_api_key,
-                http_options=types.HttpOptions(timeout=45000),
+                http_options=types.HttpOptions(
+                    timeout=45000, retry_options=types.HttpRetryOptions(attempts=1)
+                ),
             ) as client:
                 response = client.models.generate_content(
                     model=self.settings.central_ocr_model,
                     contents=[types.Part.from_bytes(data=image_bytes, mime_type=mime_type), PROMPT],
-                    config=types.GenerateContentConfig(temperature=0, max_output_tokens=8192),
+                    config=types.GenerateContentConfig(
+                        temperature=0,
+                        max_output_tokens=8192,
+                        thinking_config=types.ThinkingConfig(thinking_level="minimal"),
+                    ),
                 )
                 return parse_vision(response.text or "")
 

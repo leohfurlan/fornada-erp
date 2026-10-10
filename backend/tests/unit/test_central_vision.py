@@ -62,3 +62,36 @@ async def test_disabled_vision_never_calls_provider():
         await CentralVisionExtractor(
             SimpleNamespace(central_public_ocr_enabled=False)
         ).processar_imagem(b"image")
+
+
+@pytest.mark.asyncio
+async def test_provider_uses_bounded_single_attempt_and_minimal_thinking(monkeypatch):
+    from google import genai
+
+    calls = []
+
+    class Client:
+        def __init__(self, **kwargs):
+            assert kwargs["http_options"].timeout == 45000
+            assert kwargs["http_options"].retry_options.attempts == 1
+            self.models = self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def generate_content(self, **kwargs):
+            calls.append(kwargs)
+            assert kwargs["config"].thinking_config.thinking_level.lower() == "minimal"
+            return SimpleNamespace(text=payload())
+
+    monkeypatch.setattr(genai, "Client", Client)
+    settings = SimpleNamespace(
+        central_public_ocr_enabled=True,
+        google_ai_api_key="synthetic",
+        central_ocr_model="gemma-4-26b-a4b-it",
+    )
+    result = await CentralVisionExtractor(settings).processar_imagem(b"synthetic")
+    assert len(calls) == 1 and len(result.itens) == 1
