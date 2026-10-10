@@ -13,6 +13,7 @@ from domain.compras.comercial_schemas import (
     LeituraCompra,
     ReconhecerResponse,
 )
+from domain.compras.extraction import ReceiptExtractor
 from domain.compras.identificadores import (
     normalizar_descricao,
     validar_cnpj,
@@ -22,7 +23,6 @@ from domain.compras.identificadores import (
 )
 from domain.compras.matching import IngredienteRef, sugerir_match
 from domain.exceptions import ValidationError
-from domain.compras.extraction import ReceiptExtractor
 
 
 def data_lida(value: str | None) -> date | None:
