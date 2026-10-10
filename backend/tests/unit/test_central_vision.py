@@ -107,3 +107,36 @@ def test_non_food_category_is_preserved_for_approval():
     data = json.loads(payload())
     data["itens"][0]["tipo_material"] = "descartavel"
     assert parse_vision(json.dumps(data)).itens[0].tipo_material == "descartavel"
+
+
+@pytest.mark.asyncio
+async def test_visual_reading_receives_local_transcription_without_logging(monkeypatch):
+    from google import genai
+
+    class Text:
+        async def extract(self, image):
+            return "synthetic repeated row\nsynthetic repeated row"
+
+    class Client:
+        def __init__(self, **kwargs):
+            self.models = self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def generate_content(self, **kwargs):
+            assert kwargs["contents"][1].count("synthetic repeated row") == 2
+            assert "<receipt_text>" in kwargs["contents"][1]
+            return SimpleNamespace(text=payload())
+
+    monkeypatch.setattr(genai, "Client", Client)
+    settings = SimpleNamespace(
+        central_public_ocr_enabled=True,
+        google_ai_api_key="synthetic",
+        central_ocr_model="gemma-4-26b-a4b-it",
+    )
+    result = await CentralVisionExtractor(settings, Text()).processar_imagem(b"synthetic")
+    assert not result.avisos
