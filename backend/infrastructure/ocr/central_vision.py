@@ -17,6 +17,7 @@ Retorne somente JSON, sem markdown, com estas chaves:
 "unidade_conteudo":null,"codigo_loja":null,"gtin":null}],
 "total":null,"estabelecimento":null,"data":null,"cnpj":null,"identidade_nota":null}
 Inclua TODOS os itens. Use números JSON decimais e data DD/MM/AAAA.
+Omita chaves com valor null para compactar a resposta.
 Campos ausentes ou ilegíveis permanecem null. Não invente marca, fabricante,
 quantidade, preço, total ou desconto. Não calcule um valor ilegível a partir dos demais.
 Separe quantidade/unidade fiscal de conteúdo/unidade da embalagem: 1 un de 1,01 kg
@@ -145,7 +146,7 @@ class CentralVisionExtractor:
             with genai.Client(
                 api_key=self.settings.google_ai_api_key,
                 http_options=types.HttpOptions(
-                    timeout=45000, retry_options=types.HttpRetryOptions(attempts=1)
+                    timeout=90000, retry_options=types.HttpRetryOptions(attempts=1)
                 ),
             ) as client:
                 response = client.models.generate_content(

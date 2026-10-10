@@ -72,7 +72,7 @@ async def test_provider_uses_bounded_single_attempt_and_minimal_thinking(monkeyp
 
     class Client:
         def __init__(self, **kwargs):
-            assert kwargs["http_options"].timeout == 45000
+            assert kwargs["http_options"].timeout == 90000
             assert kwargs["http_options"].retry_options.attempts == 1
             self.models = self
 

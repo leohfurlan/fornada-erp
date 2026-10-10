@@ -343,6 +343,9 @@ async def extract(data: Extract, db: AsyncSession = Depends(get_db)) -> dict:
             "avisos": ["Leitura local ainda não habilitada; revisão humana necessária."],
             "fonte": "unavailable",
         }
+    if prior and reading.get("fonte") == "unavailable":
+        # A failed provider retry must not erase an earlier readable draft.
+        return view(prior)
     row = prior or CentralCompra(
         tenant_id=user.tenant_id,
         business_id=data.business_id,
