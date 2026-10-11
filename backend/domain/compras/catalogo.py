@@ -18,6 +18,7 @@ from domain.compras.comercial_schemas import (
     VinculoResponse,
 )
 from domain.compras.repository import ComprasRepository
+from domain.compras.review_errors import PurchaseReviewError
 from domain.estoque.service import EstoqueService
 from domain.estoque.unidades import converter_para_principal
 from domain.exceptions import ConflictError, ValidationError
@@ -45,12 +46,10 @@ class CatalogoCompras:
             )
         except ValidationError:
             if data.fator_para_principal is None:
-                raise ValidationError(
-                    "Informe a conversão do conteúdo para a unidade do material."
-                ) from None
+                raise PurchaseReviewError("content_conversion_required") from None
             return data.fator_para_principal
         if data.fator_para_principal is not None and data.fator_para_principal != exato:
-            raise ValidationError("A conversão informada difere da equivalência já confirmada.")
+            raise PurchaseReviewError("content_conversion_conflict")
         return exato
 
     async def produto_response(self, tenant: UUID, row: ProdutoCompra) -> ProdutoResponse:

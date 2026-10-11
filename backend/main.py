@@ -169,6 +169,9 @@ async def health() -> dict:
 
 @app.exception_handler(RequestValidationError)
 async def central_validation_handler(request: Request, exc: RequestValidationError):
+    if request.url.path == "/api/v1/central/review":
+        from domain.compras.review_errors import detail, schema_issues
+        return JSONResponse(status_code=422, content={"detail": detail(schema_issues(exc.errors()))})
     if request.url.path.startswith("/api/v1/central/"):
         return JSONResponse(status_code=422, content={"detail": "Solicitação inválida"})
     return await request_validation_exception_handler(request, exc)

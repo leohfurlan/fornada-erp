@@ -4,7 +4,7 @@ import re
 import unicodedata
 from decimal import Decimal
 
-from domain.exceptions import ValidationError
+from domain.compras.review_errors import PurchaseReviewError
 
 
 def validar_gtin(value: str | None) -> str | None:
@@ -68,7 +68,7 @@ def validar_evidencia(
     """Bloqueia contradição explícita com variante ou conteúdo confirmado."""
     lida, aprovada = variante_texto(descricao), variante_texto(variante or "")
     if lida and aprovada and lida != aprovada:
-        raise ValidationError("A variante do cupom difere do produto. Confira o vínculo.")
+        raise PurchaseReviewError("variant_mismatch")
     measures = re.findall(r"(\d+(?:[.,]\d+)?)\s*(kg|mg|ml|g|l)\b", descricao.lower())
     factors = {
         "g": ("peso", Decimal("1")),
@@ -84,6 +84,4 @@ def validar_evidencia(
                 factors[unit][0] != dimension
                 or Decimal(number.replace(",", ".")) * factors[unit][1] != conteudo * factor
             ):
-                raise ValidationError(
-                    "A embalagem do cupom difere do produto. Escolha a embalagem correta."
-                )
+                raise PurchaseReviewError("package_mismatch")

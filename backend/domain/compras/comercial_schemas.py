@@ -13,6 +13,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic_core import PydanticCustomError
 
 from domain.compras.identificadores import validar_cnpj, validar_gtin
 from domain.compras.schemas import ConfirmarCompraResponse
@@ -183,11 +184,11 @@ class ItemRevisado(Contrato):
         if self.tipo not in TIPOS_VALIDOS:
             raise ValueError("Tipo de material inválido.")
         if self.criar_novo == (self.ingrediente_id is not None):
-            raise ValueError("Escolha um material existente ou crie um novo.")
+            raise PydanticCustomError("material_selection_invalid", "Seleção de material inválida")
         if self.produto_id and (self.criar_novo or self.produto_novo or not self.produto_revisao):
-            raise ValueError("Escolha produto existente com revisão ou cadastre outro.")
+            raise PydanticCustomError("product_selection_invalid", "Seleção de produto inválida")
         if self.guardar_vinculo and self.aceitar_excecao:
-            raise ValueError("Compra excepcional não pode guardar uma aprovação permanente.")
+            raise PydanticCustomError("exception_link_conflict", "Vínculo excepcional inválido")
         return self
 
 
@@ -206,9 +207,9 @@ class CompraRevisada(Contrato):
     @model_validator(mode="after")
     def contexto_valido(self) -> "CompraRevisada":
         if self.fornecedor_id and self.fornecedor_novo:
-            raise ValueError("Escolha uma loja existente ou cadastre uma nova.")
+            raise PydanticCustomError("supplier_selection_invalid", "Seleção de loja inválida")
         if self.identidade_confirmada and not self.identidade_nota:
-            raise ValueError("Informe a identidade da nota para confirmá-la.")
+            raise PydanticCustomError("receipt_identity_required", "Identidade da nota ausente")
         return self
 
 
@@ -223,6 +224,7 @@ class ItemPrevia(BaseModel):
     custo_normalizado: Decimal
     preco_total: Decimal
     pendencias: list[str]
+    pendencias_codigos: list[str] = Field(default_factory=list)
 
 
 class Duplicidade(BaseModel):

@@ -21,6 +21,13 @@ from domain.compras.comercial import ComprasComerciais
 from domain.compras.comercial_schemas import CompraRevisada, LeituraCompra
 from domain.compras.reconhecimento import ReconhecimentoCompras
 from domain.compras.repository import ComprasRepository
+from domain.compras.review_errors import (
+    PurchaseReviewConflict,
+    PurchaseReviewError,
+    PurchaseReviewUnavailable,
+    detail,
+    issue,
+)
 from domain.estoque.repository import EstoqueRepository
 from domain.estoque.service import EstoqueService
 from domain.exceptions import ValidationError
@@ -392,19 +399,32 @@ async def catalog(data: Identity, db: AsyncSession = Depends(get_db)) -> dict:
 
 @router.post("/review")
 async def review(data: Review, db: AsyncSession = Depends(get_db)) -> dict:
-    user, row = await owned(db, data)
+    try:
+        user, row = await owned(db, data)
+    except HTTPException as exc:
+        if exc.status_code == 409:
+            raise HTTPException(409, detail([issue("proposal_expired")])) from None
+        raise
     if row.revisao != data.expected_version or row.estado not in {
         "review",
         "awaiting_approval",
         "approved",
     }:
-        raise HTTPException(409, "Compra mudou; atualize a revisão")
+        raise HTTPException(409, detail([issue("proposal_version_changed")]))
     # A duplicate fiscal note never receives a silent override through the bot.
     if data.reviewed.confirmar_duplicidade:
-        raise HTTPException(422, "Confira a duplicidade diretamente no Fornada")
-    preview = await commercial(db).prever(user.tenant_id, data.reviewed)
+        raise HTTPException(422, detail([issue("duplicate_review_required")]))
+    try:
+        preview = await commercial(db).prever(user.tenant_id, data.reviewed)
+    except (PurchaseReviewError, PurchaseReviewConflict, PurchaseReviewUnavailable) as exc:
+        raise HTTPException(exc.status_code, detail([exc.issue])) from None
     if not preview.pode_confirmar:
-        raise HTTPException(409, "Revise os itens, unidades, produtos e aprovações")
+        errors = []
+        for result in preview.itens:
+            errors.extend(issue(code, result.indice) for code in result.pendencias_codigos)
+        if preview.duplicidade:
+            errors.append(issue("duplicate_review_required"))
+        raise HTTPException(422, detail(errors or [issue("review_invalid")]))
     row.revisada, row.previa = (
         data.reviewed.model_dump(mode="json"),
         preview.model_dump(mode="json"),
