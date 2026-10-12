@@ -18,6 +18,7 @@ from pydantic_core import PydanticCustomError
 from domain.compras.identificadores import validar_cnpj, validar_gtin
 from domain.compras.schemas import ConfirmarCompraResponse
 from domain.estoque.schemas import TIPOS_VALIDOS
+from domain.nomes import nome_cadastro
 
 Texto = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Quantidade = Annotated[Decimal, Field(gt=0, max_digits=16, decimal_places=8)]
@@ -40,6 +41,7 @@ class ProdutoDados(Contrato):
     gtin: str | None = None
 
     _gtin = field_validator("gtin")(validar_gtin)
+    _nome = field_validator("nome")(nome_cadastro)
 
     @field_validator("unidade_conteudo")
     @classmethod
@@ -66,6 +68,7 @@ class ProdutoEditar(Contrato):
     aprovado: bool | None = None
     fornecedores_aprovados: list[UUID] | None = Field(default=None, max_length=200)
     _gtin = field_validator("gtin")(validar_gtin)
+    _nome = field_validator("nome")(nome_cadastro)
 
     @model_validator(mode="after")
     def campos_obrigatorios(self):
@@ -88,6 +91,12 @@ class ProdutoResponse(ProdutoCriar):
     revisao: int
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("nome")
+    @classmethod
+    def _nome(cls, value: str) -> str:
+        """Legacy reads remain available until the reviewed cleanup is applied."""
+        return value
 
 
 class FornecedorCriar(Contrato):

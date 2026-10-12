@@ -59,7 +59,7 @@ class Input(BaseModel):
 class Identity(Input):
     business_id: UUID
     sender_phone: str = Field(pattern=r"^\+[1-9][0-9]{7,14}$")
-    operation: Literal["purchases.review", "stock.receive"]
+    operation: Literal["purchases.review", "stock.receive", "recipes.search", "recipes.read"]
     scope: dict | None = None
     resource_id: str | None = None
 
@@ -237,6 +237,23 @@ def recognition(db: AsyncSession) -> ReconhecimentoCompras:
 @router.post("/resolve")
 async def resolve(data: Identity, db: AsyncSession = Depends(get_db)) -> dict:
     user = await actor(db, data.business_id, phone=data.sender_phone, scope=data.scope)
+    if data.operation.startswith("recipes."):
+        from domain.receitas.repository import ReceitaRepository
+
+        if data.operation == "recipes.read":
+            try:
+                resource = UUID(data.resource_id or "")
+            except ValueError:
+                raise HTTPException(403, "Recurso nÃ£o autorizado") from None
+            if not await ReceitaRepository(db).buscar_por_id(resource, user.tenant_id):
+                raise HTTPException(403, "Recurso nÃ£o autorizado")
+        elif data.resource_id:
+            raise HTTPException(403, "Recurso nÃ£o autorizado")
+        return {
+            "decision": "ALLOWED", "principal_ref": str(user.id),
+            "scope": {"tenant_id": str(user.tenant_id), "company_id": None},
+            "synthetic": False,
+        }
     if data.resource_id:
         try:
             resource = UUID(data.resource_id)

@@ -2,6 +2,7 @@
 
 import { DecimalInput } from "@/components/shared/decimal-input";
 import type { ProdutoDados } from "@/types/compras";
+import { erroNome, nomeMaiusculo } from "@/lib/nomes";
 
 const input = "w-full rounded-lg border bg-background px-3 py-2.5 text-sm";
 export function ProdutoCompraFields({ value, onChange, prefix }: {
@@ -13,8 +14,15 @@ export function ProdutoCompraFields({ value, onChange, prefix }: {
       const labels = { nome: "Nome do produto na embalagem", marca: "Marca",
         fabricante: "Fabricante (se conhecido)", variante: "Variante (branco, ao leite...)" };
       return <div key={key}><label htmlFor={prefix + key} className="text-xs">{labels[key]}</label>
-        <input id={prefix + key} className={input} maxLength={200} value={value[key] ?? ""}
-          onChange={(e) => set({ [key]: e.target.value || (key === "fabricante" || key === "variante" ? null : "") })} />
+        <input id={prefix + key} className={input} maxLength={200} value={key === "nome" ? nomeMaiusculo(value.nome) : value[key] ?? ""}
+          aria-invalid={key === "nome" && !!erroNome(value.nome)}
+          onChange={(e) => {
+            const text = key === "nome" ? nomeMaiusculo(e.target.value) : e.target.value;
+            e.target.setCustomValidity(key === "nome" ? erroNome(text) ?? "" : "");
+            set({ [key]: text || (key === "fabricante" || key === "variante" ? null : "") });
+          }} />
+        {key === "nome" && <p className="text-xs text-muted-foreground">Nome em letras maiúsculas, sem emojis.</p>}
+        {key === "nome" && value.nome && erroNome(value.nome) && <p role="alert" className="text-xs text-destructive">{erroNome(value.nome)}</p>}
       </div>;
     })}
     <div className="grid grid-cols-2 gap-2">

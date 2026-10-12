@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { erroNome } from "@/lib/nomes";
 import Link from "next/link";
 import { ProdutoCompraFields } from "@/components/shared/produto-compra-fields";
 import { useCatalogoCompra, useFornecedoresCompra, useProdutosCompra, useVinculosCompra } from "@/hooks/use-compras-comerciais";
@@ -40,6 +41,8 @@ export function ProdutosAprovados({ ingredienteId }: { ingredienteId: string }) 
     setAprovado(p.aprovado); setLojas(p.fornecedores_aprovados); setAberto(true);
   }
   async function salvarProduto() {
+    const erroNomeProduto = erroNome(produto.nome);
+    if (erroNomeProduto) { setErro(erroNomeProduto); return; }
     const dados = { ...produto, aprovado, fornecedores_aprovados: lojas,
       ...(editando ? { revisao: editando.revisao } : { ingrediente_id: ingredienteId }) };
     if (await executar({ recurso: "produtos", id: editando?.id, dados })) {

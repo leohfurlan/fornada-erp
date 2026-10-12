@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { ProdutoCompraFields } from "@/components/shared/produto-compra-fields";
+import { erroNome } from "@/lib/nomes";
 import { useIngredientes } from "@/hooks/use-estoque";
 import { useFornecedoresCompra, useLerCompra, usePreverCompra, useProdutosCompra,
   useReconhecerCompra, useSalvarCompra } from "@/hooks/use-compras-comerciais";
@@ -147,6 +148,11 @@ export default function CompraComercialPage() {
   const assinatura = JSON.stringify(payload);
   async function conferir() {
     setErro("");
+    const nomeInvalido = incluidos.find((it) => it.modo_produto === "novo" && erroNome(it.produto_novo.nome));
+    if (nomeInvalido) {
+      setErro(erroNome(nomeInvalido.produto_novo.nome) ?? "Confira o nome do produto.");
+      return;
+    }
     const current = versao.current;
     try {
       const result = await prever.mutateAsync(payload);

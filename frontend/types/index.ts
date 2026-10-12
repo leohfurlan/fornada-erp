@@ -76,6 +76,7 @@ export interface CustoDetalhado {
 }
 
 export interface Receita {
+  versao?: number;
   tipo_cadastro?: "receita_base" | "produto";
   id: string;
   tenant_id: string;

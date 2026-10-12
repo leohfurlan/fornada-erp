@@ -110,6 +110,8 @@ app.include_router(whatsapp.router, prefix="/api/v1")
 app.include_router(ifood.router, prefix="/api/v1")
 from api.routers import central
 app.include_router(central.router, prefix="/api/v1")
+from api.routers import central_recipes
+app.include_router(central_recipes.router, prefix="/api/v1")
 
 
 # Tratamento de erros de domínio — mensagens em português, sem jargão técnico

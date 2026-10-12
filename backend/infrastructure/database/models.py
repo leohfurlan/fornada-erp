@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     Time,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -177,6 +178,7 @@ class Receita(TenantMixin, TimestampMixin, Base):
     modo_preparo: Mapped[str | None] = mapped_column(Text, nullable=True)
     ficha_tecnica: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     ficha_revisao: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
+    versao: Mapped[int] = mapped_column(Integer, server_default="1", nullable=False)
 
     ingredientes: Mapped[list["ReceitaIngrediente"]] = relationship(
         back_populates="receita", cascade="all, delete-orphan"
@@ -184,6 +186,19 @@ class Receita(TenantMixin, TimestampMixin, Base):
     etapas: Mapped[list["ReceitaEtapa"]] = relationship(
         back_populates="receita", cascade="all, delete-orphan", order_by="ReceitaEtapa.ordem"
     )
+
+
+class ReceitaVersao(TenantMixin, TimestampMixin, Base):
+    """Append-only saved recipe snapshots, scoped to the owning tenant."""
+
+    __tablename__ = "receita_versoes"
+    __table_args__ = (UniqueConstraint("tenant_id", "receita_id", "versao"),)
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    receita_id: Mapped[UUID] = mapped_column(ForeignKey("receitas.id"), index=True)
+    versao: Mapped[int] = mapped_column(Integer, nullable=False)
+    usuario_id: Mapped[UUID | None] = mapped_column(ForeignKey("usuarios.id"))
+    origem: Mapped[str] = mapped_column(String(30), nullable=False)
+    snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
 
 class ReceitaIngrediente(TimestampMixin, Base):

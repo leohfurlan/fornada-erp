@@ -17,6 +17,7 @@ from domain.receitas.calculos import (
     calcular_preco_recomendado_com_taxas,
     minutos_para_horas,
 )
+from domain.receitas.historico import HistoricoReceita
 from domain.receitas.repository import ReceitaRepository
 from domain.receitas.composicao import converter_quantidade
 from domain.estoque.unidades import converter_para_principal
@@ -39,7 +40,7 @@ class ReceitaService:
         self._repo = repo
         self._db = db
 
-    async def criar(self, tenant_id: UUID, data: CriarReceitaRequest) -> ReceitaResponse:
+    async def criar(self, tenant_id: UUID, data: CriarReceitaRequest, usuario_id: UUID | None = None) -> ReceitaResponse:
         """Cria receita e retorna com custo já calculado."""
         for item in data.ingredientes:
             ingrediente = await self._repo.buscar_ingrediente(item.ingrediente_id, tenant_id)
@@ -50,6 +51,7 @@ class ReceitaService:
             converter_para_principal(item.quantidade, item.unidade, ingrediente.unidade, ingrediente.unidades_alternativas)
 
         receita = await self._repo.criar(tenant_id, data)
+        await HistoricoReceita(self._db).inicial(receita.id, tenant_id, usuario_id)
 
         logger.info(
             "receita_criada",
@@ -72,7 +74,8 @@ class ReceitaService:
         return [await self._montar_response(r, tenant_id) for r in receitas]
 
     async def atualizar(
-        self, receita_id: UUID, tenant_id: UUID, data: AtualizarReceitaRequest
+        self, receita_id: UUID, tenant_id: UUID, data: AtualizarReceitaRequest,
+        usuario_id: UUID | None = None,
     ) -> ReceitaResponse:
         """Atualiza receita. Ingredientes/etapas substituem a lista inteira se enviados."""
         await self._repo.travar_composicao(tenant_id)
@@ -95,9 +98,13 @@ class ReceitaService:
                     )
                 converter_para_principal(item.quantidade, item.unidade, ingrediente.unidade, ingrediente.unidades_alternativas)
 
+        if data.versao is not None and data.versao != receita.versao:
+            raise ConflictError("Esta receita foi alterada. Recarregue antes de salvar.")
+        historico = HistoricoReceita(self._db)
+        await historico.inicial(receita_id, tenant_id, origem="base_anterior")
         campos_atualizaveis = data.model_dump(
             exclude_unset=True,
-            exclude={"ingredientes", "etapas"},
+            exclude={"ingredientes", "etapas", "versao"},
         )
         campos_simples = {
             k: v for k, v in campos_atualizaveis.items() if k != "preco_de_venda_real"
@@ -114,6 +121,8 @@ class ReceitaService:
             etapas=data.etapas,
         )
 
+        await historico.registrar(receita_id, tenant_id, usuario_id, "edicao")
+
         # Recarrega com relationships atualizados
         receita = await self._repo.buscar_por_id(receita_id, tenant_id)
         if not receita:
@@ -128,13 +137,14 @@ class ReceitaService:
         )
         return await self._montar_response(receita, tenant_id)
 
-    async def duplicar(self, receita_id: UUID, tenant_id: UUID) -> ReceitaResponse:
+    async def duplicar(self, receita_id: UUID, tenant_id: UUID, usuario_id: UUID | None = None) -> ReceitaResponse:
         """Duplica receita inteira (campos + ingredientes + etapas) com nome único."""
         original = await self._repo.buscar_por_id(receita_id, tenant_id)
         if not original:
             raise NotFoundError("Receita", str(receita_id))
 
         nova = await self._repo.duplicar(original, tenant_id)
+        await HistoricoReceita(self._db).inicial(nova.id, tenant_id, usuario_id, "copia")
 
         logger.info(
             "receita_duplicada",
@@ -316,6 +326,7 @@ class ReceitaService:
             ingredientes=ingredientes_resp,
             etapas=[e for e in receita.etapas],
             custo=custo_resp,
+            versao=receita.versao,
             tipo_cadastro="produto" if ficha.get("composicao_ativa") else "receita_base",
         )
 

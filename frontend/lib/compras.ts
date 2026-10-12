@@ -1,8 +1,9 @@
 import { isAxiosError } from "axios";
 import type { ItemLido, ItemObservado, ProdutoDados } from "@/types/compras";
+import { nomeMaiusculo } from "@/lib/nomes";
 
 export function produtoVazio(nome = ""): ProdutoDados {
-  return { nome, marca: "", fabricante: null, variante: null, conteudo_embalagem: "",
+  return { nome: nomeMaiusculo(nome), marca: "", fabricante: null, variante: null, conteudo_embalagem: "",
     unidade_conteudo: "kg", fator_para_principal: null, gtin: null };
 }
 export function dadosObservados(item: ItemLido): ItemObservado {
