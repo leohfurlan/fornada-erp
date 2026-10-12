@@ -1,5 +1,7 @@
 # F-PWA-01 — Implementação local em 12/10/2026
 
+Atualização posterior: commit `0ffee70`, push e deploy de produção concluídos em 12/10/2026 após autorização explícita. [Evidências da publicação](publicacao.md). O restante deste documento registra a etapa local anterior ao deploy; aceite Android real permanece pendente.
+
 Código implementado e validado localmente. Aceite nativo Android e publicação pendentes. [Spec](spec.md), [contrato](contract.md), [plano](plan.md). Escopo e divisão aprovados pelo usuário; alterações preexistentes e trabalho concorrente preservados. Sem commit, push ou deploy.
 
 ## Entrega
