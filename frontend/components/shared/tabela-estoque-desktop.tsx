@@ -16,6 +16,7 @@ import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, GripVertical, History, Pencil, RotateCcw } from "lucide-react";
 import { EstoqueBadge } from "@/components/shared/estoque-badge";
 import { MoneyDisplay } from "@/components/shared/money-display";
+import { custoReferencia } from "@/lib/custo-referencia";
 import { TIPOS_PRODUTO } from "@/lib/unidades";
 import { cn, formatDataHora, formatQuantidade } from "@/lib/utils";
 import type { Ingrediente } from "@/types";
@@ -132,10 +133,13 @@ export function TabelaEstoqueDesktop({ ingredientes }: TabelaEstoqueDesktopProps
       },
       {
         id: "custo_medio",
-        accessorKey: "custo_medio",
+        accessorFn: (item) => custoReferencia(item).valor,
         header: "Custo (R$)",
         size: 110,
-        cell: ({ getValue }) => <MoneyDisplay value={getValue() as string} size="sm" />,
+        cell: ({ row }) => {
+          const custo = custoReferencia(row.original);
+          return <span><MoneyDisplay value={custo.valor} size="sm" />/{custo.unidade}</span>;
+        },
         meta: { align: "right" } as const,
         sortingFn: numericSort,
       },

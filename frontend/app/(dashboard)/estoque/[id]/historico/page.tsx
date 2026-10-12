@@ -6,6 +6,7 @@ import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Sliders } from "lucide-rea
 import { useIngrediente, useMovimentacoesIngrediente } from "@/hooks/use-estoque";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { formatDataHora, formatQuantidade } from "@/lib/utils";
+import { referenciaCusto } from "@/lib/custo-referencia";
 import type { MovimentacaoEstoque } from "@/types";
 
 const ORIGEM_LABEL: Record<string, string> = {
@@ -37,6 +38,8 @@ export default function HistoricoIngredientePage() {
       </div>
     );
   }
+
+  const referencia = referenciaCusto(ingrediente.unidade, ingrediente.unidades_alternativas);
 
   return (
     <div className="space-y-5">
@@ -74,7 +77,7 @@ export default function HistoricoIngredientePage() {
                   <th className="px-3 py-2 text-left">Tipo</th>
                   <th className="px-3 py-2 text-left">Origem</th>
                   <th className="px-3 py-2 text-right">Quantidade</th>
-                  <th className="px-3 py-2 text-right">Custo unit.</th>
+                  <th className="px-3 py-2 text-right">Custo/{referencia.unidade}</th>
                 </tr>
               </thead>
               <tbody>
@@ -97,7 +100,7 @@ export default function HistoricoIngredientePage() {
                       />
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <MoneyDisplay value={m.custo_unitario} size="sm" />
+                      <MoneyDisplay value={Number(m.custo_unitario) * referencia.fator} size="sm" />
                     </td>
                   </tr>
                 ))}
@@ -128,8 +131,8 @@ export default function HistoricoIngredientePage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Custo unitário</span>
-                  <MoneyDisplay value={m.custo_unitario} size="sm" />
+                  <span>Custo por {referencia.unidade}</span>
+                  <MoneyDisplay value={Number(m.custo_unitario) * referencia.fator} size="sm" />
                 </div>
               </div>
             ))}

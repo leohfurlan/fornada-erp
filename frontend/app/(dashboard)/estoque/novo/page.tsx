@@ -88,12 +88,13 @@ export default function NovoIngredientePage() {
 
         <div className="space-y-1">
           <label className="text-sm font-medium">Unidade principal</label>
+          <p className="text-xs text-muted-foreground">Massa em kg, volume em litros e itens contáveis em unidades. Cadastre abaixo as embalagens e medidas usadas nas compras e receitas.</p>
           <Controller
             name="unidade"
             control={control}
             rules={{ required: "Selecione a unidade" }}
             render={({ field }) => (
-              <UnidadeSelect tipo="medida" value={field.value} onChange={field.onChange} />
+              <UnidadeSelect somenteBase tipo="medida" value={field.value} onChange={field.onChange} />
             )}
           />
           {errors.unidade && (
@@ -125,7 +126,7 @@ export default function NovoIngredientePage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Quantidade</label>
+              <label className="text-xs text-muted-foreground">Quantidade ({watch("unidade") || "unidade principal"})</label>
               <Controller
                 name="estoque_inicial"
                 control={control}
@@ -135,7 +136,7 @@ export default function NovoIngredientePage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Custo por unidade (R$)</label>
+              <label className="text-xs text-muted-foreground">Custo por {watch("unidade") || "unidade principal"} (R$)</label>
               <Controller
                 name="custo_inicial"
                 control={control}
