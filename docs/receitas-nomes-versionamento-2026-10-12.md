@@ -1,5 +1,7 @@
 # Validação de nomes e versionamento de receitas
 
+Atualização: commit, push e deploy foram autorizados e concluídos posteriormente em 12/10/2026. Resultado de produção em [Publicação de receitas](deploy-receitas-2026-10-12.md). O restante deste documento preserva o checkpoint de implementação local.
+
 Data: 12/10/2026. Implementação e validação locais, sem commit, push, deploy, ativação ou envio externo.
 
 ## Resultado
