@@ -12,10 +12,12 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Header, HTTPException
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ValidationError as SchemaError
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
+from domain.compras import conversation as dialogue
 from domain.compras.automatic import propose_purchase
 from domain.compras.comercial import ComprasComerciais
 from domain.compras.comercial_schemas import CompraRevisada, LeituraCompra
@@ -79,6 +81,27 @@ class Review(Proposal):
     renew_expired: bool = Field(default=False, strict=True)
     expected_version: int = Field(ge=1)
     reviewed: CompraRevisada
+
+
+class ConversationDraft(Proposal):
+    operation: Literal["purchases.review"]
+    action: Literal["read", "patch", "lookup"]
+    expected_version: int | None = Field(default=None, ge=1, strict=True)
+    incoming_message_id: UUID | None = None
+    edits: list[dialogue.Edit] = Field(default_factory=list, max_length=40)
+
+    @model_validator(mode="after")
+    def action_fields(self):
+        if self.action == "patch":
+            if self.expected_version is None or not self.incoming_message_id or not self.edits:
+                raise ValueError("Mensagem, versão e alterações obrigatórias")
+        elif self.edits or self.expected_version is not None:
+            raise ValueError("Leitura e consulta não recebem alterações")
+        if self.action == "lookup" and not self.incoming_message_id:
+            raise ValueError("Mensagem obrigatória")
+        if self.action == "read" and self.incoming_message_id is not None:
+            raise ValueError("Leitura não recebe mensagem")
+        return self
 
 
 class Decision(Proposal):
@@ -210,7 +233,7 @@ def view(row: CentralCompra) -> dict:
         "version": row.revisao,
         "state": row.estado,
         "reading": row.leitura,
-        "reviewed": row.revisada,
+        "reviewed": dialogue.reviewed(row.dialogo) if row.dialogo else row.revisada,
         "preview": row.previa,
         "summary_hash": row.resumo_hash,
         "result": row.resultado,
@@ -244,13 +267,14 @@ async def resolve(data: Identity, db: AsyncSession = Depends(get_db)) -> dict:
             try:
                 resource = UUID(data.resource_id or "")
             except ValueError:
-                raise HTTPException(403, "Recurso nÃ£o autorizado") from None
+                raise HTTPException(403, "Recurso não autorizado") from None
             if not await ReceitaRepository(db).buscar_por_id(resource, user.tenant_id):
-                raise HTTPException(403, "Recurso nÃ£o autorizado")
+                raise HTTPException(403, "Recurso não autorizado")
         elif data.resource_id:
-            raise HTTPException(403, "Recurso nÃ£o autorizado")
+            raise HTTPException(403, "Recurso não autorizado")
         return {
-            "decision": "ALLOWED", "principal_ref": str(user.id),
+            "decision": "ALLOWED",
+            "principal_ref": str(user.id),
             "scope": {"tenant_id": str(user.tenant_id), "company_id": None},
             "synthetic": False,
         }
@@ -417,6 +441,108 @@ async def catalog(data: Identity, db: AsyncSession = Depends(get_db)) -> dict:
     }
 
 
+async def conversation_snapshot(db, user, row):
+    dialog = dialogue.seed(row)
+    issues = []
+    try:
+        value = CompraRevisada.model_validate(dialogue.reviewed(dialog))
+        preview = await commercial(db).prever(user.tenant_id, value)
+        for result in preview.itens:
+            issues.extend(issue(code, result.indice) for code in result.pendencias_codigos)
+        if preview.duplicidade:
+            issues.append(issue("duplicate_review_required"))
+        ready = preview.pode_confirmar and not issues
+        if not ready and not issues:
+            issues.append(issue("review_invalid"))
+    except SchemaError as exc:
+        ready = False
+        for error in exc.errors(include_input=False):
+            loc = error["loc"]
+            index = (
+                loc[1] if len(loc) > 1 and loc[0] == "itens" and isinstance(loc[1], int) else None
+            )
+            issues.append(
+                {
+                    "code": "draft_field_required",
+                    "item_index": index,
+                    "field": ".".join(str(k) for k in loc[2:] if k is not None)
+                    if index is not None
+                    else ".".join(str(k) for k in loc),
+                    "message": "Confira este campo antes de preparar o resumo.",
+                }
+            )
+    except (PurchaseReviewError, PurchaseReviewConflict, PurchaseReviewUnavailable) as exc:
+        ready = False
+        issues.append(exc.issue)
+    if (
+        row.estado not in {"review", "awaiting_approval", "approved"}
+        or row.operation_id
+        or row.resultado
+    ):
+        ready = False
+        issues.append(
+            {
+                "code": "draft_edit_not_allowed",
+                "item_index": None,
+                "field": None,
+                "message": "Consulte o resultado desta compra.",
+            }
+        )
+    return view(row) | {
+        "summary_hash": (
+            row.resumo_hash if ready and dialogue.reviewed(dialog) == row.revisada else None
+        ),
+        "conversation_draft": dialog["draft"],
+        "issues": issues,
+        "ready_for_review": ready,
+        "expired": row.expira_em <= datetime.now(UTC),
+    }
+
+
+@router.post("/conversation-draft")
+async def conversation_draft(data: ConversationDraft, db: AsyncSession = Depends(get_db)):
+    user, row = await owned(db, data, allow_expired=True)
+    if data.action == "patch" and (
+        row.estado not in {"review", "awaiting_approval", "approved"}
+        or row.operation_id
+        or row.resultado
+    ):
+        raise HTTPException(409, "Rascunho não pode mais ser alterado")
+    dialog = dialogue.seed(row)
+    if data.action == "lookup":
+        if not data.incoming_message_id:
+            raise HTTPException(422, "Mensagem obrigatória")
+        if str(data.incoming_message_id) not in dialog["applied"]:
+            raise HTTPException(404, "Alteração não encontrada")
+    elif data.action == "patch":
+        if not data.incoming_message_id or not data.edits or data.expected_version is None:
+            raise HTTPException(422, "Mensagem, versão e alterações obrigatórias")
+        key = str(data.incoming_message_id)
+        payload_digest = dialogue.digest(
+            {"version": data.expected_version, "edits": [edit.model_dump() for edit in data.edits]}
+        )
+        if key in dialog["applied"]:
+            if dialog["applied"][key] != payload_digest:
+                raise HTTPException(409, "Mensagem reutilizada com alterações diferentes")
+        else:
+            if row.revisao != data.expected_version or len(dialog["applied"]) >= 200:
+                raise HTTPException(409, "Atualize a revisão antes de alterar")
+            try:
+                dialog = dialogue.patch(dialog, data.edits, await catalog(data, db))
+            except (ValueError, TypeError) as exc:
+                raise HTTPException(
+                    422, "Alteração inválida; confira item, campo e catálogo"
+                ) from exc
+            dialog["applied"][key] = payload_digest
+            row.revisao += 1
+            row.estado = "review"
+            row.resumo_hash = row.aprovacao_ref = row.aprovacao_message_id = None
+            row.previa = row.revisada = None
+    row.dialogo = dialog
+    await db.commit()
+    return await conversation_snapshot(db, user, row)
+
+
 @router.post("/review")
 async def review(data: Review, db: AsyncSession = Depends(get_db)) -> dict:
     try:
@@ -457,6 +583,42 @@ async def review(data: Review, db: AsyncSession = Depends(get_db)) -> dict:
         data.reviewed.model_dump(mode="json"),
         preview.model_dump(mode="json"),
     )
+    if row.dialogo:
+        updated = dialogue.seed(row)
+        draft = json.loads(json.dumps(row.revisada))
+        previous = updated["draft"]["itens"]
+        used_refs = set()
+        for item in draft["itens"]:
+            candidates = [p for p in previous if p["item_ref"] not in used_refs]
+            matching = next(
+                (
+                    p
+                    for p in candidates
+                    if dialogue.reviewed({"draft": {"itens": [p]}})["itens"][0] == item
+                ),
+                None,
+            )
+            if matching is None:
+                same_description = [
+                    p
+                    for p in candidates
+                    if p.get("descricao_original") == item.get("descricao_original")
+                ]
+                # Ambiguous manual replacements get new refs, never another group's identity.
+                if (
+                    len(same_description) == 1
+                    and sum(
+                        i.get("descricao_original") == item.get("descricao_original")
+                        for i in draft["itens"]
+                    )
+                    == 1
+                ):
+                    matching = same_description[0]
+            item["item_ref"] = matching["item_ref"] if matching else str(uuid4())
+            item["occurrences"] = matching.get("occurrences", 1) if matching else 1
+            used_refs.add(item["item_ref"])
+        updated["draft"] = draft
+        row.dialogo = updated
     row.resumo_hash = digest({"reviewed": row.revisada, "preview": row.previa})
     row.revisao += 1
     row.estado, row.aprovacao_ref, row.aprovacao_message_id = "awaiting_approval", None, None

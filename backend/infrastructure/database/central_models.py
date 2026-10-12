@@ -25,6 +25,7 @@ class CentralCompra(TenantMixin, TimestampMixin, Base):
     revisao: Mapped[int] = mapped_column(Integer, default=1)
     estado: Mapped[str] = mapped_column(String(20), default="review")
     leitura: Mapped[dict] = mapped_column(JSONB)
+    dialogo: Mapped[dict | None] = mapped_column(JSONB)
     revisada: Mapped[dict | None] = mapped_column(JSONB)
     previa: Mapped[dict | None] = mapped_column(JSONB)
     resumo_hash: Mapped[str | None] = mapped_column(String(64))
