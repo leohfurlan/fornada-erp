@@ -25,6 +25,13 @@ class Settings(BaseSettings):
 
     # IA e OCR
     google_ai_api_key: str = ""
+    gemma_ocr_model: str = "gemma-4-26b-a4b-it"
+    gemma_ocr_temperature: float = 0.1
+    gemma_ocr_thinking_level: Literal["minimal"] = "minimal"
+    ocr_provider: Literal["gemma", "openai", "hybrid"] = "gemma"
+    ocr_vision_provider: Literal["gemma", "openai"] = "gemma"
+    openai_api_key: str = ""
+    openai_ocr_model: str = ""
 
     # WhatsApp — Evolution API v2 (serviço externo)
     evolution_enabled: bool = False
