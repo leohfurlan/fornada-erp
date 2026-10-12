@@ -11,6 +11,14 @@
 
 ## Revisão do piloto — outubro de 2026
 
+### F-PWA-01 — Convite de instalação e acompanhamento — 12 de outubro de 2026
+
+Escopo aprovado pelo usuário em 12/10/2026: oferecer “Deseja instalar o aplicativo Fornada?” após autenticação por e-mail ou WhatsApp, quando o navegador disponibilizar instalação, com ações Instalar e Agora não. Adiar nova oferta automática por sete dias por usuário/navegador; manter opção manual no menu quando disponível. Não oferecer em modo aplicativo nem durante suporte administrativo.
+
+Critérios de aceite: (AC1) aguardar sessão e usuário recuperados antes do convite; (AC2) Instalar abre a confirmação nativa mediante clique, sem prometer instalação automática; (AC3) Agora não preserva o uso e respeita sete dias; (AC4) opção manual respeita disponibilidade e modo aplicativo; (AC5) registrar por usuário convite, adiamento, clique, escolha nativa, sinal de instalação e acesso em modo aplicativo; (AC6) administração da plataforma mostra datas e sinais distintos, inclusive ausência de confirmação, sem afirmar “não instalou”; (AC7) isolamento de identidade/tenant e exclusão de impersonação; (AC8) falhas de telemetria ou navegador incompatível não bloqueiam o ERP.
+
+Sem APK, Play Store, nova infraestrutura PWA, sincronização offline ou detecção de desinstalação nesta entrega. [Especificação](docs/features/F-PWA-01-instalacao/spec.md), [contrato](docs/features/F-PWA-01-instalacao/contract.md) e [plano](docs/features/F-PWA-01-instalacao/plan.md). Status: intenção e escopo aprovados; implementação e validação local concluídas. Aceite Android real e publicação pendentes. [Relatório](docs/features/F-PWA-01-instalacao/implementacao.md).
+
 ### Compras, produtos aprovados e histórico de preços — 7 de outubro de 2026
 
 Proposta aceita pelo usuário em 07/10/2026: vincular produtos comerciais a ingredientes/matérias-primas, cadastrar marcas, fabricantes e fornecedores aprovados, reutilizar a associação nas próximas leituras e guardar loja, data, marca e preço para comparação futura. Marca ou loja ainda não aprovada deve pedir revisão e permitir aprovação na hora. Os requisitos `CMP-01` a `CMP-04`, o exemplo do cupom e os critérios de aceite estão no [planejamento de compras, revisão 2](docs/compras-produtos-aprovados.md), extensão deste PRD. Primeiro incremento aprovado: CMP-01 a CMP-03, cadastro, reconhecimento revisado e histórico; comparação de locais de compra é futura. [Especificações e sequência](docs/compras/README.md). CMP-01 a CMP-03 implementados e validados localmente em 07/10/2026. [Relatório e evidências](docs/compras/implementacao-2026-10-07.md). CMP-04 permanece futuro; publicação e migração de produção são etapas separadas.

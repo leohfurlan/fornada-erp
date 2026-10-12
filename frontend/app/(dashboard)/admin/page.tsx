@@ -7,6 +7,7 @@ import { useAuthStore } from "@/stores/use-auth-store";
 import { iniciarSuporte, useContasAdmin } from "@/hooks/use-admin";
 import { setSupportSession } from "@/lib/admin-session";
 import type { ContaAdmin } from "@/lib/admin-session";
+import { PwaAdmin } from "@/components/shared/pwa-admin";
 
 export default function AdminPage() {
   const { usuario } = useAuthStore();
@@ -55,6 +56,7 @@ export default function AdminPage() {
       <button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))}>Anterior</button>
       <button disabled={!data || data.length < 50} onClick={() => setOffset(offset + 50)}>Próxima</button>
     </div>
+    <PwaAdmin q={q} offset={offset} />
     <Dialog.Root open={conta !== null} onOpenChange={(open) => { if (!open && !busy) setConta(null); }}>
       {conta && <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />

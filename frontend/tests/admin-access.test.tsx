@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import AdminPage from "@/app/(dashboard)/admin/page";
+vi.mock("@/components/shared/pwa-admin", () => ({ PwaAdmin: () => null }));
 
 const state = vi.hoisted(() => ({ admin: true, iniciar: vi.fn(), query: vi.fn() }));
 vi.mock("@/stores/use-auth-store", () => ({ useAuthStore: () => ({ usuario: {
