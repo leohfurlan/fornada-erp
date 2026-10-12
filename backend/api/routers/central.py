@@ -76,6 +76,7 @@ class Proposal(Identity):
 
 
 class Review(Proposal):
+    renew_expired: bool = Field(default=False, strict=True)
     expected_version: int = Field(ge=1)
     reviewed: CompraRevisada
 
@@ -175,7 +176,9 @@ async def actor(
     return user
 
 
-async def owned(db: AsyncSession, identity: Proposal) -> tuple[Usuario, CentralCompra]:
+async def owned(
+    db: AsyncSession, identity: Proposal, *, allow_expired: bool = False
+) -> tuple[Usuario, CentralCompra]:
     user = await actor(db, identity.business_id, phone=identity.sender_phone, scope=identity.scope)
     row = await db.scalar(
         select(CentralCompra)
@@ -192,7 +195,7 @@ async def owned(db: AsyncSession, identity: Proposal) -> tuple[Usuario, CentralC
         raise HTTPException(404, "Compra não encontrada")
     if row.telefone != user.telefone:
         raise HTTPException(403, "Vínculo do solicitante alterado; revise no Fornada")
-    if row.expira_em <= datetime.now(UTC) and row.estado != "confirmed":
+    if not allow_expired and row.expira_em <= datetime.now(UTC) and row.estado != "confirmed":
         raise HTTPException(409, "Proposta expirada; revise diretamente no Fornada")
     return user, row
 
@@ -400,16 +403,22 @@ async def catalog(data: Identity, db: AsyncSession = Depends(get_db)) -> dict:
 @router.post("/review")
 async def review(data: Review, db: AsyncSession = Depends(get_db)) -> dict:
     try:
-        user, row = await owned(db, data)
+        user, row = await owned(db, data, allow_expired=data.renew_expired)
     except HTTPException as exc:
         if exc.status_code == 409:
             raise HTTPException(409, detail([issue("proposal_expired")])) from None
         raise
-    if row.revisao != data.expected_version or row.estado not in {
-        "review",
-        "awaiting_approval",
-        "approved",
-    }:
+    if (
+        row.operation_id
+        or row.resultado
+        or row.revisao != data.expected_version
+        or row.estado
+        not in {
+            "review",
+            "awaiting_approval",
+            "approved",
+        }
+    ):
         raise HTTPException(409, detail([issue("proposal_version_changed")]))
     # A duplicate fiscal note never receives a silent override through the bot.
     if data.reviewed.confirmar_duplicidade:
@@ -425,6 +434,8 @@ async def review(data: Review, db: AsyncSession = Depends(get_db)) -> dict:
         if preview.duplicidade:
             errors.append(issue("duplicate_review_required"))
         raise HTTPException(422, detail(errors or [issue("review_invalid")]))
+    if data.renew_expired and row.expira_em <= datetime.now(UTC):
+        row.expira_em = datetime.now(UTC) + timedelta(hours=24)
     row.revisada, row.previa = (
         data.reviewed.model_dump(mode="json"),
         preview.model_dump(mode="json"),

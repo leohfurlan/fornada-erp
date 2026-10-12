@@ -267,3 +267,56 @@ async def test_store_approval_without_store_identifies_item_and_action(purchase)
     assert issue["item_index"] == 0
     assert issue["field"] == "fornecedor_id"
     assert issue["action"] == "select_supplier"
+
+
+@pytest.mark.parametrize(
+    "case", ["renew", "implicit", "invalid", "stale", "scope", "confirmed", "operation"]
+)
+async def test_expired_review_renewal_requires_valid_explicit_scoped_review(purchase, db, case):
+    from datetime import UTC, datetime, timedelta
+    from uuid import UUID, uuid4
+
+    from infrastructure.database.central_models import CentralCompra
+
+    post, proposal, decision, _, _, material, _ = purchase
+    if case == "renew":
+        assert (await post("decision", decision)).status_code == 200
+    row = await db.get(CentralCompra, UUID(proposal["proposal_id"]))
+    row.expira_em = datetime.now(UTC) - timedelta(days=1)
+    if case == "confirmed":
+        row.estado = "confirmed"
+    if case == "operation":
+        row.operation_id = uuid4()
+    await db.commit()
+    before = (row.revisao, row.expira_em, row.resumo_hash, row.aprovacao_ref)
+    payload = proposal | {
+        "expected_version": row.revisao,
+        "renew_expired": True,
+        "reviewed": {"itens": [item(material)]},
+    }
+    if case == "implicit":
+        del payload["renew_expired"]
+    if case == "invalid":
+        payload["reviewed"]["itens"][0]["preco_total"] = "19"
+    if case == "stale":
+        payload["expected_version"] -= 1
+    if case == "scope":
+        payload["scope"] = {"tenant_id": str(uuid4()), "company_id": None}
+    response = await post("review", payload)
+    await db.refresh(row)
+    if case == "renew":
+        assert response.status_code == 200, response.text
+        assert row.expira_em > datetime.now(UTC) + timedelta(hours=23)
+        assert row.estado == "awaiting_approval" and row.revisao == before[0] + 1
+        assert row.aprovacao_ref is None and row.aprovacao_message_id is None
+        assert (
+            row.revisada == payload["reviewed"] or row.revisada["itens"][0]["preco_total"] == "20"
+        )
+        assert (await post("decision", decision)).status_code == 409
+    else:
+        assert response.status_code == (
+            403 if case == "scope" else 422 if case == "invalid" else 409
+        ), response.text
+        assert (row.revisao, row.expira_em, row.resumo_hash, row.aprovacao_ref) == before
+    await db.refresh(material)
+    assert material.estoque_atual == 0
