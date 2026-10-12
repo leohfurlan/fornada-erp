@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatDecimalInput, parseDecimalBR, sanitizeDecimalInput } from "@/lib/decimal";
 
@@ -22,10 +22,12 @@ interface DecimalInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
  */
 export const DecimalInput = forwardRef<HTMLInputElement, DecimalInputProps>(
   ({ value, onChange, className, ...rest }, ref) => {
+    const focused = useRef(false);
     const [texto, setTexto] = useState<string>(() => formatDecimalInput(value));
 
     // Sincroniza quando o valor externo muda (ex: form.reset)
     useEffect(() => {
+      if (focused.current) return;
       const externo = formatDecimalInput(value);
       // Evita sobrescrever enquanto o usuário digita "1," (estado intermediário)
       if (parseDecimalBR(texto) !== parseDecimalBR(externo)) {
@@ -45,12 +47,17 @@ export const DecimalInput = forwardRef<HTMLInputElement, DecimalInputProps>(
           className
         )}
         value={texto}
+        onFocus={() => {
+          focused.current = true;
+          setTexto(String(value ?? "").replace(".", ","));
+        }}
         onChange={(e) => {
           const limpo = sanitizeDecimalInput(e.target.value);
           setTexto(limpo);
           onChange?.(parseDecimalBR(limpo));
         }}
         onBlur={(e) => {
+          focused.current = false;
           // Normaliza visualmente ao sair: "1," vira "1"
           const num = parseDecimalBR(e.target.value);
           setTexto(num === 0 && e.target.value === "" ? "" : formatDecimalInput(num));

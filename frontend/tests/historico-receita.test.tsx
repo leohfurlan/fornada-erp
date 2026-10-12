@@ -16,7 +16,7 @@ describe("histórico da receita", () => {
     mocks.query.mockReturnValue({ data: Array.from({ length: 20 }, (_, n) => ({ ...item, versao: n + 1 })) });
     render(<HistoricoReceita id="recipe-1" />);
     expect(screen.getAllByText(/Editor QA/)).toHaveLength(20);
-    expect(screen.getAllByText("0.1250 kg — Chocolate")).toHaveLength(20);
+    expect(screen.getAllByText("0,125 kg — Chocolate")).toHaveLength(20);
     expect(screen.getAllByText("Misture")[0].tagName).toBe("STRONG");
     expect(screen.getAllByText("Finalize com cuidado.")).toHaveLength(20);
     fireEvent.click(screen.getByRole("button", { name: "Mais antigas" }));

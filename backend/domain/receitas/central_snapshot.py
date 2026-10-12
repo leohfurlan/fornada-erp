@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy import String, cast, func, select
 from sqlalchemy.orm import joinedload
 
+from domain.number_format import quantity_br
 from infrastructure.database.models import Ingrediente, Receita, ReceitaIngrediente
 
 
@@ -126,8 +127,10 @@ async def snapshot(db, tenant_id, recipe_id):
         prefix = "" if row.id == root.id else f"Sub-receita · {row.nome} · "
         if row.id != root.id:
             items = ingredients(row)
-            body = f"Rendimento: {row.rendimento:f} {row.rendimento_unidade}\n"
-            body += "\n".join(f"- {i['name']}: {i['quantity']} {i['unit']}" for i in items)
+            body = f"Rendimento: {quantity_br(row.rendimento)} {row.rendimento_unidade}\n"
+            body += "\n".join(
+                f"- {i['name']}: {quantity_br(i['quantity'])} {i['unit']}" for i in items
+            )
             section(prefix + "Ingredientes", body)
         section(prefix + "Categoria", row.categoria)
         section(prefix + "Foto de referência", row.foto_url)
@@ -154,11 +157,11 @@ async def snapshot(db, tenant_id, recipe_id):
                 if step.get(bound) is not None:
                     positive_quantity(step[bound])
             body = f"{step['descricao']}\nTipo: {step['tipo']}\n"
-            body += f"Quantidade: {step['quantidade']} {step['unidade']}"
+            body += f"Quantidade: {quantity_br(step['quantidade'])} {step['unidade']}"
             if step.get("quantidade_minima") is not None:
                 body += (
-                    f"\nFaixa: {step['quantidade_minima']}–"
-                    f"{step['quantidade_maxima']} {step['unidade']}"
+                    f"\nFaixa: {quantity_br(step['quantidade_minima'])}–"
+                    f"{quantity_br(step['quantidade_maxima'])} {step['unidade']}"
                 )
             if step.get("especificacao"):
                 body += "\nEspecificação:\n" + step["especificacao"]

@@ -34,3 +34,9 @@ describe("formatPercent", () => {
     expect(formatPercent(0.3)).toBe("30%");
   });
 });
+
+it("quantity presentation", () => {
+ expect(formatDecimal("120.0000")).toBe("120");
+ expect(formatDecimal("1.23456", 8)).toBe("1,235");
+ expect(formatDecimal("0.1250")).toBe("0,125");
+});

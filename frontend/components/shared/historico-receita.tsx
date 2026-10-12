@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { MarkdownContent } from "@/components/shared/markdown-content";
-import { formatDataHora } from "@/lib/utils";
+import { formatDataHora, formatQuantidade } from "@/lib/utils";
 
 interface Versao {
   versao: number;
@@ -40,18 +40,18 @@ export function HistoricoReceita({ id }: { id: string }) {
       </summary>
       <div className="mt-3 space-y-3 text-sm">
         <p className="font-medium">{item.snapshot.nome}</p>
-        <p>{item.snapshot.categoria} · Rendimento: {item.snapshot.rendimento} {item.snapshot.rendimento_unidade}</p>
+        <p>{item.snapshot.categoria} · Rendimento: {formatQuantidade(item.snapshot.rendimento)} {item.snapshot.rendimento_unidade}</p>
         <h3 className="font-medium">Ingredientes</h3>
-        <ul>{item.snapshot.ingredientes.map((i, n) => <li key={n}>{i.quantidade} {i.unidade} — {i.nome}</li>)}</ul>
+        <ul>{item.snapshot.ingredientes.map((i, n) => <li key={n}>{formatQuantidade(i.quantidade)} {i.unidade} — {i.nome}</li>)}</ul>
         <h3 className="font-medium">Preparo</h3>
         <MarkdownContent children={item.snapshot.modo_preparo ?? ""} />
-        <ol>{item.snapshot.etapas.map((e, n) => <li key={n}>{n + 1}. {e.nome} · {e.duracao_minutos} min</li>)}</ol>
+        <ol>{item.snapshot.etapas.map((e, n) => <li key={n}>{n + 1}. {e.nome} · {formatQuantidade(e.duracao_minutos)} min</li>)}</ol>
         {item.snapshot.ficha_tecnica && <>
           <h3 className="font-medium">Montagem</h3>
           <MarkdownContent children={item.snapshot.ficha_tecnica.descricao_produto ?? ""} />
           <MarkdownContent children={item.snapshot.ficha_tecnica.especificacao_final ?? ""} />
           <ol>{item.snapshot.ficha_tecnica.passos?.map((p, n) => <li key={n} className="mb-2">
-            <p>{n + 1}. {p.quantidade} {p.unidade} — {p.descricao}</p>
+            <p>{n + 1}. {formatQuantidade(p.quantidade)} {p.unidade} — {p.descricao}</p>
             <MarkdownContent children={p.especificacao ?? ""} />
             <MarkdownContent children={p.instrucao ?? ""} />
           </li>)}</ol>

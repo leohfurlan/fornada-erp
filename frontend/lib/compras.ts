@@ -40,7 +40,7 @@ export function totalItem(quantidade: string, preco: string, desconto: string): 
   return (centavos / BigInt(100)).toString() + "." + (centavos % BigInt(100)).toString().padStart(2, "0");
 }
 export function decimalCompra(value: string): string {
-  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 8 }).format(Number(value));
+  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(Number(value));
 }
 export function custoCompra(value: string): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL",

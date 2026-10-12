@@ -1,5 +1,7 @@
 "use client";
 
+import { DecimalField } from "@/components/shared/decimal-field";
+
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -15,7 +17,7 @@ import { useFichaTecnica, useSalvarFichaTecnica, type FichaTecnica, type PassoMo
 
 const campo = "w-full rounded-lg border bg-background p-2 text-sm";
 function QuantidadeCampo({ value, onChange, required = false }: { value: string | null; onChange: (valor: string | null) => void; required?: boolean }) {
-  return <input required={required} inputMode="decimal" pattern="[0-9]+([,.][0-9]{1,4})?" className={campo} value={(value ?? "").replace(".", ",")} onChange={e => onChange(sanitizeDecimalInput(e.target.value).replace(",", ".") || null)} />;
+  return <DecimalField required={required} inputMode="decimal" pattern="[0-9]+([,.][0-9]{1,4})?" className={campo} value={value ?? ""} onChange={e => onChange(sanitizeDecimalInput(e.target.value).replace(",", ".") || null)} />;
 }
 export default function FichaPage() {
   const { id } = useParams<{ id: string }>();
