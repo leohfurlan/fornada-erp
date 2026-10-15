@@ -30,3 +30,7 @@ Para novos formulários, usar `ValidatedForm` com os erros locais ou `Validation
 - `git diff --check` aprovado. O lint frontend via `next lint` não foi executado com sucesso: o checkout solicita configuração inicial de ESLint.
 
 Alterações simultâneas e preexistentes foram preservadas. Não houve commit, push, migração ou deploy desta atividade. Não foi realizado aceite visual em navegador/aparelho físico nesta etapa; a instância temporária preparada para essa conferência foi encerrada a pedido de conclusão.
+
+## Publicação
+
+Commit de implementação `5166161` publicado após autorização explícita. Ver `docs/deploy-validacao-formularios-2026-10-15.md` para release, preservação da atualização concorrente, backup e evidências finais. As observações de ausência de commit/deploy acima registram o estado anterior à autorização de publicação.
