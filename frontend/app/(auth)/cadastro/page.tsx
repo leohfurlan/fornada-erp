@@ -1,11 +1,13 @@
 "use client";
+import { fieldIssues } from "@/lib/validation";
+import { ValidatedForm } from "@/components/shared/validation-feedback";
 
 import { useState } from "react";
 import { useWhatsAppDisponivel } from "@/hooks/use-whatsapp-auth";
 import { WhatsAppAccess } from "@/components/shared/whatsapp-access";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm } from "@/lib/form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { api } from "@/lib/api";
@@ -41,6 +43,7 @@ export default function CadastroPage() {
       setUsuario(response.data.usuario);
       router.push("/boas-vindas");
     } catch (err: unknown) {
+      if (fieldIssues(err).length) throw err;
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setErro(detail ?? "Não foi possível criar sua conta. Tente novamente.");
     }
@@ -57,7 +60,7 @@ export default function CadastroPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <ValidatedForm errors={errors} onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-1">
             <label htmlFor="nome_negocio" className="text-sm font-medium">
               Nome do seu negócio
@@ -135,7 +138,7 @@ export default function CadastroPage() {
           >
             {isSubmitting ? "Criando conta..." : "Criar conta grátis"}
           </button>
-        </form>
+        </ValidatedForm>
 
         <p className="text-center text-sm text-muted-foreground">
           Já tem conta?{" "}

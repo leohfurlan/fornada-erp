@@ -1,4 +1,4 @@
-import { isAxiosError } from "axios";
+import { errorMessage } from "@/lib/validation";
 import type { ItemLido, ItemObservado, ProdutoDados } from "@/types/compras";
 import { nomeMaiusculo } from "@/lib/nomes";
 
@@ -15,17 +15,7 @@ export function dadosObservados(item: ItemLido): ItemObservado {
     unidade_conteudo_observada, codigo_loja, gtin, gtin_confirmado };
 }
 export function erroCompras(error: unknown): string {
-  if (isAxiosError<{ detail: unknown }>(error)) {
-    const detail = error.response?.data.detail;
-    if (typeof detail === "string") return detail;
-    if (Array.isArray(detail)) {
-      return detail.map((entry: unknown) => {
-        if (typeof entry === "object" && entry !== null && "msg" in entry) return String(entry.msg);
-        return "Confira os campos da compra.";
-      }).join(" ");
-    }
-  }
-  return "Não foi possível concluir. Confira os dados e tente novamente.";
+  return errorMessage(error);
 }
 function escalado(value: string, casas: number): bigint {
   if (!/^\d*(\.\d*)?$/.test(value)) return BigInt(0);

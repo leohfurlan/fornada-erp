@@ -6,7 +6,6 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from fastapi.exception_handlers import request_validation_exception_handler
 from slowapi.errors import RateLimitExceeded
 
 from api.routers import (
@@ -117,6 +116,13 @@ app.include_router(pwa.router, prefix="/api/v1")
 
 
 # Tratamento de erros de domínio — mensagens em português, sem jargão técnico
+def error_detail(exc: FornadaError) -> dict:
+    content = {"detail": exc.message}
+    if field := getattr(exc, "field", None):
+        content["field_errors"] = [{"path": field, "message": exc.message}]
+    return content
+
+
 @app.exception_handler(NotFoundError)
 async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
     return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": exc.message})
@@ -124,20 +130,20 @@ async def not_found_handler(request: Request, exc: NotFoundError) -> JSONRespons
 
 @app.exception_handler(ConflictError)
 async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
-    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={"detail": exc.message})
+    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=error_detail(exc))
 
 
 @app.exception_handler(AuthError)
 async def auth_handler(request: Request, exc: AuthError) -> JSONResponse:
     return JSONResponse(
-        status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": exc.message}
+        status_code=status.HTTP_401_UNAUTHORIZED, content=error_detail(exc)
     )
 
 
 @app.exception_handler(ValidationError)
 async def validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": exc.message}
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content=error_detail(exc)
     )
 
 
@@ -178,4 +184,14 @@ async def central_validation_handler(request: Request, exc: RequestValidationErr
         return JSONResponse(status_code=422, content={"detail": detail(schema_issues(exc.errors()))})
     if request.url.path.startswith("/api/v1/central/"):
         return JSONResponse(status_code=422, content={"detail": "Solicitação inválida"})
-    return await request_validation_exception_handler(request, exc)
+    from core.validation import schema_issues
+
+    issues = schema_issues(exc.errors())
+    return JSONResponse(status_code=422, content={
+        "detail": [
+            {"loc": ["body", *issue["path"].split(".")], "msg": issue["message"],
+             "type": "value_error"}
+            for issue in issues
+        ],
+        "field_errors": issues,
+    })

@@ -84,11 +84,11 @@ class ProducaoService:
         await ReceitaRepository(self._repo._db).travar_composicao(tenant_id)
         receita = await self._repo.buscar_receita(data.receita_id, tenant_id)
         if not receita:
-            raise ValidationError(f"Receita {data.receita_id} não encontrada")
+            raise ValidationError(f"Receita {data.receita_id} não encontrada", field="receita_id")
         if data.pedido_id is not None:
             pedido = await self._repo.buscar_pedido(data.pedido_id, tenant_id)
             if not pedido:
-                raise ValidationError(f"Pedido {data.pedido_id} não encontrado")
+                raise ValidationError(f"Pedido {data.pedido_id} não encontrado", field="pedido_id")
 
         op = await self._repo.criar(tenant_id, data)
         op.ficha_snapshot = await montar_snapshot(receita, ReceitaRepository(self._repo._db), tenant_id)
@@ -146,13 +146,13 @@ class ProducaoService:
         if data.receita_id is not None:
             r = await self._repo.buscar_receita(data.receita_id, tenant_id)
             if not r:
-                raise ValidationError(f"Receita {data.receita_id} não encontrada")
+                raise ValidationError(f"Receita {data.receita_id} não encontrada", field="receita_id")
             if data.receita_id != op.receita_id:
                 op.ficha_snapshot = await montar_snapshot(r, ReceitaRepository(self._repo._db), tenant_id)
         if data.pedido_id is not None:
             p = await self._repo.buscar_pedido(data.pedido_id, tenant_id)
             if not p:
-                raise ValidationError(f"Pedido {data.pedido_id} não encontrado")
+                raise ValidationError(f"Pedido {data.pedido_id} não encontrado", field="pedido_id")
 
         await self._repo.atualizar_campos(op, data)
         recarregada = await self._repo.buscar_por_id(op_id, tenant_id)
@@ -207,10 +207,10 @@ class ProducaoService:
         if novo_status == STATUS_FINALIZADA:
             if qtd_produzida is None:
                 raise ValidationError(
-                    "Informe a quantidade produzida ao finalizar a OP."
+                    "Informe a quantidade produzida ao finalizar a OP.", field="qtd_produzida"
                 )
             if qtd_produzida < 0:
-                raise ValidationError("Quantidade produzida não pode ser negativa")
+                raise ValidationError("Quantidade produzida não pode ser negativa", field="qtd_produzida")
             await self._consumir_e_produzir(op, tenant_id, qtd_produzida)
             op.qtd_produzida = qtd_produzida
         elif novo_status == STATUS_EM_PRODUCAO:

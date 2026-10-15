@@ -19,6 +19,7 @@ from domain.compras.identificadores import validar_cnpj, validar_gtin
 from domain.compras.schemas import ConfirmarCompraResponse
 from domain.estoque.schemas import TIPOS_VALIDOS
 from domain.nomes import nome_cadastro
+from domain.validation import field_error
 
 Texto = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Quantidade = Annotated[Decimal, Field(gt=0, max_digits=16, decimal_places=8)]
@@ -81,7 +82,7 @@ class ProdutoEditar(Contrato):
             "fornecedores_aprovados",
         ):
             if campo in self.model_fields_set and getattr(self, campo) is None:
-                raise ValueError(f"{campo} não pode ser nulo.")
+                raise field_error((campo,), f"{campo} não pode ser nulo.")
         return self
 
 
@@ -114,7 +115,7 @@ class FornecedorEditar(Contrato):
     @model_validator(mode="after")
     def nome_obrigatorio(self):
         if "nome" in self.model_fields_set and self.nome is None:
-            raise ValueError("nome não pode ser nulo.")
+            raise field_error(("nome",), "nome não pode ser nulo.")
         return self
 
 
@@ -191,7 +192,7 @@ class ItemRevisado(Contrato):
     @model_validator(mode="after")
     def modos_validos(self) -> "ItemRevisado":
         if self.tipo not in TIPOS_VALIDOS:
-            raise ValueError("Tipo de material inválido.")
+            raise field_error(("tipo",), "Tipo de material inválido.")
         if self.criar_novo == (self.ingrediente_id is not None):
             raise PydanticCustomError("material_selection_invalid", "Seleção de material inválida")
         if self.produto_id and (self.criar_novo or self.produto_novo or not self.produto_revisao):

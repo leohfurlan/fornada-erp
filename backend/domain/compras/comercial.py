@@ -537,7 +537,7 @@ class ComprasComerciais:
         offset: int,
     ) -> PaginaCompras:
         if inicio and fim and inicio > fim:
-            raise ValidationError("A data inicial deve ser anterior à data final.")
+            raise ValidationError("A data inicial deve ser anterior à data final.", field="data_fim")
         for model, id in (
             (Ingrediente, ingrediente_id),
             (ProdutoCompra, produto_id),

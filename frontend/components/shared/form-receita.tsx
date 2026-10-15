@@ -1,8 +1,10 @@
 "use client";
 
+import { ValidatedForm } from "@/components/shared/validation-feedback";
+
 import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
-import { useForm, useFieldArray, Controller, type SubmitHandler } from "react-hook-form";
+import { useForm, useFieldArray, Controller, type SubmitHandler } from "@/lib/form";
 import { useIngredientes } from "@/hooks/use-estoque";
 import { useEtapasPadrao } from "@/hooks/use-configuracoes";
 import { DecimalInput } from "@/components/shared/decimal-input";
@@ -98,7 +100,7 @@ export function FormReceita({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <ValidatedForm errors={errors} onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Dados básicos */}
       <section className="space-y-3">
         <div className="space-y-1">
@@ -442,6 +444,6 @@ export function FormReceita({
       >
         {isSubmitting || isPending ? textoBotaoLoading : textoBotao}
       </button>
-    </form>
+    </ValidatedForm>
   );
 }

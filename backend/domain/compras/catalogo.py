@@ -121,7 +121,7 @@ class CatalogoCompras:
             setattr(row, field, value)
         if "aprovado" in changes:
             if changes["aprovado"] is None:
-                raise ValidationError("Informe a aprovação do produto.")
+                raise ValidationError("Informe a aprovação do produto.", field="aprovado")
             row.aprovado = changes["aprovado"]
         row.revisao += 1
         await self.repo.db.flush()
@@ -175,7 +175,7 @@ class CatalogoCompras:
             raise ConflictError("Já existe um fornecedor com este CNPJ.")
         for field, value in data.model_dump(exclude_unset=True, exclude={"revisao"}).items():
             if field == "nome" and value is None:
-                raise ValidationError("Informe o nome do fornecedor.")
+                raise ValidationError("Informe o nome do fornecedor.", field="nome")
             setattr(row, field, value)
         row.revisao += 1
         await self.repo.db.flush()
@@ -198,7 +198,7 @@ class CatalogoCompras:
         if row.revisao != data.revisao or product.revisao != data.produto_revisao:
             raise ConflictError("Vínculo ou produto alterado. Atualize antes de corrigir.")
         if not product.aprovado:
-            raise ValidationError("Aprove o produto antes de guardar o vínculo.")
+            raise ValidationError("Aprove o produto antes de guardar o vínculo.", field="produto_id")
         row.produto_id, row.produto_revisao_confirmada = product.id, product.revisao
         row.revisao += 1
         await self.repo.db.flush()

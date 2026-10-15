@@ -1,9 +1,11 @@
 "use client";
 
+import { ValidatedForm } from "@/components/shared/validation-feedback";
+
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller } from "@/lib/form";
 import { useCriarIngrediente } from "@/hooks/use-estoque";
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { UnidadesAlternativas, type UnidadeAlternativa } from "@/components/shared/unidades-alternativas";
@@ -57,7 +59,7 @@ export default function NovoIngredientePage() {
 
       <h1 className="text-xl font-bold">Novo item de estoque</h1>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <ValidatedForm errors={errors} onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-1">
           <label className="text-sm font-medium">Tipo</label>
           <p className="text-xs text-muted-foreground">
@@ -161,7 +163,7 @@ export default function NovoIngredientePage() {
         >
           {isSubmitting || criar.isPending ? "Salvando..." : "Salvar ingrediente"}
         </button>
-      </form>
+      </ValidatedForm>
     </div>
   );
 }

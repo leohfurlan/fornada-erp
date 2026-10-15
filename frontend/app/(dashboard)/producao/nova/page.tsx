@@ -1,10 +1,12 @@
 "use client";
 
+import { ValidatedForm } from "@/components/shared/validation-feedback";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { ArrowLeft, ChefHat, Info } from "lucide-react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm } from "@/lib/form";
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { useCriarOrdemProducao } from "@/hooks/use-producao";
 import { usePedidos } from "@/hooks/use-pedidos";
@@ -95,7 +97,7 @@ export default function NovaOrdemProducaoPage() {
 
       <h1 className="text-xl font-bold">Nova ordem de produção</h1>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <ValidatedForm errors={errors} onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-1">
           <label className="text-sm font-medium">Receita</label>
           <select
@@ -232,7 +234,7 @@ export default function NovaOrdemProducaoPage() {
         >
           {isSubmitting || criar.isPending ? "Salvando..." : "Criar ordem de produção"}
         </button>
-      </form>
+      </ValidatedForm>
     </div>
   );
 }

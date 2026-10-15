@@ -1,4 +1,5 @@
 "use client";
+import { ValidationScope } from "@/components/shared/validation-feedback";
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
@@ -29,21 +30,20 @@ function Historico() {
     <Link className="text-sm text-muted-foreground" href="/compras">← Compras</Link>
     <h1 className="text-xl font-bold">Histórico de compras</h1>
     <p className="text-sm text-muted-foreground">Consulte o que você comprou e pagou. Os preços são das compras registradas.</p>
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <ValidationScope error={historico.error} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div><label className="text-xs" htmlFor="hist-material">Material</label>
-        <select id="hist-material" className={input} value={material} onChange={(e) => filtrar(setMaterial, e.target.value)}>
+        <select name="ingrediente_id" id="hist-material" className={input} value={material} onChange={(e) => filtrar(setMaterial, e.target.value)}>
           <option value="">Todos os materiais</option>{materiais.data?.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}</select></div>
       <div><label className="text-xs" htmlFor="hist-loja">Loja</label>
-        <select id="hist-loja" className={input} value={fornecedor} onChange={(e) => filtrar(setFornecedor, e.target.value)}>
+        <select name="fornecedor_id" id="hist-loja" className={input} value={fornecedor} onChange={(e) => filtrar(setFornecedor, e.target.value)}>
           <option value="">Todas as lojas</option>{lojas.data?.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}</select></div>
-      <div><label className="text-xs" htmlFor="hist-marca">Marca</label><input id="hist-marca" className={input} value={marca} onChange={(e) => filtrar(setMarca, e.target.value)} /></div>
+      <div><label className="text-xs" htmlFor="hist-marca">Marca</label><input name="marca" id="hist-marca" className={input} value={marca} onChange={(e) => filtrar(setMarca, e.target.value)} /></div>
       <div className="grid grid-cols-2 gap-2">
-        <div><label className="text-xs" htmlFor="hist-inicio">Data inicial</label><input id="hist-inicio" className={input} type="date" value={inicio} onChange={(e) => filtrar(setInicio, e.target.value)} /></div>
-        <div><label className="text-xs" htmlFor="hist-fim">Data final</label><input id="hist-fim" className={input} type="date" value={fim} onChange={(e) => filtrar(setFim, e.target.value)} /></div>
+        <div><label className="text-xs" htmlFor="hist-inicio">Data inicial</label><input name="data_inicio" id="hist-inicio" className={input} type="date" value={inicio} onChange={(e) => filtrar(setInicio, e.target.value)} /></div>
+        <div><label className="text-xs" htmlFor="hist-fim">Data final</label><input name="data_fim" id="hist-fim" className={input} type="date" value={fim} onChange={(e) => filtrar(setFim, e.target.value)} /></div>
       </div>
-    </div>
+    </ValidationScope>
     {(inicio || fim) && <p className="text-xs text-muted-foreground">Compras sem data identificada ficam fora do filtro de período.</p>}
-    {historico.error && <p role="alert" className="text-sm text-destructive">{erroCompras(historico.error)}</p>}
     {historico.isLoading && <p>Carregando compras...</p>}
     {historico.data?.itens.map((compra) => <button type="button" key={compra.id} onClick={() => setSelecionada(compra.id)}
       className="w-full rounded-xl border p-3 text-left space-y-1">

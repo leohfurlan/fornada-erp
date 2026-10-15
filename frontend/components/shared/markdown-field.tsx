@@ -53,7 +53,7 @@ export function MarkdownField({ label, value, onChange, onBlur, name, required, 
         <button type="button" aria-label={`${label}: link`} className="rounded px-3 py-1 text-xs hover:bg-muted" onClick={() => format("[", "](https://)", "texto do link")}>Link</button>
       </div>}
       {/* Mantém o campo obrigatório montado e validável mesmo ao consultar a prévia. */}
-      <textarea id={id} ref={textarea} name={name} rows={rows} required={required} maxLength={maxLength} value={value} onChange={(event) => onChange(event.target.value)} onBlur={onBlur} onInvalid={() => { setPreview(false); requestAnimationFrame(() => textarea.current?.focus()); }} tabIndex={preview ? -1 : undefined} placeholder={placeholder} aria-describedby={`${id}-hint`} className={cn("block w-full resize-y rounded-lg bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary", preview && "sr-only")} />
+      <textarea id={id} ref={textarea} name={name} rows={rows} required={required} maxLength={maxLength} value={value} onChange={(event) => onChange(event.target.value)} onBlur={onBlur} onFocus={() => setPreview(false)} onInvalid={() => { setPreview(false); requestAnimationFrame(() => textarea.current?.focus()); }} tabIndex={preview ? -1 : undefined} placeholder={placeholder} aria-describedby={`${id}-hint`} className={cn("block w-full resize-y rounded-lg bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary", preview && "sr-only")} />
       {preview && <div className="min-h-24 p-3" role="region" aria-label={`Prévia de ${label}`}>
         {value.trim() ? <MarkdownContent>{value}</MarkdownContent> : <p className="text-sm text-muted-foreground">Nenhum texto para visualizar.</p>}
       </div>}

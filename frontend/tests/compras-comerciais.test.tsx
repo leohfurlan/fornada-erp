@@ -49,6 +49,25 @@ function selecionar() {
   fireEvent.change(screen.getByLabelText("Produto e embalagem comprados"), { target: { value: "produto" } });
 }
 describe("conferência comercial de compras", () => {
+  it("indica campos de embalagem inválidos no item correto sem descartar os demais erros ao editar", async () => {
+    mocks.prever.mockRejectedValue({ response: { data: { detail: [
+      { loc: ["body", "itens", 0, "produto_novo", "marca"], type: "string_too_short", ctx: { min_length: 1 } },
+      { loc: ["body", "itens", 0, "produto_novo", "conteudo_embalagem"], type: "decimal_parsing" },
+    ] } } });
+    await foto();
+    fireEvent.click(screen.getByRole("button", { name: "Conferir entrada no estoque" }));
+    const marca = screen.getByLabelText("Marca", { selector: "input" });
+    const conteudo = screen.getByLabelText("Conteúdo por embalagem", { selector: "input" });
+    await waitFor(() => expect(marca).toHaveAttribute("aria-invalid", "true"));
+    expect(conteudo).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent("Item 1 — Marca");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("String should");
+    fireEvent.change(marca, { target: { value: "Marca corrigida" } });
+    await waitFor(() => expect(marca).not.toHaveAttribute("aria-invalid", "true"));
+    expect(conteudo).toHaveAttribute("aria-invalid", "true");
+    expect(mocks.salvar).not.toHaveBeenCalled();
+  });
+
   it("abre o seletor de imagens e PDF sem forçar a câmera", async () => {
     render(<CompraPage />);
     expect(screen.queryByRole("button", { name: "Fotografar cupom" })).not.toBeInTheDocument();

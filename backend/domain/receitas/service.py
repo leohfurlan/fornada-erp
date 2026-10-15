@@ -42,13 +42,17 @@ class ReceitaService:
 
     async def criar(self, tenant_id: UUID, data: CriarReceitaRequest, usuario_id: UUID | None = None) -> ReceitaResponse:
         """Cria receita e retorna com custo já calculado."""
-        for item in data.ingredientes:
+        for index, item in enumerate(data.ingredientes):
             ingrediente = await self._repo.buscar_ingrediente(item.ingrediente_id, tenant_id)
             if not ingrediente:
                 raise ValidationError(
-                    f"Ingrediente {item.ingrediente_id} não encontrado no estoque"
+                    f"Ingrediente {item.ingrediente_id} não encontrado no estoque",
+                    field=f"ingredientes.{index}.ingrediente_id"
                 )
-            converter_para_principal(item.quantidade, item.unidade, ingrediente.unidade, ingrediente.unidades_alternativas)
+            try:
+                converter_para_principal(item.quantidade, item.unidade, ingrediente.unidade, ingrediente.unidades_alternativas)
+            except ValidationError as exc:
+                raise ValidationError(exc.message, field=f"ingredientes.{index}.unidade") from exc
 
         receita = await self._repo.criar(tenant_id, data)
         await HistoricoReceita(self._db).inicial(receita.id, tenant_id, usuario_id)
@@ -83,20 +87,24 @@ class ReceitaService:
         if not receita:
             raise NotFoundError("Receita", str(receita_id))
         if data.rendimento is not None and data.rendimento <= 0:
-            raise ValidationError("Rendimento deve ser maior que zero")
+            raise ValidationError("Rendimento deve ser maior que zero", field="rendimento")
         if data.rendimento_unidade is not None and data.rendimento_unidade != receita.rendimento_unidade:
             if await self._repo.unidade_rendimento_em_uso(receita_id, tenant_id):
                 raise ConflictError("Esta receita-base está em uso. Preserve a unidade de rendimento ou crie outra receita.")
 
         # Valida ingredientes pertencem ao tenant
         if data.ingredientes is not None:
-            for item in data.ingredientes:
+            for index, item in enumerate(data.ingredientes):
                 ingrediente = await self._repo.buscar_ingrediente(item.ingrediente_id, tenant_id)
                 if not ingrediente:
                     raise ValidationError(
-                        f"Ingrediente {item.ingrediente_id} não encontrado no estoque"
+                        f"Ingrediente {item.ingrediente_id} não encontrado no estoque",
+                    field=f"ingredientes.{index}.ingrediente_id"
                     )
-                converter_para_principal(item.quantidade, item.unidade, ingrediente.unidade, ingrediente.unidades_alternativas)
+                try:
+                    converter_para_principal(item.quantidade, item.unidade, ingrediente.unidade, ingrediente.unidades_alternativas)
+                except ValidationError as exc:
+                    raise ValidationError(exc.message, field=f"ingredientes.{index}.unidade") from exc
 
         if data.versao is not None and data.versao != receita.versao:
             raise ConflictError("Esta receita foi alterada. Recarregue antes de salvar.")
