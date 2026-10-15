@@ -7,6 +7,7 @@ import { DecimalInput } from "@/components/shared/decimal-input";
 import { ProdutoCompraFields } from "@/components/shared/produto-compra-fields";
 import { erroNome } from "@/lib/nomes";
 import { UNIDADES_MEDIDA } from "@/lib/unidades";
+import { UnidadeCompraSelect } from "@/components/shared/unidade-compra-select";
 import { useIngredientes } from "@/hooks/use-estoque";
 import { useFornecedoresCompra, useLerCompra, usePreverCompra, useProdutosCompra,
   useReconhecerCompra, useSalvarCompra } from "@/hooks/use-compras-comerciais";
@@ -90,7 +91,6 @@ export default function CompraComercialPage() {
   const reconhecer = useReconhecerCompra();
   const salvar = useSalvarCompra();
 
-  const unidadesPadrao = new Set(UNIDADES_MEDIDA.map((unidade) => unidade.value));
   const unidadesCadastradas = [...new Set([
     ...(ingredientes.data ?? []).flatMap((material) => [
       material.unidade,
@@ -98,7 +98,7 @@ export default function CompraComercialPage() {
     ]),
     ...(produtos.data ?? []).map((produto) => produto.unidade_conteudo),
   ].filter((unidade): unidade is string => !!unidade?.trim()))]
-    .filter((unidade) => !unidadesPadrao.has(unidade));
+    .filter((unidade) => !UNIDADES_MEDIDA.some((padrao) => padrao.value === unidade));
 
   function invalidar() { versao.current += 1; setPrevia(null); setErro(""); }
   function atualizar(idx: number, patch: Partial<ItemEdicao>) {
@@ -254,18 +254,9 @@ export default function CompraComercialPage() {
                 ...(it.custo_unitario ? { preco_total: totalItem(String(v), it.custo_unitario, it.desconto_item) }
                   : { custo_unitario: it.preco_total ? precoPeloTotal(String(v), it.preco_total, it.desconto_item) : "" }) })} /></div>
             <div><label htmlFor={"un-" + idx} className="text-xs">Unidade na nota</label>
-              <select name={`itens.${incluidos.indexOf(it)}.unidade`} id={"un-" + idx} className={input}
-                value={it.unidade} onChange={(e) => atualizar(idx, { unidade: e.target.value })}>
-                <option value="">Selecione a unidade</option>
-                <optgroup label="Unidades de medida">
-                  {UNIDADES_MEDIDA.map((unidade) => <option key={unidade.value} value={unidade.value}>{unidade.label}</option>)}
-                </optgroup>
-                {unidadesCadastradas.length > 0 && <optgroup label="Já cadastradas no estoque">
-                  {unidadesCadastradas.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
-                </optgroup>}
-                {it.unidade && !unidadesPadrao.has(it.unidade) && !unidadesCadastradas.includes(it.unidade) &&
-                  <optgroup label="Identificada nesta nota"><option value={it.unidade}>{it.unidade}</option></optgroup>}
-              </select></div>
+              <UnidadeCompraSelect name={`itens.${incluidos.indexOf(it)}.unidade`} id={"un-" + idx}
+                value={it.unidade} unidadesCadastradas={unidadesCadastradas} unidadeAtualLabel="Identificada nesta nota"
+                onChange={(unidade) => atualizar(idx, { unidade })} /></div>
           </div>
           <label htmlFor={"total-" + idx} className="text-xs">Total pago pelo item (R$)</label>
           <DecimalInput name={`itens.${incluidos.indexOf(it)}.preco_total`} id={"total-" + idx} value={it.preco_total} onChange={(v) => atualizar(idx, { preco_total: String(v), custo_unitario: precoPeloTotal(it.quantidade, String(v), it.desconto_item) })} />
@@ -311,7 +302,7 @@ export default function CompraComercialPage() {
               {["ingrediente", "embalagem", "insumo", "descartavel", "outro"].map((tipo) => <option key={tipo}>{tipo}</option>)}</select>
             <input name={`itens.${incluidos.indexOf(it)}.unidade_principal`} aria-label={"Unidade principal do material " + (idx + 1)} className={input} value={it.unidade_principal} placeholder="kg, g, ml, l ou un" onChange={(e) => atualizar(idx, { unidade_principal: e.target.value })} />
           </div>}
-          {it.modo_produto === "novo" && <ProdutoCompraFields compacto fieldPrefix={`itens.${incluidos.indexOf(it)}.produto_novo`} prefix={"compra-" + idx + "-"} value={it.produto_novo} onChange={(v) => atualizar(idx, { produto_novo: v,
+          {it.modo_produto === "novo" && <ProdutoCompraFields compacto unidadesCadastradas={unidadesCadastradas} fieldPrefix={`itens.${incluidos.indexOf(it)}.produto_novo`} prefix={"compra-" + idx + "-"} value={it.produto_novo} onChange={(v) => atualizar(idx, { produto_novo: v,
             aprovar_produto: false, aprovar_fornecedor: false, guardar_vinculo: false, aceitar_excecao: true })} />}
           </details>
           <details className="space-y-3 rounded-lg border p-3">

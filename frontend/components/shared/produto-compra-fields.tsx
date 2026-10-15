@@ -1,12 +1,14 @@
 "use client";
 
 import { DecimalInput } from "@/components/shared/decimal-input";
+import { UnidadeCompraSelect } from "@/components/shared/unidade-compra-select";
 import type { ProdutoDados } from "@/types/compras";
 import { erroNome, nomeMaiusculo } from "@/lib/nomes";
 
 const input = "w-full rounded-lg border bg-background px-3 py-2.5 text-sm";
-export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "", compacto = false }: {
+export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "", compacto = false, unidadesCadastradas = [] }: {
   value: ProdutoDados; onChange: (value: ProdutoDados) => void; prefix: string; fieldPrefix?: string; compacto?: boolean;
+  unidadesCadastradas?: string[];
 }) {
   const field = (key: string) => fieldPrefix ? `${fieldPrefix}.${key}` : key;
   const set = (patch: Partial<ProdutoDados>) => onChange({ ...value, ...patch });
@@ -35,8 +37,8 @@ export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "",
         <DecimalInput name={field("conteudo_embalagem")} id={prefix + "conteudo"} value={value.conteudo_embalagem}
           onChange={(v) => set({ conteudo_embalagem: String(v) })} /></div>
       <div><label htmlFor={prefix + "unidade"} className="text-xs">Unidade do conteúdo</label>
-        <input name={field("unidade_conteudo")} id={prefix + "unidade"} className={input} value={value.unidade_conteudo}
-          placeholder="kg, g, ml, l ou un" onChange={(e) => set({ unidade_conteudo: e.target.value })} /></div>
+        <UnidadeCompraSelect name={field("unidade_conteudo")} id={prefix + "unidade"} value={value.unidade_conteudo}
+          unidadesCadastradas={unidadesCadastradas} onChange={(unidade_conteudo) => set({ unidade_conteudo })} /></div>
     </div>
     <details open={!compacto}><summary className="cursor-pointer text-xs">Código de barras (opcional)</summary>
       <label htmlFor={prefix + "gtin"} className="text-xs">GTIN/EAN confirmado (opcional)</label>

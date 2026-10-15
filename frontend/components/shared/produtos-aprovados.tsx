@@ -5,7 +5,9 @@ import { useState } from "react";
 import { erroNome } from "@/lib/nomes";
 import Link from "next/link";
 import { ProdutoCompraFields } from "@/components/shared/produto-compra-fields";
+import { UNIDADES_MEDIDA } from "@/lib/unidades";
 import { useCatalogoCompra, useFornecedoresCompra, useProdutosCompra, useVinculosCompra } from "@/hooks/use-compras-comerciais";
+import { useIngredientes } from "@/hooks/use-estoque";
 import { decimalCompra, erroCompras, produtoVazio } from "@/lib/compras";
 import type { FornecedorCompra, ProdutoCompra, ProdutoDados } from "@/types/compras";
 
@@ -13,6 +15,7 @@ const input = "w-full rounded-lg border bg-background px-3 py-2.5 text-sm";
 const button = "rounded-lg border px-3 py-2 text-sm disabled:opacity-50";
 export function ProdutosAprovados({ ingredienteId }: { ingredienteId: string }) {
   const produtos = useProdutosCompra();
+  const ingredientes = useIngredientes();
   const fornecedores = useFornecedoresCompra();
   const vinculos = useVinculosCompra();
   const gravar = useCatalogoCompra();
@@ -29,6 +32,14 @@ export function ProdutosAprovados({ ingredienteId }: { ingredienteId: string }) 
   const [erroLoja, setErroLoja] = useState<unknown>();
   const [correcoes, setCorrecoes] = useState<Record<string, string>>({});
   const meusProdutos = produtos.data?.filter((p) => p.ingrediente_id === ingredienteId) ?? [];
+  const unidadesCadastradas = [...new Set([
+    ...(ingredientes.data ?? []).flatMap((material) => [
+      material.unidade,
+      ...(material.unidades_alternativas ?? []).map((alternativa) => alternativa.unidade),
+    ]),
+    ...(produtos.data ?? []).map((produto) => produto.unidade_conteudo),
+  ].filter((unidade): unidade is string => !!unidade?.trim()))]
+    .filter((unidade) => !UNIDADES_MEDIDA.some((padrao) => padrao.value === unidade));
   const ids = meusProdutos.map((p) => p.id);
   const meusVinculos = vinculos.data?.filter((v) => ids.includes(v.produto_id)) ?? [];
 
@@ -89,7 +100,7 @@ export function ProdutosAprovados({ ingredienteId }: { ingredienteId: string }) 
     }}>Adicionar produto aprovado</button>
     {aberto && <ValidationScope error={erroProduto} className="rounded-xl border p-3 space-y-3">
       <h3 className="font-medium">{editando ? "Editar produto" : "Novo produto para compra"}</h3>
-      <ProdutoCompraFields prefix="cadastro-produto-" value={produto} onChange={setProduto} />
+      <ProdutoCompraFields prefix="cadastro-produto-" value={produto} unidadesCadastradas={unidadesCadastradas} onChange={setProduto} />
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={aprovado} onChange={(e) => setAprovado(e.target.checked)} />Produto aprovado para este material</label>
       <fieldset className="space-y-2"><legend className="text-sm font-medium">Lojas aprovadas para este produto</legend>
         {fornecedores.data?.map((f) => <label className="flex items-center gap-2 text-sm" key={f.id}>
