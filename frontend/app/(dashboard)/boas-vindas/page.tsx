@@ -5,10 +5,11 @@ import { useAuthStore } from "@/stores/use-auth-store";
 
 const passos = [
   { titulo: "1. Configure seus custos", texto: "Informe seu valor por hora e os gastos da loja para calcular preços que cubram sua produção.", href: "/configuracoes/geral" },
-  { titulo: "2. Cadastre seus ingredientes", texto: "Inclua ingredientes, embalagens, quantidades e custos no estoque.", href: "/estoque" },
-  { titulo: "3. Prepare suas receitas", texto: "Defina os ingredientes, o rendimento e o tempo de preparo. Consulte custos e preços sugeridos.", href: "/receitas" },
-  { titulo: "4. Planeje a produção", texto: "Crie uma produção, acompanhe o preparo e registre a quantidade que ficou pronta.", href: "/producao" },
-  { titulo: "5. Registre pedidos e vendas", texto: "Organize encomendas e registre as vendas dos produtos prontos.", href: "/pedidos" },
+  { titulo: "2. Cadastre seus ingredientes", texto: "Cadastre os ingredientes e as embalagens usados nas receitas. Se já tiver produtos em casa, informe a quantidade e o custo inicial no estoque.", href: "/estoque" },
+  { titulo: "3. Registre suas compras e abasteça o estoque", texto: "Escolha uma imagem ou PDF do cupom para o sistema ler, ou registre a compra manualmente. Confira o produto, a quantidade e o total pago. Nos itens desconhecidos, escolha o ingrediente ou a embalagem correspondente e informe o conteúdo da embalagem quando necessário. Confira o resumo e toque em Salvar compra: só então a entrada é registrada no estoque e os custos são atualizados.", href: "/compras" },
+  { titulo: "4. Prepare suas receitas", texto: "Defina os ingredientes, o rendimento e o tempo de preparo. Consulte custos e preços sugeridos.", href: "/receitas" },
+  { titulo: "5. Planeje a produção", texto: "Crie uma produção, acompanhe o preparo e registre a quantidade que ficou pronta.", href: "/producao" },
+  { titulo: "6. Registre pedidos e vendas", texto: "Organize encomendas e registre as vendas dos produtos prontos.", href: "/pedidos" },
 ];
 
 export default function BoasVindasPage() {

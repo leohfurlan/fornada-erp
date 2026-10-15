@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import CompraPage from "@/components/shared/compra-comercial";
-import { dataCompra, totalItem } from "@/lib/compras";
+import { dataCompra, precoPeloTotal, totalItem } from "@/lib/compras";
 
 const mocks = vi.hoisted(() => ({ ler: vi.fn(), prever: vi.fn(), salvar: vi.fn(), reconhecer: vi.fn() }));
 vi.mock("@/hooks/use-estoque", () => ({ useIngredientes: () => ({
@@ -47,6 +47,7 @@ async function foto() {
 function selecionar() {
   fireEvent.change(screen.getByLabelText("Material das receitas"), { target: { value: "material" } });
   fireEvent.change(screen.getByLabelText("Produto e embalagem comprados"), { target: { value: "produto" } });
+  fireEvent.click(screen.getByLabelText("Registrar apenas esta compra, sem aprovação permanente"));
 }
 describe("conferência comercial de compras", () => {
   it("mantém o arquivo da câmera até terminar de ler e permite escolher novamente após falha", async () => {
@@ -80,7 +81,6 @@ describe("conferência comercial de compras", () => {
     expect(conteudo).toHaveAttribute("aria-invalid", "true");
     expect(mocks.salvar).not.toHaveBeenCalled();
   });
-
   it("abre o seletor de imagens e PDF sem forçar a câmera", async () => {
     render(<CompraPage />);
     expect(screen.queryByRole("button", { name: "Fotografar cupom" })).not.toBeInTheDocument();
@@ -158,11 +158,81 @@ describe("conferência comercial de compras", () => {
   });
 });
 describe("preços e datas", () => {
+  it("deduz preço pelo total pago incluindo desconto e arredonda sem float", () => {
+    expect(precoPeloTotal("3", "10.00", "0")).toBe("3.33333333");
+    expect(totalItem("3", precoPeloTotal("3", "10.00", "0"), "0")).toBe("10.00");
+    expect(precoPeloTotal("2", "70.00", "1.98")).toBe("35.99000000");
+    expect(precoPeloTotal("0", "10.00", "0")).toBe("");
+  });
   it("calcula centavos com precisão e mantém data desconhecida explícita", () => {
     expect(totalItem("2", "35.99", "0")).toBe("71.98");
     expect(totalItem("2020", "0.03563366", "0")).toBe("71.98");
     expect(totalItem("1", "1.005", "0")).toBe("1.01");
     expect(totalItem("2", "35.99", "1.98")).toBe("70.00");
     expect(dataCompra(null)).toBe("Data não identificada");
+  });
+});
+
+describe("compra simplificada", () => {
+  it("seleciona produto e classifica sem uma segunda escolha de material", async () => {
+    await foto();
+    fireEvent.change(screen.getByLabelText("Produto e embalagem comprados"), { target: { value: "produto" } });
+    expect(screen.getByLabelText("Material das receitas")).toHaveValue("material");
+    expect(screen.getByText("Classificação: Chocolate branco").closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByRole("button", { name: "Conferir entrada no estoque" }));
+    await waitFor(() => expect(mocks.prever).toHaveBeenCalledOnce());
+    expect(mocks.prever.mock.calls[0][0].itens[0]).toMatchObject({ ingrediente_id: "material",
+      produto_id: "produto", aceitar_excecao: true, aprovar_produto: false, aprovar_fornecedor: false, guardar_vinculo: false });
+    expect(mocks.salvar).not.toHaveBeenCalled();
+  });
+
+  it("mantém classificação incerta aberta e detalhes opcionais recolhidos", async () => {
+    await foto();
+    expect(screen.getByText("O que você comprou? Escolha a classificação").closest("details")).toHaveAttribute("open");
+    expect(screen.getByText("Fabricante e variante (opcional)").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("Preço por unidade, desconto e códigos").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("Usar somente nesta compra").closest("details")).not.toHaveAttribute("open");
+  });
+
+  it("registra manualmente com produto, quantidade e total pago", async () => {
+    render(<CompraPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Registrar compra manualmente" }));
+    expect(screen.getByLabelText("Quantidade na nota")).toHaveValue("1");
+    fireEvent.change(screen.getByLabelText("Produto e embalagem comprados"), { target: { value: "produto" } });
+    fireEvent.change(screen.getByLabelText("Quantidade na nota"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Total pago pelo item (R$)"), { target: { value: "10,00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Conferir entrada no estoque" }));
+    await waitFor(() => expect(mocks.prever).toHaveBeenCalledOnce());
+    expect(mocks.prever.mock.calls[0][0]).toMatchObject({ origem: "web_manual", itens: [{
+      ingrediente_id: "material", produto_id: "produto", quantidade: "3", unidade: "un",
+      preco_total: "10", custo_unitario: "3.33333333", aceitar_excecao: true }] });
+    expect(mocks.salvar).not.toHaveBeenCalled();
+  });
+
+  it("guarda preferências somente por escolha explícita e desfaz ao trocar produto", async () => {
+    await foto();
+    fireEvent.change(screen.getByLabelText("Produto e embalagem comprados"), { target: { value: "produto" } });
+    fireEvent.click(screen.getByLabelText(/Lembrar esta classificação nesta loja/));
+    fireEvent.click(screen.getByRole("button", { name: "Conferir entrada no estoque" }));
+    await waitFor(() => expect(mocks.prever).toHaveBeenCalledOnce());
+    expect(mocks.prever.mock.calls[0][0].itens[0]).toMatchObject({ aceitar_excecao: false,
+      aprovar_produto: true, aprovar_fornecedor: true, guardar_vinculo: true });
+    fireEvent.change(screen.getByLabelText("Produto e embalagem comprados"), { target: { value: "novo" } });
+    expect(screen.getByLabelText(/Lembrar esta classificação nesta loja/)).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Salvar compra" })).toBeDisabled();
+    expect(mocks.salvar).not.toHaveBeenCalled();
+  });
+
+  it("descarta leitura atrasada quando a usuária inicia uma compra manual", async () => {
+    let resolver: (value: unknown) => void = () => {};
+    mocks.ler.mockImplementation(() => new Promise((resolve) => { resolver = resolve; }));
+    render(<CompraPage />);
+    fireEvent.change(screen.getByLabelText("Imagem ou PDF do cupom"), {
+      target: { files: [new File(["receipt"], "cupom.jpeg", { type: "image/jpeg" })] } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar compra manualmente" }));
+    resolver({ itens: [observado], estabelecimento: "Resposta atrasada" });
+    await waitFor(() => expect(mocks.ler).toHaveBeenCalledOnce());
+    expect(screen.getByLabelText("Descrição do produto comprado")).toHaveValue("");
+    expect(screen.queryByText(observado.descricao)).not.toBeInTheDocument();
   });
 });

@@ -5,13 +5,12 @@ import type { ProdutoDados } from "@/types/compras";
 import { erroNome, nomeMaiusculo } from "@/lib/nomes";
 
 const input = "w-full rounded-lg border bg-background px-3 py-2.5 text-sm";
-export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "" }: {
-  value: ProdutoDados; onChange: (value: ProdutoDados) => void; prefix: string; fieldPrefix?: string;
+export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "", compacto = false }: {
+  value: ProdutoDados; onChange: (value: ProdutoDados) => void; prefix: string; fieldPrefix?: string; compacto?: boolean;
 }) {
   const field = (key: string) => fieldPrefix ? `${fieldPrefix}.${key}` : key;
   const set = (patch: Partial<ProdutoDados>) => onChange({ ...value, ...patch });
-  return <div className="space-y-3">
-    {(["nome", "marca", "fabricante", "variante"] as const).map((key) => {
+  const campoTexto = (key: "nome" | "marca" | "fabricante" | "variante") => {
       const labels = { nome: "Nome do produto na embalagem", marca: "Marca",
         fabricante: "Fabricante (se conhecido)", variante: "Variante (branco, ao leite...)" };
       return <div key={key}><label htmlFor={prefix + key} className="text-xs">{labels[key]}</label>
@@ -25,7 +24,12 @@ export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "" 
         {key === "nome" && <p className="text-xs text-muted-foreground">Nome em letras maiúsculas, sem emojis.</p>}
         {key === "nome" && value.nome && erroNome(value.nome) && <p role="alert" className="text-xs text-destructive">{erroNome(value.nome)}</p>}
       </div>;
-    })}
+    };
+  return <div className="space-y-3">
+    {(["nome", "marca"] as const).map(campoTexto)}
+    {compacto ? <details className="space-y-3"><summary className="cursor-pointer text-xs">Fabricante e variante (opcional)</summary>
+      {(["fabricante", "variante"] as const).map(campoTexto)}
+    </details> : (["fabricante", "variante"] as const).map(campoTexto)}
     <div className="grid grid-cols-2 gap-2">
       <div><label htmlFor={prefix + "conteudo"} className="text-xs">Conteúdo por embalagem</label>
         <DecimalInput name={field("conteudo_embalagem")} id={prefix + "conteudo"} value={value.conteudo_embalagem}
@@ -34,11 +38,12 @@ export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "" 
         <input name={field("unidade_conteudo")} id={prefix + "unidade"} className={input} value={value.unidade_conteudo}
           placeholder="kg, g, ml, l ou un" onChange={(e) => set({ unidade_conteudo: e.target.value })} /></div>
     </div>
-    <div><label htmlFor={prefix + "gtin"} className="text-xs">GTIN/EAN confirmado (opcional)</label>
+    <details open={!compacto}><summary className="cursor-pointer text-xs">Código de barras (opcional)</summary>
+      <label htmlFor={prefix + "gtin"} className="text-xs">GTIN/EAN confirmado (opcional)</label>
       <input name={field("gtin")} id={prefix + "gtin"} className={input} inputMode="numeric" value={value.gtin ?? ""}
         maxLength={14} onChange={(e) => set({ gtin: e.target.value || null })} />
       <p className="text-xs text-muted-foreground">Use o código de barras da embalagem. Código da loja fica separado.</p>
-    </div>
+    </details>
     <details className="text-xs"><summary>Conversão específica do conteúdo</summary>
       <label htmlFor={prefix + "fator"}>1 unidade do conteúdo equivale a quantas unidades do material?</label>
       <DecimalInput name={field("fator_para_principal")} id={prefix + "fator"} value={value.fator_para_principal ?? ""}

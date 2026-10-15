@@ -29,6 +29,14 @@ export function totalItem(quantidade: string, preco: string, desconto: string): 
   if (centavos <= BigInt(0)) return "0.00";
   return (centavos / BigInt(100)).toString() + "." + (centavos % BigInt(100)).toString().padStart(2, "0");
 }
+/** Preço bruto por unidade a partir do total pago, com oito casas e sem float. */
+export function precoPeloTotal(quantidade: string, total: string, desconto: string): string {
+  const qtd = escalado(quantidade, 8);
+  if (qtd <= BigInt(0)) return "";
+  const bruto = (escalado(total, 2) + escalado(desconto, 2)) * BigInt("100000000000000");
+  const preco = (bruto + qtd / BigInt(2)) / qtd;
+  return `${preco / BigInt(100000000)}.${(preco % BigInt(100000000)).toString().padStart(8, "0")}`;
+}
 export function decimalCompra(value: string): string {
   return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(Number(value));
 }

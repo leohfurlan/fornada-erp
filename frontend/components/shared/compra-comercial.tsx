@@ -6,10 +6,11 @@ import { useRef, useState } from "react";
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { ProdutoCompraFields } from "@/components/shared/produto-compra-fields";
 import { erroNome } from "@/lib/nomes";
+import { UNIDADES_MEDIDA } from "@/lib/unidades";
 import { useIngredientes } from "@/hooks/use-estoque";
 import { useFornecedoresCompra, useLerCompra, usePreverCompra, useProdutosCompra,
   useReconhecerCompra, useSalvarCompra } from "@/hooks/use-compras-comerciais";
-import { custoCompra, dadosObservados, decimalCompra, produtoVazio, totalItem } from "@/lib/compras";
+import { custoCompra, dadosObservados, decimalCompra, precoPeloTotal, produtoVazio, totalItem } from "@/lib/compras";
 import { formatMoney } from "@/lib/utils";
 import type { CompraRevisada, ItemLido, ItemRevisado, LeituraCompra, PreviaCompra,
   ProdutoDados, ResultadoCompra } from "@/types/compras";
@@ -49,16 +50,16 @@ function editarItem(item: ItemLido): ItemEdicao {
       fabricante: item.fabricante_observado, variante: item.variante_observada,
       conteudo_embalagem: item.conteudo_observado ?? "",
       unidade_conteudo: item.unidade_conteudo_observada ?? "kg" },
-    aprovar_produto: false, aprovar_fornecedor: false, aceitar_excecao: false,
+    aprovar_produto: false, aprovar_fornecedor: false, aceitar_excecao: true,
     guardar_vinculo: false, escolha_manual: false };
 }
 function itemManual(): ItemLido {
-  return { indice: 0, descricao: "", quantidade: null, unidade: null, preco_unitario: null,
+  return { indice: 0, descricao: "", quantidade: "1", unidade: "un", preco_unitario: null,
     preco_total: null, desconto_item: null, marca_observada: null, fabricante_observado: null,
     variante_observada: null, conteudo_observado: null, unidade_conteudo_observada: null,
     codigo_loja: null, gtin: null, gtin_confirmado: false, ingrediente_id: null,
     nome_match: null, produto_id: null, produto_revisao: null, reconhecimento: "nenhum",
-    score: 0, explicacao: "Escolha o material e o produto.", pendencias: [], candidatos: [],
+    score: 0, explicacao: "Escolha o ingrediente ou a embalagem que você comprou.", pendencias: [], candidatos: [],
     vinculo_id: null, vinculo_revisao: null, tipo_sugerido: "ingrediente", unidade_sugerida: "kg" };
 }
 export default function CompraComercialPage() {
@@ -79,6 +80,7 @@ export default function CompraComercialPage() {
   const tentativa = useRef<{ assinatura: string; chave: string } | null>(null);
   const versao = useRef(0);
   const sequenciaLoja = useRef(0);
+  const sequenciaLeitura = useRef(0);
   const arquivo = useRef<HTMLInputElement>(null);
   const ingredientes = useIngredientes();
   const produtos = useProdutosCompra();
@@ -88,6 +90,16 @@ export default function CompraComercialPage() {
   const reconhecer = useReconhecerCompra();
   const salvar = useSalvarCompra();
 
+  const unidadesPadrao = new Set(UNIDADES_MEDIDA.map((unidade) => unidade.value));
+  const unidadesCadastradas = [...new Set([
+    ...(ingredientes.data ?? []).flatMap((material) => [
+      material.unidade,
+      ...(material.unidades_alternativas ?? []).map((alternativa) => alternativa.unidade),
+    ]),
+    ...(produtos.data ?? []).map((produto) => produto.unidade_conteudo),
+  ].filter((unidade): unidade is string => !!unidade?.trim()))]
+    .filter((unidade) => !unidadesPadrao.has(unidade));
+
   function invalidar() { versao.current += 1; setPrevia(null); setErro(""); }
   function atualizar(idx: number, patch: Partial<ItemEdicao>) {
     if (patch.incluir !== undefined) setFalha(undefined);
@@ -95,19 +107,23 @@ export default function CompraComercialPage() {
   }
   async function foto(file?: File) {
     if (!file) return;
+    const seq = ++sequenciaLeitura.current;
     setErro(""); setFalha(undefined);
     try {
       const response = await ler.mutateAsync(file);
+      if (seq !== sequenciaLeitura.current) return;
       invalidar(); tentativa.current = null;
       setLeitura(response); setItens(response.itens.map(editarItem));
       setLoja(response.estabelecimento ?? ""); setFornecedor(response.fornecedor_id ?? "");
       setCnpj(response.cnpj_observado ?? ""); setData(response.data_compra ?? "");
       setIdentidade(response.identidade_nota ?? ""); setIdentidadeConfirmada(false);
       setDuplicidadeConfirmada(false); setEtapa("revisao");
-    } catch (e) { setFalha(e); }
+    } catch (e) { if (seq === sequenciaLeitura.current) setFalha(e); }
   }
   async function escolherLoja(id: string) {
     invalidar(); setFornecedor(id);
+    setItens((current) => current.map((it) => ({ ...it, aprovar_fornecedor: false,
+      guardar_vinculo: false, aceitar_excecao: true, aprovar_produto: false })));
     const seq = ++sequenciaLoja.current;
     if (!leitura) return;
     try {
@@ -193,6 +209,7 @@ export default function CompraComercialPage() {
       disabled={ler.isPending} onClick={() => arquivo.current?.click()}>{ler.isPending ? "Preparando e lendo o cupom..." : "Escolher imagem ou PDF"}</button>
     <p className="text-xs text-muted-foreground">Fotos grandes são reduzidas antes do envio. PDF de até 8 MB e 5 páginas.</p>
     <button className={botao} onClick={() => {
+      sequenciaLeitura.current += 1; sequenciaLoja.current += 1;
       invalidar(); tentativa.current = null; setLeitura(null); setItens([editarItem(itemManual())]);
       setLoja(""); setFornecedor(""); setCnpj(""); setData(""); setIdentidade("");
       setIdentidadeConfirmada(false); setDuplicidadeConfirmada(false); setEtapa("revisao");
@@ -204,10 +221,12 @@ export default function CompraComercialPage() {
   return <ValidationScope error={falha} className="space-y-5 pb-8">
     <button className={botao} disabled={salvar.isPending} onClick={() => { invalidar(); sequenciaLoja.current += 1; setEtapa("captura"); }}>← Refazer ou cancelar</button>
     <h1 className="text-xl font-bold">Conferir itens</h1>
-    <p className="text-sm text-muted-foreground">Vincule o produto comprado ao material da receita. Quantidade da nota e quantidade de estoque são conferidas separadamente.</p>
+    <p className="text-sm text-muted-foreground">Confira a quantidade e o total pago. Abra a classificação para ajustar o ingrediente ou a embalagem quando precisar.</p>
+    <p className="rounded-lg bg-muted/30 p-3 text-sm">Nada entra no estoque antes de você conferir o resumo e salvar. Por padrão, as escolhas valem apenas para esta compra.</p>
     {leitura?.aviso_mock && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Modo demonstração: itens de exemplo, sem leitura real.</p>}
     <fieldset disabled={salvar.isPending} className="space-y-5">
-      <div className="space-y-3 rounded-xl border p-3">
+      <details className="space-y-3 rounded-xl border p-3">
+        <summary className="cursor-pointer font-medium">Loja e data · {loja || "Não informadas"}</summary>
         <label className="text-xs" htmlFor="loja-compra">Loja da compra</label>
         <select name="fornecedor_id" id="loja-compra" className={input} value={fornecedor} onChange={(e) => { void escolherLoja(e.target.value); }}>
           <option value="">Cadastrar loja ou manter desconhecida</option>
@@ -224,22 +243,62 @@ export default function CompraComercialPage() {
           <input className={input} name="identidade_nota" aria-label="Chave fiscal" value={identidade} maxLength={44} onChange={(e) => { invalidar(); setIdentidade(e.target.value); setIdentidadeConfirmada(false); }} />
           <label className="flex gap-2 text-xs"><input type="checkbox" checked={identidadeConfirmada} onChange={(e) => { invalidar(); setIdentidadeConfirmada(e.target.checked); }} />Conferi a chave de 44 dígitos na nota</label>
         </details>
-      </div>
+      </details>
       {itens.map((it, idx) => <article data-validation-label={`Item ${idx + 1}`} className="space-y-3 rounded-xl border p-3" key={idx}>
-        <div className="flex justify-between gap-2"><p className="min-w-0 break-words font-medium">{it.origem.descricao || "Item manual"}</p>
+        <div className="flex justify-between gap-2"><p className="min-w-0 break-words font-medium">{it.origem.descricao || produtos.data?.find((p) => p.id === it.produto_id)?.nome || it.produto_novo.nome || "Item manual"}</p>
           <label className="shrink-0 text-xs"><input type="checkbox" checked={it.incluir} onChange={(e) => atualizar(idx, { incluir: e.target.checked })} /> Incluir</label></div>
         {it.incluir && <>
+          <div className="grid grid-cols-2 gap-2">
+            <div><label htmlFor={"qtd-" + idx} className="text-xs">Quantidade na nota</label>
+              <DecimalInput name={`itens.${incluidos.indexOf(it)}.quantidade`} id={"qtd-" + idx} value={it.quantidade} onChange={(v) => atualizar(idx, { quantidade: String(v),
+                ...(it.custo_unitario ? { preco_total: totalItem(String(v), it.custo_unitario, it.desconto_item) }
+                  : { custo_unitario: it.preco_total ? precoPeloTotal(String(v), it.preco_total, it.desconto_item) : "" }) })} /></div>
+            <div><label htmlFor={"un-" + idx} className="text-xs">Unidade na nota</label>
+              <select name={`itens.${incluidos.indexOf(it)}.unidade`} id={"un-" + idx} className={input}
+                value={it.unidade} onChange={(e) => atualizar(idx, { unidade: e.target.value })}>
+                <option value="">Selecione a unidade</option>
+                <optgroup label="Unidades de medida">
+                  {UNIDADES_MEDIDA.map((unidade) => <option key={unidade.value} value={unidade.value}>{unidade.label}</option>)}
+                </optgroup>
+                {unidadesCadastradas.length > 0 && <optgroup label="Já cadastradas no estoque">
+                  {unidadesCadastradas.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
+                </optgroup>}
+                {it.unidade && !unidadesPadrao.has(it.unidade) && !unidadesCadastradas.includes(it.unidade) &&
+                  <optgroup label="Identificada nesta nota"><option value={it.unidade}>{it.unidade}</option></optgroup>}
+              </select></div>
+          </div>
+          <label htmlFor={"total-" + idx} className="text-xs">Total pago pelo item (R$)</label>
+          <DecimalInput name={`itens.${incluidos.indexOf(it)}.preco_total`} id={"total-" + idx} value={it.preco_total} onChange={(v) => atualizar(idx, { preco_total: String(v), custo_unitario: precoPeloTotal(it.quantidade, String(v), it.desconto_item) })} />
+          <details className="space-y-3 rounded-lg bg-muted/20 p-3" open={!it.ingrediente_id || (!it.produto_id && it.modo_produto !== "sem") || !!it.origem.pendencias.length}>
+            <summary className="cursor-pointer text-sm font-medium">{it.ingrediente_id && (it.produto_id || it.modo_produto === "sem")
+              ? `Classificação: ${ingredientes.data?.find((m) => m.id === it.ingrediente_id)?.nome ?? it.nome ?? "Confira"}`
+              : "O que você comprou? Escolha a classificação"}</summary>
           <p className="text-xs text-muted-foreground">{it.origem.explicacao}</p>
           {(it.origem.linhas_origem?.length ?? 0) > 1 && <p className="text-xs text-muted-foreground">{it.origem.linhas_origem!.length} linhas iguais da nota agrupadas; quantidades e totais somados.</p>}
           {it.origem.pendencias.map((pendencia) => <p className="text-xs text-amber-800" key={pendencia}>{pendencia}</p>)}
           {!leitura && <><label htmlFor={"desc-" + idx} className="text-xs">Descrição do produto comprado</label>
             <input name={`itens.${incluidos.indexOf(it)}.descricao_original`} id={"desc-" + idx} className={input} value={it.origem.descricao} onChange={(e) => atualizar(idx, { origem: { ...it.origem, descricao: e.target.value } })} /></>}
+          <label htmlFor={"produto-" + idx} className="text-xs">Produto e embalagem comprados</label>
+          <select name={`itens.${incluidos.indexOf(it)}.produto_id`} id={"produto-" + idx} className={input}
+            value={it.modo_produto === "existente" ? it.produto_id : it.modo_produto}
+            onChange={(e) => { const p = produtos.data?.find((prod) => prod.id === e.target.value);
+              atualizar(idx, { modo_produto: p ? "existente" : e.target.value === "sem" ? "sem" : "novo",
+                produto_id: p?.id ?? "", escolha_manual: true,
+                ingrediente_id: p?.ingrediente_id ?? it.ingrediente_id,
+                nome: p ? ingredientes.data?.find((m) => m.id === p.ingrediente_id)?.nome ?? it.nome : it.nome,
+                criar_novo: p ? false : it.criar_novo,
+                aprovar_produto: false, aprovar_fornecedor: false, guardar_vinculo: false, aceitar_excecao: true,
+                origem: { ...it.origem, produto_revisao: p?.revisao ?? null } }); }}>
+            <option value="novo">Informar novo produto comercial</option>
+            <option value="sem">Compra medida, sem produto identificado</option>
+            {produtos.data?.map((p) => <option value={p.id} key={p.id}>{p.nome} · {p.marca} · {decimalCompra(p.conteudo_embalagem)} {p.unidade_conteudo}{!p.aprovado ? " (pendente)" : ""}</option>)}
+          </select>
           <label htmlFor={"material-" + idx} className="text-xs">Material das receitas</label>
           <select name={`itens.${incluidos.indexOf(it)}.ingrediente_id`} id={"material-" + idx} className={input} value={it.criar_novo ? "novo" : it.ingrediente_id}
             onChange={(e) => { const m = ingredientes.data?.find((ing) => ing.id === e.target.value);
               atualizar(idx, { ingrediente_id: m?.id ?? "", criar_novo: e.target.value === "novo",
                 nome: m?.nome ?? "", tipo: m?.tipo ?? "ingrediente", unidade_principal: m?.unidade ?? "kg",
-                produto_id: "", modo_produto: "novo", escolha_manual: true,
+                produto_id: "", modo_produto: "novo", escolha_manual: true, aprovar_produto: false, aprovar_fornecedor: false, guardar_vinculo: false, aceitar_excecao: true,
                 origem: { ...it.origem, produto_revisao: null } }); }}>
             <option value="">Selecione um material existente...</option>
             {ingredientes.data?.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
@@ -252,35 +311,34 @@ export default function CompraComercialPage() {
               {["ingrediente", "embalagem", "insumo", "descartavel", "outro"].map((tipo) => <option key={tipo}>{tipo}</option>)}</select>
             <input name={`itens.${incluidos.indexOf(it)}.unidade_principal`} aria-label={"Unidade principal do material " + (idx + 1)} className={input} value={it.unidade_principal} placeholder="kg, g, ml, l ou un" onChange={(e) => atualizar(idx, { unidade_principal: e.target.value })} />
           </div>}
-          <label htmlFor={"produto-" + idx} className="text-xs">Produto e embalagem comprados</label>
-          <select name={`itens.${incluidos.indexOf(it)}.produto_id`} id={"produto-" + idx} className={input}
-            value={it.modo_produto === "existente" ? it.produto_id : it.modo_produto}
-            onChange={(e) => { const p = produtos.data?.find((prod) => prod.id === e.target.value);
-              atualizar(idx, { modo_produto: p ? "existente" : e.target.value === "sem" ? "sem" : "novo",
-                produto_id: p?.id ?? "", escolha_manual: true,
-                origem: { ...it.origem, produto_revisao: p?.revisao ?? null } }); }}>
-            <option value="novo">Informar novo produto comercial</option>
-            <option value="sem">Compra medida, sem produto identificado</option>
-            {produtos.data?.filter((p) => p.ingrediente_id === it.ingrediente_id).map((p) => <option value={p.id} key={p.id}>{p.nome} · {p.marca} · {decimalCompra(p.conteudo_embalagem)} {p.unidade_conteudo}{!p.aprovado ? " (pendente)" : ""}</option>)}
-          </select>
-          {it.modo_produto === "novo" && <ProdutoCompraFields fieldPrefix={`itens.${incluidos.indexOf(it)}.produto_novo`} prefix={"compra-" + idx + "-"} value={it.produto_novo} onChange={(v) => atualizar(idx, { produto_novo: v })} />}
+          {it.modo_produto === "novo" && <ProdutoCompraFields compacto fieldPrefix={`itens.${incluidos.indexOf(it)}.produto_novo`} prefix={"compra-" + idx + "-"} value={it.produto_novo} onChange={(v) => atualizar(idx, { produto_novo: v,
+            aprovar_produto: false, aprovar_fornecedor: false, guardar_vinculo: false, aceitar_excecao: true })} />}
+          </details>
+          <details className="space-y-3 rounded-lg border p-3">
+            <summary className="cursor-pointer text-sm">Preço por unidade, desconto e códigos</summary>
           <div className="grid grid-cols-2 gap-2">
-            <div><label htmlFor={"qtd-" + idx} className="text-xs">Quantidade na nota</label>
-              <DecimalInput name={`itens.${incluidos.indexOf(it)}.quantidade`} id={"qtd-" + idx} value={it.quantidade} onChange={(v) => atualizar(idx, { quantidade: String(v), preco_total: totalItem(String(v), it.custo_unitario, it.desconto_item) })} /></div>
-            <div><label htmlFor={"un-" + idx} className="text-xs">Unidade na nota</label>
-              <input name={`itens.${incluidos.indexOf(it)}.unidade`} id={"un-" + idx} className={input} value={it.unidade} placeholder="un, kg, g..." onChange={(e) => atualizar(idx, { unidade: e.target.value })} /></div>
             <div><label htmlFor={"custo-" + idx} className="text-xs">Preço por unidade da nota (R$)</label>
               <DecimalInput name={`itens.${incluidos.indexOf(it)}.custo_unitario`} id={"custo-" + idx} value={it.custo_unitario} onChange={(v) => atualizar(idx, { custo_unitario: String(v), preco_total: totalItem(it.quantidade, String(v), it.desconto_item) })} /></div>
             <div><label htmlFor={"desconto-" + idx} className="text-xs">Desconto deste item (R$)</label>
               <DecimalInput name={`itens.${incluidos.indexOf(it)}.desconto_item`} id={"desconto-" + idx} value={it.desconto_item} onChange={(v) => atualizar(idx, { desconto_item: String(v), preco_total: totalItem(it.quantidade, it.custo_unitario, String(v)) })} /></div>
           </div>
-          <label htmlFor={"total-" + idx} className="text-xs">Total pago pelo item (R$)</label>
-          <DecimalInput name={`itens.${incluidos.indexOf(it)}.preco_total`} id={"total-" + idx} value={it.preco_total} onChange={(v) => atualizar(idx, { preco_total: String(v) })} />
           <details><summary className="text-xs">Código e identificação lidos</summary>
             <input className={input} name={`itens.${incluidos.indexOf(it)}.codigo_loja`} aria-label={"Código da loja item " + (idx + 1)} value={it.origem.codigo_loja ?? ""} onChange={(e) => atualizar(idx, { origem: { ...it.origem, codigo_loja: e.target.value || null } })} />
             {it.origem.gtin && <label className="flex gap-2 text-xs"><input type="checkbox" checked={it.origem.gtin_confirmado} onChange={(e) => atualizar(idx, { origem: { ...it.origem, gtin_confirmado: e.target.checked } })} />Conferi que {it.origem.gtin} é o código universal da embalagem</label>}
           </details>
-          <div className="space-y-2 rounded-lg bg-muted/30 p-3">
+          </details>
+          {it.modo_produto !== "sem" && (fornecedor || loja.trim()) && (it.origem.descricao.trim() || it.origem.codigo_loja?.trim()) && <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-1" checked={it.guardar_vinculo && it.aprovar_produto && it.aprovar_fornecedor && !it.aceitar_excecao}
+              onChange={(e) => atualizar(idx, { guardar_vinculo: e.target.checked,
+                aprovar_produto: e.target.checked, aprovar_fornecedor: e.target.checked, aceitar_excecao: !e.target.checked })} />
+            <span>Lembrar esta classificação nesta loja
+              <span className="block text-xs text-muted-foreground">Ao salvar, aprova este produto e esta loja e guarda a descrição do cupom para próximas compras.</span>
+            </span>
+          </label>}
+          <details className="space-y-2 rounded-lg bg-muted/30 p-3">
+            <summary className="cursor-pointer text-sm">{it.aceitar_excecao ? "Usar somente nesta compra" : "Preferências para próximas compras"}</summary>
+            <p className="text-xs text-muted-foreground">Para repetir a classificação nas próximas compras, desmarque a opção abaixo e escolha o que deseja guardar. As aprovações só serão aplicadas ao salvar.</p>
+
             <label className="flex gap-2 text-sm"><input type="checkbox" name={`itens.${incluidos.indexOf(it)}.aprovar_produto`} checked={it.aprovar_produto} disabled={it.aceitar_excecao}
               onChange={(e) => atualizar(idx, { aprovar_produto: e.target.checked })} />Aprovar este produto para o material</label>
             <label className="flex gap-2 text-sm"><input type="checkbox" name={`itens.${incluidos.indexOf(it)}.aprovar_fornecedor`} checked={it.aprovar_fornecedor} disabled={it.aceitar_excecao}
@@ -290,14 +348,15 @@ export default function CompraComercialPage() {
             <label className="flex gap-2 text-sm"><input type="checkbox" name={`itens.${incluidos.indexOf(it)}.aceitar_excecao`} checked={it.aceitar_excecao}
               onChange={(e) => atualizar(idx, { aceitar_excecao: e.target.checked,
                 ...(e.target.checked ? { aprovar_produto: false, aprovar_fornecedor: false, guardar_vinculo: false } : {}) })} />Registrar apenas esta compra, sem aprovação permanente</label>
-          </div>
+          </details>
         </>}
       </article>)}
       {!leitura && <button className={botao} type="button" onClick={() => {
         invalidar(); const next = editarItem(itemManual()); next.origem.indice = itens.length; setItens([...itens, next]);
       }}>Adicionar item</button>}
       {previa && <div className="rounded-xl border border-primary p-3 space-y-3" aria-label="Prévia do estoque">
-        <h2 className="font-medium">Conferência da entrada</h2>
+        <h2 className="font-medium">Resumo da compra</h2>
+        <p className="text-sm">{incluidos.length} item(ns) · total {formatMoney(previa.dados.total_selecionado)}</p>
         {previa.dados.itens.map((it) => <div key={it.indice} className="space-y-1">
           <p className="text-sm">{it.nome_material}: {decimalCompra(it.quantidade_principal)} {it.unidade_principal} no estoque</p>
           <p className="text-xs">{custoCompra(it.custo_normalizado)}/{it.unidade_principal} · total {formatMoney(it.preco_total)}</p>
