@@ -180,11 +180,12 @@ export default function CompraComercialPage() {
   if (etapa === "captura") return <div className="space-y-5">
     <Link className="text-sm text-muted-foreground" href="/estoque">← Voltar</Link>
     <h1 className="text-xl font-bold">Entrada de compra</h1>
-    <p className="text-sm text-muted-foreground">Fotografe o cupom e confira os produtos, quantidades e preços antes de salvar.</p>
-    <input ref={arquivo} type="file" accept="image/*" capture="environment" className="hidden"
-      aria-label="Foto do cupom" onChange={(e) => { void foto(e.target.files?.[0]); e.target.value = ""; }} />
+    <p className="text-sm text-muted-foreground">Fotografe o cupom ou escolha uma imagem ou PDF e confira os produtos, quantidades e preços antes de salvar.</p>
+    <input ref={arquivo} type="file" accept="image/*,application/pdf,.pdf" className="hidden"
+      aria-label="Imagem ou PDF do cupom" onChange={(e) => { void foto(e.target.files?.[0]); e.target.value = ""; }} />
     <button className="w-full rounded-xl border-2 border-dashed border-primary p-10 text-primary disabled:opacity-50"
-      disabled={ler.isPending} onClick={() => arquivo.current?.click()}>{ler.isPending ? "Lendo o cupom..." : "Fotografar cupom ou escolher imagem"}</button>
+      disabled={ler.isPending} onClick={() => arquivo.current?.click()}>{ler.isPending ? "Lendo o cupom..." : "Escolher imagem ou PDF"}</button>
+    <p className="text-xs text-muted-foreground">Arquivos de até 8 MB. PDF com até 5 páginas.</p>
     <button className={botao} onClick={() => {
       invalidar(); tentativa.current = null; setLeitura(null); setItens([editarItem(itemManual())]);
       setLoja(""); setFornecedor(""); setCnpj(""); setData(""); setIdentidade("");

@@ -257,11 +257,18 @@ async def ocr(
     tenant: UUID = Depends(get_tenant_id),
     service: ReconhecimentoCompras = Depends(get_reconhecimento),
 ) -> LeituraCompra:
-    if arquivo.content_type and arquivo.content_type not in MIMES_ACEITOS:
-        raise ValidationError("Formato não suportado. Envie uma imagem JPG, PNG ou WebP.")
+    if arquivo.content_type and arquivo.content_type not in MIMES_ACEITOS | {"application/pdf"}:
+        raise ValidationError("Formato não suportado. Envie uma imagem JPG, PNG, WebP ou PDF.")
     image = await arquivo.read(TAMANHO_MAX_BYTES + 1)
     if not image or len(image) > TAMANHO_MAX_BYTES:
-        raise ValidationError("Envie uma imagem de até 8 MB.")
+        raise ValidationError("Envie uma imagem ou PDF de até 8 MB.")
+    if arquivo.content_type == "application/pdf":
+        from starlette.concurrency import run_in_threadpool
+
+        from infrastructure.ocr.pdf import render_receipt_pdf
+
+        image = await run_in_threadpool(render_receipt_pdf, image)
+        return await service.ler(tenant, image, "image/png", fornecedor_id)
     return await service.ler(tenant, image, arquivo.content_type or "image/jpeg", fornecedor_id)
 
 

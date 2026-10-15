@@ -39,7 +39,7 @@ beforeEach(() => {
 });
 async function foto() {
   render(<CompraPage />);
-  fireEvent.change(screen.getByLabelText("Foto do cupom"), {
+  fireEvent.change(screen.getByLabelText("Imagem ou PDF do cupom"), {
     target: { files: [new File(["receipt"], "cupom.jpeg", { type: "image/jpeg" })] },
   });
   await screen.findByText(observado.descricao);
@@ -49,6 +49,21 @@ function selecionar() {
   fireEvent.change(screen.getByLabelText("Produto e embalagem comprados"), { target: { value: "produto" } });
 }
 describe("conferência comercial de compras", () => {
+  it("abre o seletor de imagens e PDF sem forçar a câmera", async () => {
+    render(<CompraPage />);
+    expect(screen.queryByRole("button", { name: "Fotografar cupom" })).not.toBeInTheDocument();
+    const arquivo = screen.getByLabelText("Imagem ou PDF do cupom");
+    expect(arquivo).toHaveAttribute("accept", "image/*,application/pdf,.pdf");
+    expect(arquivo).not.toHaveAttribute("capture");
+    const click = vi.spyOn(arquivo, "click");
+    fireEvent.click(screen.getByRole("button", { name: "Escolher imagem ou PDF" }));
+    expect(click).toHaveBeenCalledOnce();
+    const pdf = new File(["%PDF-1.4"], "cupom.pdf", { type: "application/pdf" });
+    fireEvent.change(arquivo, { target: { files: [pdf] } });
+    await screen.findByText(observado.descricao);
+    expect(mocks.ler).toHaveBeenCalledWith(pdf);
+  });
+
   it("cancelar ou ignorar o item não envia aprovação nem compra ao servidor", async () => {
     await foto(); selecionar();
     fireEvent.click(screen.getByText("Aprovar este produto para o material"));
