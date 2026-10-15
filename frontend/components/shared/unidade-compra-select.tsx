@@ -8,6 +8,7 @@ export function UnidadeCompraSelect({
   value,
   unidadesCadastradas = [],
   unidadeAtualLabel = "Unidade atual",
+  required = false,
   onChange,
 }: {
   id: string;
@@ -15,13 +16,15 @@ export function UnidadeCompraSelect({
   value: string;
   unidadesCadastradas?: string[];
   unidadeAtualLabel?: string;
+  required?: boolean;
   onChange: (value: string) => void;
 }) {
   const padrao = new Set(UNIDADES_MEDIDA.map((unidade) => unidade.value));
   const cadastradas = [...new Set(unidadesCadastradas)].filter((unidade) => unidade && !padrao.has(unidade));
   const unidadeAtualDisponivel = !padrao.has(value) && !cadastradas.includes(value);
 
-  return <select name={name} id={id} className={input} value={value} onChange={(event) => onChange(event.target.value)}>
+  return <select name={name} id={id} className={input} value={value} required={required}
+    onChange={(event) => onChange(event.target.value)}>
     <option value="">Selecione a unidade</option>
     <optgroup label="Unidades de medida">
       {UNIDADES_MEDIDA.map((unidade) => <option key={unidade.value} value={unidade.value}>{unidade.label}</option>)}
