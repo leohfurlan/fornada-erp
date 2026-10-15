@@ -43,6 +43,7 @@ export interface VinculoCompra {
 export interface Pagina<T> { itens: T[]; total: number }
 export interface ItemObservado {
   indice: number;
+  linhas_origem?: number[];
   descricao: string;
   quantidade: string | null;
   unidade: string | null;

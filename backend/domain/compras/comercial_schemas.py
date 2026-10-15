@@ -259,6 +259,7 @@ class ResultadoCompra(ConfirmarCompraResponse):
 
 class ItemObservado(Contrato):
     indice: int = Field(ge=0)
+    linhas_origem: list[int] = Field(default_factory=list, max_length=100)
     descricao: str = Field(min_length=1, max_length=500)
     quantidade: Decimal | None = None
     unidade: str | None = None

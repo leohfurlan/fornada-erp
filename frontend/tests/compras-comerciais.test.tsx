@@ -49,6 +49,19 @@ function selecionar() {
   fireEvent.change(screen.getByLabelText("Produto e embalagem comprados"), { target: { value: "produto" } });
 }
 describe("conferência comercial de compras", () => {
+  it("mantém o arquivo da câmera até terminar de ler e permite escolher novamente após falha", async () => {
+    let reject: (error: unknown) => void = () => {};
+    mocks.ler.mockImplementation(() => new Promise((_, fail) => { reject = fail; }));
+    render(<CompraPage />);
+    const input = screen.getByLabelText("Imagem ou PDF do cupom");
+    const reset = vi.fn();
+    Object.defineProperty(input, "value", { configurable: true, get: () => "foto.jpg", set: reset });
+    fireEvent.change(input, { target: { files: [new File(["camera"], "foto.jpg", { type: "image/jpeg" })] } });
+    expect(reset).not.toHaveBeenCalled();
+    reject(new Error("network"));
+    await screen.findByRole("alert");
+    await waitFor(() => expect(reset).toHaveBeenCalledWith(""));
+  });
   it("indica campos de embalagem inválidos no item correto sem descartar os demais erros ao editar", async () => {
     mocks.prever.mockRejectedValue({ response: { data: { detail: [
       { loc: ["body", "itens", 0, "produto_novo", "marca"], type: "string_too_short", ctx: { min_length: 1 } },

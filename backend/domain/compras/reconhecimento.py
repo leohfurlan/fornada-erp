@@ -4,6 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
+from domain.compras.agrupamento import agrupar_observacoes
 from domain.compras.comercial import ComprasComerciais
 from domain.compras.comercial_schemas import (
     Candidato,
@@ -247,7 +248,7 @@ class ReconhecimentoCompras:
             )
         if not observations or len(observations) > 100:
             raise ValidationError("Não conseguimos revisar os itens. Envie outra foto.")
-        recognized = await self.reconhecer(tenant, fornecedor, observations)
+        recognized = await self.reconhecer(tenant, fornecedor, agrupar_observacoes(observations))
         return LeituraCompra(
             itens=recognized.itens,
             total_nota=decimal_lido(result.total),

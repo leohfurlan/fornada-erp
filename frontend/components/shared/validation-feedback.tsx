@@ -3,7 +3,7 @@
 import { useId, useLayoutEffect, useRef, useState, type FormHTMLAttributes, type ReactNode } from "react";
 import { errorMessage, fieldIssues, fieldLabel, formIssues, type FieldIssue } from "@/lib/validation";
 
-type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement;
 
 function controlLabel(field?: Control): string | undefined {
   if (field?.getAttribute("aria-label")) return field.getAttribute("aria-label")!;
@@ -78,7 +78,7 @@ export function ValidationFeedback({ issues = [], error, errors, fallback }: {
   useLayoutEffect(() => {
     const root = anchor.current?.closest("[data-validation-scope], form");
     if (!root) return;
-    const controls = Array.from(root.querySelectorAll<Control>("input,select,textarea"));
+    const controls = Array.from(root.querySelectorAll<Control>("input,select,textarea,button[data-file-picker]"));
     const cleanup: Array<() => void> = [];
     const seen = new Set<string>();
     const next = (JSON.parse(effective) as FieldIssue[]).filter(issue => {
@@ -86,7 +86,8 @@ export function ValidationFeedback({ issues = [], error, errors, fallback }: {
       if (seen.has(key)) return false;
       seen.add(key); return true;
     }).map((issue, index) => {
-      const field = controls.find(c => [c.name, c.dataset.field, c.id].includes(issue.path));
+      const matches = controls.filter(c => [c.name, c.dataset.field, c.id].includes(issue.path));
+      const field = matches.find(c => !(c instanceof HTMLInputElement && c.type === "file")) ?? matches[0];
       const explicitLabel = controlLabel(field);
       const itemLabel = field?.closest<HTMLElement>("[data-validation-label]")?.dataset.validationLabel;
       const context = itemLabel ? [itemLabel] : fieldLabel(issue.path).split(" — ").slice(0, -1);

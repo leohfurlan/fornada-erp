@@ -59,3 +59,14 @@ it("trata validação nativa com nome e destaque do campo", async () => {
   await waitFor(() => expect(screen.getByLabelText("E-mail")).toHaveAttribute("aria-invalid", "true"));
   expect(screen.getByRole("alert")).toHaveTextContent("E-mail: Preencha este campo.");
 });
+
+it("destaca o botão visível quando o arquivo inválido vem de um input oculto", async () => {
+  render(<ValidationScope issues={[{ path: "arquivo", message: "Escolha outra foto." }]}>
+    <input className="hidden" type="file" name="arquivo" aria-label="Anexo" />
+    <button data-file-picker data-field="arquivo">Escolher foto</button>
+  </ValidationScope>);
+  const button = screen.getByRole("button", { name: "Escolher foto" });
+  await waitFor(() => expect(button).toHaveAttribute("aria-invalid", "true"));
+  expect(button).toHaveFocus();
+  expect(button).toHaveAccessibleDescription(/Escolha outra foto/);
+});

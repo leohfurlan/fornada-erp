@@ -185,10 +185,13 @@ export default function CompraComercialPage() {
     <h1 className="text-xl font-bold">Entrada de compra</h1>
     <p className="text-sm text-muted-foreground">Fotografe o cupom ou escolha uma imagem ou PDF e confira os produtos, quantidades e preços antes de salvar.</p>
     <input ref={arquivo} type="file" accept="image/*,application/pdf,.pdf" className="hidden"
-      name="arquivo" aria-label="Imagem ou PDF do cupom" onChange={(e) => { void foto(e.target.files?.[0]); e.target.value = ""; }} />
-    <button className="w-full rounded-xl border-2 border-dashed border-primary p-10 text-primary disabled:opacity-50"
-      disabled={ler.isPending} onClick={() => arquivo.current?.click()}>{ler.isPending ? "Lendo o cupom..." : "Escolher imagem ou PDF"}</button>
-    <p className="text-xs text-muted-foreground">Arquivos de até 8 MB. PDF com até 5 páginas.</p>
+      name="arquivo" aria-label="Imagem ou PDF do cupom" onChange={async (e) => {
+        const input = e.currentTarget;
+        try { await foto(input.files?.[0]); } finally { input.value = ""; }
+      }} />
+    <button data-file-picker data-field="arquivo" className="w-full rounded-xl border-2 border-dashed border-primary p-10 text-primary disabled:opacity-50"
+      disabled={ler.isPending} onClick={() => arquivo.current?.click()}>{ler.isPending ? "Preparando e lendo o cupom..." : "Escolher imagem ou PDF"}</button>
+    <p className="text-xs text-muted-foreground">Fotos grandes são reduzidas antes do envio. PDF de até 8 MB e 5 páginas.</p>
     <button className={botao} onClick={() => {
       invalidar(); tentativa.current = null; setLeitura(null); setItens([editarItem(itemManual())]);
       setLoja(""); setFornecedor(""); setCnpj(""); setData(""); setIdentidade("");
@@ -227,6 +230,7 @@ export default function CompraComercialPage() {
           <label className="shrink-0 text-xs"><input type="checkbox" checked={it.incluir} onChange={(e) => atualizar(idx, { incluir: e.target.checked })} /> Incluir</label></div>
         {it.incluir && <>
           <p className="text-xs text-muted-foreground">{it.origem.explicacao}</p>
+          {(it.origem.linhas_origem?.length ?? 0) > 1 && <p className="text-xs text-muted-foreground">{it.origem.linhas_origem!.length} linhas iguais da nota agrupadas; quantidades e totais somados.</p>}
           {it.origem.pendencias.map((pendencia) => <p className="text-xs text-amber-800" key={pendencia}>{pendencia}</p>)}
           {!leitura && <><label htmlFor={"desc-" + idx} className="text-xs">Descrição do produto comprado</label>
             <input name={`itens.${incluidos.indexOf(it)}.descricao_original`} id={"desc-" + idx} className={input} value={it.origem.descricao} onChange={(e) => atualizar(idx, { origem: { ...it.origem, descricao: e.target.value } })} /></>}

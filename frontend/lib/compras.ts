@@ -10,7 +10,7 @@ export function dadosObservados(item: ItemLido): ItemObservado {
   const { indice, descricao, quantidade, unidade, preco_unitario, preco_total, desconto_item,
     marca_observada, fabricante_observado, variante_observada, conteudo_observado,
     unidade_conteudo_observada, codigo_loja, gtin, gtin_confirmado } = item;
-  return { indice, descricao, quantidade, unidade, preco_unitario, preco_total, desconto_item,
+  return { indice, linhas_origem: item.linhas_origem ?? [], descricao, quantidade, unidade, preco_unitario, preco_total, desconto_item,
     marca_observada, fabricante_observado, variante_observada, conteudo_observado,
     unidade_conteudo_observada, codigo_loja, gtin, gtin_confirmado };
 }

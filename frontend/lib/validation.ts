@@ -70,6 +70,9 @@ export function errorMessage(error: unknown, fallback = "Não foi possível conc
   if (issues.length) return issues.map(i => `${i.path ? fieldLabel(i.path) : "Dados informados"}: ${i.message}`).join(" ");
   const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
   if (typeof detail === "string") return detail;
+  const code = (error as { code?: string })?.code;
+  if (code === "ECONNABORTED" || code === "ETIMEDOUT") return "A operação demorou mais que o esperado. Tente novamente; seus dados foram mantidos.";
+  if (code === "ERR_NETWORK") return "Não foi possível enviar os dados. Verifique sua conexão e tente novamente.";
   return fallback;
 }
 
