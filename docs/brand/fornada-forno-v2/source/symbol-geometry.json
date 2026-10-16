@@ -1,0 +1,40 @@
+{
+  "source": "referencia-aprovada.png",
+  "method": "Two original alpha components; least-squares fit of the existing oven arcs, rounded footer transitions and capsule tray. Color standardized to #D95D39.",
+  "bounds": [
+    181,
+    265.60228024253246,
+    1074,
+    989
+  ],
+  "components": [
+    253808,
+    53338
+  ],
+  "paths": [
+    "M181 729.736A446.5 464.133 0 0 1 1074 729.736L1074 923.66C1074 959.746 1044.746 989 1008.66 989L821.05 989C878.222 986 925 959.597 925 923.66L925 720.823A298 310.042 0 0 0 329 720.823L329 923.66C329 959.597 375.777 986 432.95 989L246.34 989C210.254 989 181 959.746 181 923.66Z",
+    "M432 759H822A56 56 0 0 1 822 871H432A56 56 0 0 1 432 759Z"
+  ],
+  "fit": {
+    "outerArc": {
+      "cx": 627.5,
+      "cy": 729.7355273805442,
+      "rx": 446.5,
+      "ry": 464.13324713801177
+    },
+    "innerArc": {
+      "cx": 627,
+      "cy": 720.8230616601861,
+      "rx": 298,
+      "ry": 310.04232768052117
+    },
+    "corner": 65.34,
+    "trayBounds": [
+      376,
+      759,
+      878,
+      871
+    ]
+  },
+  "silhouetteIoU": 0.991671234298428
+}

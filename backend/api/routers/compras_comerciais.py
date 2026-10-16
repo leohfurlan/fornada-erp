@@ -38,7 +38,7 @@ from domain.estoque.service import EstoqueService
 from domain.exceptions import ValidationError
 from infrastructure.database.models import Usuario
 from infrastructure.database.session import get_db
-from infrastructure.ocr.gemma_adapter import GemmaOCRAdapter
+from infrastructure.ocr.factory import get_receipt_extractor
 
 router = APIRouter(prefix="/compras", tags=["Compras"])
 
@@ -50,7 +50,7 @@ def get_comerciais(db: AsyncSession = Depends(get_db)) -> ComprasComerciais:
 def get_reconhecimento(
     service: ComprasComerciais = Depends(get_comerciais),
 ) -> ReconhecimentoCompras:
-    return ReconhecimentoCompras(service, GemmaOCRAdapter())
+    return ReconhecimentoCompras(service, get_receipt_extractor())
 
 
 @router.get("/produtos", response_model=PaginaProdutos)

@@ -1,0 +1,292 @@
+{
+  "date": "2026-10-07",
+  "passed": true,
+  "silhouetteIoU": 0.991671234298428,
+  "checks": [
+    {
+      "file": "app/android-foreground.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "app/app-icon.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "app/app-maskable.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "favicon/favicon.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "prancha.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "svg/logo-horizontal-ink.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "svg/logo-horizontal-primary.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "svg/logo-horizontal-white.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "svg/logo-vertical-ink.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "svg/logo-vertical-primary.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "svg/logo-vertical-white.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "svg/simbolo-cream.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "svg/simbolo-ink.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "svg/simbolo-primary.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "svg/simbolo-white.svg",
+      "check": "Vector without raster, scripts or external font dependency",
+      "passed": true
+    },
+    {
+      "file": "app/android-foreground-432.png",
+      "dimensions": [
+        432,
+        432
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "app/app-icon-1024.png",
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "transparent": false,
+      "passed": true
+    },
+    {
+      "file": "app/app-icon-192.png",
+      "dimensions": [
+        192,
+        192
+      ],
+      "transparent": false,
+      "passed": true
+    },
+    {
+      "file": "app/app-icon-512.png",
+      "dimensions": [
+        512,
+        512
+      ],
+      "transparent": false,
+      "passed": true
+    },
+    {
+      "file": "app/app-maskable-512.png",
+      "dimensions": [
+        512,
+        512
+      ],
+      "transparent": false,
+      "passed": true
+    },
+    {
+      "file": "app/apple-touch-icon.png",
+      "dimensions": [
+        180,
+        180
+      ],
+      "transparent": false,
+      "passed": true
+    },
+    {
+      "file": "favicon/favicon-16.png",
+      "dimensions": [
+        16,
+        16
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "favicon/favicon-32.png",
+      "dimensions": [
+        32,
+        32
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "favicon/favicon-48.png",
+      "dimensions": [
+        48,
+        48
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "favicon/favicon-64.png",
+      "dimensions": [
+        64,
+        64
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "png/logo-horizontal-ink-2048.png",
+      "dimensions": [
+        2048,
+        640
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "png/logo-horizontal-primary-2048.png",
+      "dimensions": [
+        2048,
+        640
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "png/logo-horizontal-white-2048.png",
+      "dimensions": [
+        2048,
+        640
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "png/logo-vertical-ink-1536.png",
+      "dimensions": [
+        1536,
+        1440
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "png/logo-vertical-primary-1536.png",
+      "dimensions": [
+        1536,
+        1440
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "png/logo-vertical-white-1536.png",
+      "dimensions": [
+        1536,
+        1440
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "png/simbolo-cream-1024.png",
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "png/simbolo-ink-1024.png",
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "png/simbolo-primary-1024.png",
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "png/simbolo-white-1024.png",
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "transparent": true,
+      "passed": true
+    },
+    {
+      "file": "prancha.png",
+      "dimensions": [
+        1440,
+        1040
+      ],
+      "transparent": false,
+      "passed": true
+    },
+    {
+      "check": "Android foreground within central 2/3 circle",
+      "maxRadius": 132.10034065058272,
+      "limit": 144,
+      "passed": true
+    },
+    {
+      "file": "favicon/favicon.ico",
+      "sizes": [
+        16,
+        32,
+        48,
+        64
+      ],
+      "passed": true
+    },
+    {
+      "file": "app/manifest-example.webmanifest",
+      "check": "All relative icon references exist",
+      "passed": true
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # Compras: implementação e validação
 
-Data: 07/10/2026. Escopo aprovado: CMP-01, CMP-02 e CMP-03, nas seis fatias de [tickets](tickets-propostos.md). Autorização: “Validado. Implementar”. Implementação concluída no workspace, sem commit, push, publicação de tickets, migração de produção ou deploy. Alterações anteriores de administração, receitas e Markdown foram preservadas.
+Data: 07/10/2026. Escopo aprovado: CMP-01, CMP-02 e CMP-03, nas seis fatias de [tickets](tickets-propostos.md). Autorização: “Validado. Implementar”. Estado da validação inicial: implementação concluída no workspace. Commit, PR e publicação na VPS autorizados posteriormente pelo usuário; evidências da publicação serão registradas ao final. Alterações anteriores de administração, receitas e Markdown foram preservadas.
 
 ## Resultado para a confeiteira
 
@@ -85,3 +85,12 @@ Em um banco descartável separado, aplicou-se o schema até `91ae81c71007`, inse
 Os bancos utilizados foram `fornada_compras_test` e `fornada_compras_migration_test`, no PostgreSQL temporário local em `127.0.0.1:55439`. Os testes declararam `DATABASE_URL` e `TEST_DATABASE_URL` explicitamente. Scripts e capturas de QA permanecem em `output/playwright/`; os serviços e o container descartável foram encerrados ao finalizar.
 
 A publicação exige uma etapa operacional separada: revisar também a dependência administrativa preexistente, backup do ambiente alvo, aplicar a cadeia Alembic e publicar backend/frontend com sua configuração normal. Nenhuma dessas operações foi executada em produção. CMP-04, retenção das imagens e aprovação completa pelo WhatsApp continuam fora deste incremento.
+
+
+## Integração para publicação
+
+A release consolida o painel administrativo e o suporte Markdown que já estavam aplicados na VPS, incluindo a migration `91ae81c71007`, pré-requisito da migration comercial. Arquivos de apresentações, marca e planejamento iFood ficaram fora do commit.
+
+Integrada à `origin/main` em `106a6ad`, preservando o OCR híbrido, Gemma 4 configurável e a validação financeira dos PRs #4 e #5. O contrato comum de extração agora conserva marca, fabricante, variante, embalagem, código, desconto e cabeçalho fiscal durante a validação. O endpoint comercial usa a mesma fábrica de OCR dos consumidores existentes. Confiança ausente continua nula; avisos de reconciliação continuam visíveis na revisão. Testes de regressão comprovam preservação dos metadados e desconto sem alterar o preço original.
+
+Após integração: backend **293 passed, 4 skipped** (OTP sem Redis de teste); frontend **53 passed**, TypeScript e builds Linux/amd64 de backend/frontend aprovados. Publicação usa cópia isolada e imagens correspondentes, sem modificar o checkout com alterações locais da VPS.

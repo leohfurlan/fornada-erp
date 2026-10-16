@@ -259,6 +259,7 @@ export default function CompraComercialPage() {
     <p className="text-sm text-muted-foreground">Confira o que foi comprado. Quantidade comprada conta unidades da nota; o conteúdo informa quanto cada embalagem acrescenta ao estoque.</p>
     <p className="text-xs text-muted-foreground">Campos com * são obrigatórios. Preencha o total ou o preço por unidade; o outro valor será calculado.</p>
     <p className="rounded-lg bg-muted/30 p-3 text-sm">Nada entra no estoque antes de você conferir o resumo e salvar. Por padrão, as escolhas valem apenas para esta compra.</p>
+    {leitura?.avisos?.map((aviso) => <p key={aviso} className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{aviso}</p>)}
     {leitura?.aviso_mock && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Modo demonstração: itens de exemplo, sem leitura real.</p>}
     <fieldset disabled={salvar.isPending} className="space-y-5">
       <details className="space-y-3 rounded-xl border p-3">

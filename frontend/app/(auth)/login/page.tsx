@@ -57,13 +57,11 @@ export default function LoginPage() {
     }
   };
 
-  if (whatsapp.data?.ativo && emailAcesso === false) return <div className="min-h-screen flex items-center justify-center px-4 py-8"><WhatsAppAccess /></div>;
+  if (whatsapp.data?.ativo && emailAcesso === false) return <WhatsAppAccess />;
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm space-y-6">
+      <div className="space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">Fornada</h1>
-          <p className="text-muted-foreground mt-1">Você produz. O sistema organiza.</p>
+          <h1 className="text-xl font-semibold">Entrar na sua conta</h1>
         </div>
 
         <ValidatedForm errors={errors} onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -120,7 +118,6 @@ export default function LoginPage() {
             Criar conta grátis
           </Link>
         </p>
-      </div>
     </div>
   );
 }

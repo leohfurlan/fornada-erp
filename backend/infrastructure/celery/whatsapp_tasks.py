@@ -14,7 +14,7 @@ from domain.estoque.service import EstoqueService
 from domain.whatsapp.messages import parse_message
 from domain.whatsapp.service import WhatsAppService
 from infrastructure.celery.app import celery_app
-from infrastructure.ocr.gemma_adapter import GemmaOCRAdapter
+from infrastructure.ocr.factory import get_receipt_extractor
 from infrastructure.whatsapp.evolution import EvolutionAdapter
 
 
@@ -31,7 +31,7 @@ async def run_message(payload: dict) -> None:
         # Celery hard limit < lock TTL, impedindo confirmação concorrente do mesmo remetente.
         async with redis.lock(f"wa:sender:{key}", timeout=180, blocking_timeout=5):
             async with async_sessionmaker(engine, expire_on_commit=False)() as db:
-                compras = ComprasService(EstoqueService(EstoqueRepository(db)), GemmaOCRAdapter())
+                compras = ComprasService(EstoqueService(EstoqueRepository(db)), get_receipt_extractor())
                 await WhatsAppService(db, EvolutionAdapter(), compras).process(incoming)
     finally:
         await engine.dispose()
