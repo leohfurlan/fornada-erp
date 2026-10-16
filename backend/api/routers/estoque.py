@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.dependencies import get_tenant_id
 from domain.estoque.repository import EstoqueRepository
 from domain.estoque.schemas import (
+    AjusteEstoqueRequest,
     AtualizarIngredienteRequest,
     CriarIngredienteRequest,
     EntradaEstoqueRequest,
@@ -105,5 +106,19 @@ async def registrar_entrada(
 ) -> IngredienteResponse:
     """Registra entrada de ingrediente (compra) e recalcula custo médio."""
     result = await service.registrar_entrada(tenant_id, data)
+    await db.commit()
+    return result
+
+
+@router.post("/ingredientes/{ingrediente_id}/ajustes", response_model=IngredienteResponse)
+async def ajustar_saldo(
+    ingrediente_id: UUID,
+    data: AjusteEstoqueRequest,
+    tenant_id: UUID = Depends(get_tenant_id),
+    service: EstoqueService = Depends(get_estoque_service),
+    db: AsyncSession = Depends(get_db),
+) -> IngredienteResponse:
+    """Corrige saldo contado e registra a diferença no histórico."""
+    result = await service.ajustar_saldo(ingrediente_id, tenant_id, data)
     await db.commit()
     return result

@@ -14,6 +14,7 @@ import {
 } from "@tanstack/react-table";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, GripVertical, History, Pencil, RotateCcw } from "lucide-react";
+import { AjustarEstoqueDialog } from "@/components/shared/ajustar-estoque-dialog";
 import { EstoqueBadge } from "@/components/shared/estoque-badge";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { custoReferencia } from "@/lib/custo-referencia";
@@ -156,7 +157,7 @@ export function TabelaEstoqueDesktop({ ingredientes }: TabelaEstoqueDesktopProps
       {
         id: "acoes",
         header: "Ações",
-        size: 90,
+        size: 112,
         enableSorting: false,
         enableResizing: false,
         cell: ({ row }) => (
@@ -175,6 +176,7 @@ export function TabelaEstoqueDesktop({ ingredientes }: TabelaEstoqueDesktopProps
             >
               <Pencil className="h-4 w-4" />
             </Link>
+            <AjustarEstoqueDialog item={row.original} />
           </div>
         ),
         meta: { align: "right" } as const,

@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, History, Pencil, Plus, Search } from "lucide-react";
 import { useIngredientes } from "@/hooks/use-estoque";
 import { EstoqueBadge } from "@/components/shared/estoque-badge";
+import { AjustarEstoqueDialog } from "@/components/shared/ajustar-estoque-dialog";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { TabelaEstoqueDesktop } from "@/components/shared/tabela-estoque-desktop";
 import { TabEstoquePA } from "@/components/shared/tab-estoque-pa";
@@ -365,6 +366,7 @@ function CardEstoque({ item }: { item: Ingrediente }) {
               Editar
             </Link>
           </div>
+          <AjustarEstoqueDialog item={item} variant="button" />
         </div>
       )}
     </div>

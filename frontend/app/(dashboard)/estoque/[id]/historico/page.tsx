@@ -182,17 +182,20 @@ function QuantidadeAssinada({
   quantidade: string;
   unidade: string;
 }) {
-  const sinal = tipo === "entrada" ? "+" : tipo === "saida" ? "−" : "";
-  const cor =
-    tipo === "entrada"
-      ? "text-green-700"
-      : tipo === "saida"
-        ? "text-orange-700"
-        : "text-foreground";
+  const valorNumerico = Number(quantidade);
+  const sinal = tipo === "entrada" ? "+" : tipo === "saida" ? "−" : valorNumerico > 0 ? "+" : valorNumerico < 0 ? "−" : "";
+  const quantidadeFormatada = tipo === "ajuste"
+    ? new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 }).format(Math.abs(valorNumerico))
+    : formatQuantidade(quantidade);
+  const cor = tipo === "entrada" || (tipo === "ajuste" && valorNumerico > 0)
+    ? "text-green-700"
+    : tipo === "saida" || (tipo === "ajuste" && valorNumerico < 0)
+      ? "text-orange-700"
+      : "text-foreground";
   return (
     <span className={cor}>
       {sinal}
-      {formatQuantidade(quantidade)} {unidade}
+      {quantidadeFormatada} {unidade}
     </span>
   );
 }

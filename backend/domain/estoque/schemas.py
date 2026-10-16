@@ -96,6 +96,12 @@ class EntradaEstoqueRequest(BaseModel):
         return v
 
 
+class AjusteEstoqueRequest(BaseModel):
+    """Novo saldo contado na unidade principal do material."""
+
+    quantidade_alvo: Decimal = Field(ge=0, max_digits=12, decimal_places=4)
+
+
 class IngredienteResponse(BaseModel):
     id: UUID
     tenant_id: UUID
