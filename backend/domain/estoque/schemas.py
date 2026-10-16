@@ -3,7 +3,9 @@ from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
+
 from domain.estoque.unidades import normalizar_unidade
+from domain.validation import field_error
 
 TIPOS_VALIDOS = {"ingrediente", "embalagem", "insumo", "descartavel", "outro"}
 
@@ -28,8 +30,11 @@ class UnidadesIngrediente(BaseModel):
     @field_validator("unidades_alternativas")
     @classmethod
     def sem_duplicatas(cls, values: list[UnidadeAlternativa]) -> list[UnidadeAlternativa]:
-        if len({item.unidade for item in values}) != len(values):
-            raise ValueError("Unidades alternativas repetidas")
+        seen = set()
+        for index, item in enumerate(values):
+            if item.unidade in seen:
+                raise field_error((index, "unidade"), "Unidades alternativas repetidas")
+            seen.add(item.unidade)
         return values
 
 
@@ -89,6 +94,12 @@ class EntradaEstoqueRequest(BaseModel):
         if v <= 0:
             raise ValueError("Valor deve ser maior que zero")
         return v
+
+
+class AjusteEstoqueRequest(BaseModel):
+    """Novo saldo contado na unidade principal do material."""
+
+    quantidade_alvo: Decimal = Field(ge=0, max_digits=12, decimal_places=4)
 
 
 class IngredienteResponse(BaseModel):

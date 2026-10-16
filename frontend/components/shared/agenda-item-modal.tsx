@@ -1,4 +1,6 @@
 "use client";
+import { type FieldIssue } from "@/lib/validation";
+import { ValidatedForm } from "@/components/shared/validation-feedback";
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, X } from "lucide-react";
@@ -96,6 +98,7 @@ export function AgendaItemModal({
   horaInicial,
 }: Props) {
   const isEdicao = !!item;
+  const [issues, setIssues] = useState<FieldIssue[]>([]);
   const [form, setForm] = useState<FormState>(() =>
     estadoInicial(item, dataInicial, horaInicial)
   );
@@ -152,7 +155,8 @@ export function AgendaItemModal({
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const titulo = (form.tipo === "tarefa" ? form.titulo : tituloAuto).trim();
-    if (!titulo) return;
+    if (!titulo) { setIssues([{ path: form.tipo === "tarefa" ? "titulo" : form.tipo === "receita" ? "receita_id" : "pedido_id", message: "Preencha este campo." }]); return; }
+    setIssues([]);
 
     const payload: CriarAgendaItemPayload = {
       titulo,
@@ -170,12 +174,11 @@ export function AgendaItemModal({
           : null,
     };
 
-    if (isEdicao) {
-      await atualizar.mutateAsync(payload);
-    } else {
-      await criar.mutateAsync(payload);
-    }
-    onClose();
+    try {
+      if (isEdicao) await atualizar.mutateAsync(payload);
+      else await criar.mutateAsync(payload);
+      onClose();
+    } catch { /* Scoped feedback keeps the editor open. */ }
   };
 
   return (
@@ -196,7 +199,7 @@ export function AgendaItemModal({
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
+        <ValidatedForm issues={issues} error={mutation.error} onSubmit={onSubmit} className="space-y-4">
           {/* Tipo */}
           <div className="grid grid-cols-3 gap-2">
             {TIPOS.map((t) => (
@@ -222,7 +225,7 @@ export function AgendaItemModal({
               <label className="text-sm font-medium">Receita</label>
               <select
                 className="w-full rounded-lg border px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                value={form.receita_id}
+                name="receita_id" value={form.receita_id}
                 onChange={(e) => set("receita_id", e.target.value)}
               >
                 <option value="">Selecione...</option>
@@ -245,7 +248,7 @@ export function AgendaItemModal({
               </label>
               <select
                 className="w-full rounded-lg border px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                value={form.ordem_producao_id}
+                name="ordem_producao_id" value={form.ordem_producao_id}
                 onChange={(e) => set("ordem_producao_id", e.target.value)}
               >
                 <option value="">Sem vínculo com OP</option>
@@ -269,7 +272,7 @@ export function AgendaItemModal({
               <label className="text-sm font-medium">Pedido</label>
               <select
                 className="w-full rounded-lg border px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                value={form.pedido_id}
+                name="pedido_id" value={form.pedido_id}
                 onChange={(e) => set("pedido_id", e.target.value)}
               >
                 <option value="">Selecione...</option>
@@ -289,7 +292,7 @@ export function AgendaItemModal({
               <label className="text-sm font-medium">O que precisa fazer?</label>
               <input
                 type="text"
-                value={form.titulo}
+                name="titulo" value={form.titulo}
                 onChange={(e) => set("titulo", e.target.value)}
                 placeholder="Ex: Ir ao mercado, lavar louça…"
                 className="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -316,7 +319,7 @@ export function AgendaItemModal({
             <label className="text-sm font-medium">Data</label>
             <input
               type="date"
-              value={form.data}
+              name="data" value={form.data}
               onChange={(e) => set("data", e.target.value)}
               className="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
@@ -356,7 +359,7 @@ export function AgendaItemModal({
                   <label className="text-xs text-muted-foreground">Início</label>
                   <input
                     type="time"
-                    value={form.hora_inicio}
+                    name="hora_inicio" value={form.hora_inicio}
                     onChange={(e) => set("hora_inicio", e.target.value)}
                     className="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
@@ -365,7 +368,7 @@ export function AgendaItemModal({
                   <label className="text-xs text-muted-foreground">Fim</label>
                   <input
                     type="time"
-                    value={form.hora_fim}
+                    name="hora_fim" value={form.hora_fim}
                     onChange={(e) => set("hora_fim", e.target.value)}
                     className="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
@@ -421,7 +424,7 @@ export function AgendaItemModal({
             <label className="text-sm font-medium">Observações</label>
             <textarea
               rows={2}
-              value={form.observacoes}
+              name="observacoes" value={form.observacoes}
               onChange={(e) => set("observacoes", e.target.value)}
               placeholder="Detalhes, lembretes…"
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-y"
@@ -445,7 +448,7 @@ export function AgendaItemModal({
                 ? "Salvar alterações"
                 : "Adicionar à agenda"}
           </button>
-        </form>
+        </ValidatedForm>
       </div>
     </div>
   );

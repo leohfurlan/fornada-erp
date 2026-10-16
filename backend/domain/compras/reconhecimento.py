@@ -4,6 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
+from domain.compras.agrupamento import agrupar_observacoes
 from domain.compras.comercial import ComprasComerciais
 from domain.compras.comercial_schemas import (
     Candidato,
@@ -70,6 +71,8 @@ class ReconhecimentoCompras:
         items: list[ItemLido] = []
         for observed in observados:
             item = ItemLido(**observed.model_dump())
+            if observed.tipo_observado:
+                item.tipo_sugerido = observed.tipo_observado
             if item.quantidade is None or item.quantidade <= 0 or not item.unidade:
                 item.pendencias.append("Confira a quantidade e a unidade lidas.")
             if item.preco_unitario is None or item.preco_total is None:
@@ -233,6 +236,7 @@ class ReconhecimentoCompras:
                     if "preco_total" in missing
                     else decimal_lido(original.preco_total),
                     desconto_item=decimal_lido(getattr(original, "desconto_item", None)),
+                    tipo_observado=getattr(original, "tipo_material", None),
                     marca_observada=getattr(original, "marca", None),
                     fabricante_observado=getattr(original, "fabricante", None),
                     variante_observada=getattr(original, "variante", None),
@@ -244,7 +248,7 @@ class ReconhecimentoCompras:
             )
         if not observations or len(observations) > 100:
             raise ValidationError("Não conseguimos revisar os itens. Envie outra foto.")
-        recognized = await self.reconhecer(tenant, fornecedor, observations)
+        recognized = await self.reconhecer(tenant, fornecedor, agrupar_observacoes(observations))
         return LeituraCompra(
             itens=recognized.itens,
             total_nota=decimal_lido(result.total),

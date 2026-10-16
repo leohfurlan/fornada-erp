@@ -1,9 +1,11 @@
 "use client";
 
+import { ValidatedForm } from "@/components/shared/validation-feedback";
+
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller } from "@/lib/form";
 import { useCriarIngrediente } from "@/hooks/use-estoque";
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { UnidadesAlternativas, type UnidadeAlternativa } from "@/components/shared/unidades-alternativas";
@@ -57,7 +59,7 @@ export default function NovoIngredientePage() {
 
       <h1 className="text-xl font-bold">Novo item de estoque</h1>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <ValidatedForm errors={errors} onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-1">
           <label className="text-sm font-medium">Tipo</label>
           <p className="text-xs text-muted-foreground">
@@ -88,12 +90,13 @@ export default function NovoIngredientePage() {
 
         <div className="space-y-1">
           <label className="text-sm font-medium">Unidade principal</label>
+          <p className="text-xs text-muted-foreground">Massa em kg, volume em litros e itens contáveis em unidades. Cadastre abaixo as embalagens e medidas usadas nas compras e receitas.</p>
           <Controller
             name="unidade"
             control={control}
             rules={{ required: "Selecione a unidade" }}
             render={({ field }) => (
-              <UnidadeSelect tipo="medida" value={field.value} onChange={field.onChange} />
+              <UnidadeSelect somenteBase tipo="medida" value={field.value} onChange={field.onChange} />
             )}
           />
           {errors.unidade && (
@@ -125,7 +128,7 @@ export default function NovoIngredientePage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Quantidade</label>
+              <label className="text-xs text-muted-foreground">Quantidade ({watch("unidade") || "unidade principal"})</label>
               <Controller
                 name="estoque_inicial"
                 control={control}
@@ -135,7 +138,7 @@ export default function NovoIngredientePage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Custo por unidade (R$)</label>
+              <label className="text-xs text-muted-foreground">Custo por {watch("unidade") || "unidade principal"} (R$)</label>
               <Controller
                 name="custo_inicial"
                 control={control}
@@ -160,7 +163,7 @@ export default function NovoIngredientePage() {
         >
           {isSubmitting || criar.isPending ? "Salvando..." : "Salvar ingrediente"}
         </button>
-      </form>
+      </ValidatedForm>
     </div>
   );
 }

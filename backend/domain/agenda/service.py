@@ -98,7 +98,7 @@ class AgendaService:
 
     async def listar_mes(self, tenant_id: UUID, ano: int, mes: int) -> list[AgendaItemResponse]:
         if not 1 <= mes <= 12:
-            raise ValidationError("Mês deve estar entre 1 e 12")
+            raise ValidationError("Mês deve estar entre 1 e 12", field="mes")
         inicio, fim = _intervalo_mes(ano, mes)
         itens = await self._repo.listar_por_periodo(tenant_id, inicio, fim)
         return [_to_response(i) for i in itens]
@@ -112,14 +112,14 @@ class AgendaService:
     async def _validar_vinculos(self, tenant_id: UUID, dados: CriarAgendaItemRequest) -> None:
         if dados.tipo == "receita":
             if dados.receita_id is None:
-                raise ValidationError("Selecione a receita para criar um item do tipo receita")
+                raise ValidationError("Selecione a receita para criar um item do tipo receita", field="receita_id")
             if not await self._repo.receita_existe(tenant_id, dados.receita_id):
-                raise ValidationError("Receita não encontrada")
+                raise ValidationError("Receita não encontrada", field="receita_id")
         elif dados.tipo == "pedido":
             if dados.pedido_id is None:
-                raise ValidationError("Selecione o pedido para criar um item do tipo pedido")
+                raise ValidationError("Selecione o pedido para criar um item do tipo pedido", field="pedido_id")
             if not await self._repo.pedido_existe(tenant_id, dados.pedido_id):
-                raise ValidationError("Pedido não encontrado")
+                raise ValidationError("Pedido não encontrado", field="pedido_id")
         elif dados.tipo == "tarefa":
             if dados.receita_id is not None or dados.pedido_id is not None:
                 raise ValidationError("Uma tarefa não pode estar vinculada a uma receita ou pedido")
@@ -128,7 +128,7 @@ class AgendaService:
         if dados.ordem_producao_id is not None and not await self._repo.op_existe(
             tenant_id, dados.ordem_producao_id
         ):
-            raise ValidationError("Ordem de produção não encontrada")
+            raise ValidationError("Ordem de produção não encontrada", field="ordem_producao_id")
 
     async def criar_item(
         self, tenant_id: UUID, dados: CriarAgendaItemRequest
@@ -159,15 +159,15 @@ class AgendaService:
         if dados.receita_id is not None and not await self._repo.receita_existe(
             tenant_id, dados.receita_id
         ):
-            raise ValidationError("Receita não encontrada")
+            raise ValidationError("Receita não encontrada", field="receita_id")
         if dados.pedido_id is not None and not await self._repo.pedido_existe(
             tenant_id, dados.pedido_id
         ):
-            raise ValidationError("Pedido não encontrado")
+            raise ValidationError("Pedido não encontrado", field="pedido_id")
         if dados.ordem_producao_id is not None and not await self._repo.op_existe(
             tenant_id, dados.ordem_producao_id
         ):
-            raise ValidationError("Ordem de produção não encontrada")
+            raise ValidationError("Ordem de produção não encontrada", field="ordem_producao_id")
 
         item = await self._repo.atualizar(item, dados)
         recarregado = await self._repo.buscar_por_id(tenant_id, item_id)

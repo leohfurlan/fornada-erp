@@ -4,17 +4,18 @@ from uuid import UUID
 
 import structlog
 
-from domain.exceptions import ConflictError, NotFoundError, ValidationError
 from domain.estoque.repository import EstoqueRepository
 from domain.estoque.schemas import (
+    AjusteEstoqueRequest,
     AtualizarIngredienteRequest,
     CriarIngredienteRequest,
     EntradaEstoqueRequest,
     IngredienteResponse,
     MovimentacaoResponse,
 )
-from domain.receitas.calculos import calcular_custo_medio_novo
 from domain.estoque.unidades import converter_para_principal, normalizar_unidade
+from domain.exceptions import ConflictError, NotFoundError, ValidationError
+from domain.receitas.calculos import calcular_custo_medio_novo
 from domain.receitas.composicao import converter_quantidade
 from infrastructure.database.models import Ingrediente
 
@@ -190,6 +191,50 @@ class EstoqueService:
         """Registra entrada preservando o contrato público existente."""
         resultado, _ = await self.registrar_entrada_com_movimento(tenant_id, data)
         return resultado
+
+    async def ajustar_saldo(
+        self,
+        ingrediente_id: UUID,
+        tenant_id: UUID,
+        data: AjusteEstoqueRequest,
+    ) -> IngredienteResponse:
+        """Define o saldo correto e registra a diferença sem alterar o custo médio."""
+        await self._repo.travar_tenant(tenant_id)
+        ingrediente = await self._repo.buscar_por_id(ingrediente_id, tenant_id, for_update=True)
+        if not ingrediente:
+            raise NotFoundError("Ingrediente", str(ingrediente_id))
+
+        if data.quantidade_alvo < ingrediente.quantidade_reservada:
+            raise ConflictError(
+                "O novo estoque não pode ficar abaixo da quantidade reservada."
+            )
+
+        diferenca = data.quantidade_alvo - ingrediente.estoque_atual
+        if diferenca == 0:
+            raise ValidationError("A quantidade informada já corresponde ao estoque atual.")
+
+        quantidade_anterior = ingrediente.estoque_atual
+        ingrediente.estoque_atual = data.quantidade_alvo
+        await self._repo.salvar_movimentacao(
+            tenant_id=tenant_id,
+            ingrediente_id=ingrediente.id,
+            tipo="ajuste",
+            quantidade=diferenca,
+            custo_unitario=ingrediente.custo_medio,
+            origem="ajuste",
+        )
+
+        logger.info(
+            "estoque_ajustado",
+            tenant_id=str(tenant_id),
+            action="adjust",
+            entity="ingrediente",
+            entity_id=str(ingrediente.id),
+            quantidade_anterior=str(quantidade_anterior),
+            quantidade_alvo=str(data.quantidade_alvo),
+            diferenca=str(diferenca),
+        )
+        return _to_response(ingrediente)
 
     async def registrar_entrada_com_movimento(
         self, tenant_id: UUID, data: EntradaEstoqueRequest

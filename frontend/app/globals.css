@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Unified filling errors, including native controls and decimal/select widgets. */
+input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"], button[data-file-picker][aria-invalid="true"] {
+  border-color: hsl(var(--destructive)) !important;
+  outline: 1px solid hsl(var(--destructive));
+  outline-offset: 0;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

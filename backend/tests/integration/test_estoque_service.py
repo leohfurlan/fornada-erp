@@ -9,12 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.estoque.repository import EstoqueRepository
 from domain.estoque.schemas import (
+    AjusteEstoqueRequest,
     AtualizarIngredienteRequest,
     CriarIngredienteRequest,
     EntradaEstoqueRequest,
 )
 from domain.estoque.service import EstoqueService
-from domain.exceptions import ConflictError, NotFoundError
+from domain.exceptions import ConflictError, NotFoundError, ValidationError
 from infrastructure.database.models import (
     Ingrediente,
     Receita,
@@ -180,6 +181,78 @@ async def test_entrada_recalcula_custo_medio(service: EstoqueService, tenant_id)
     )
     assert atualizado.estoque_atual == Decimal("4.0000")
     assert atualizado.custo_medio == Decimal("6.0000")
+
+
+@pytest.mark.asyncio
+async def test_ajustar_saldo_registra_diferenca_assinada_sem_mudar_custo_medio(
+    service: EstoqueService, tenant_id
+):
+    ingrediente = await service.criar_ingrediente(
+        tenant_id,
+        CriarIngredienteRequest(
+            nome="Farinha",
+            unidade="kg",
+            estoque_inicial=Decimal("5"),
+            custo_inicial=Decimal("8.50"),
+        ),
+    )
+
+    atualizado = await service.ajustar_saldo(
+        ingrediente.id,
+        tenant_id,
+        AjusteEstoqueRequest(quantidade_alvo=Decimal("3.2500")),
+    )
+    movimentacoes = await service.listar_movimentacoes(ingrediente.id, tenant_id)
+
+    assert atualizado.estoque_atual == Decimal("3.2500")
+    assert atualizado.custo_medio == Decimal("8.5000")
+    ajuste = next(mov for mov in movimentacoes if mov.tipo == "ajuste")
+    assert ajuste.quantidade == Decimal("-1.7500")
+    assert ajuste.custo_unitario == Decimal("8.5000")
+    assert ajuste.origem == "ajuste"
+
+
+@pytest.mark.asyncio
+async def test_ajuste_nao_permite_estoque_abaixo_do_reservado(
+    db: AsyncSession, service: EstoqueService, tenant_id
+):
+    ingrediente = await service.criar_ingrediente(
+        tenant_id,
+        CriarIngredienteRequest(nome="Chocolate", unidade="kg", estoque_inicial=Decimal("4")),
+    )
+    registro = await db.get(Ingrediente, ingrediente.id)
+    assert registro is not None
+    registro.quantidade_reservada = Decimal("2")
+    await db.flush()
+
+    with pytest.raises(ConflictError, match="abaixo da quantidade reservada"):
+        await service.ajustar_saldo(
+            ingrediente.id,
+            tenant_id,
+            AjusteEstoqueRequest(quantidade_alvo=Decimal("1.5")),
+        )
+
+    assert (await service.buscar(ingrediente.id, tenant_id)).estoque_atual == Decimal("4")
+
+
+@pytest.mark.asyncio
+async def test_ajuste_igual_ao_saldo_atual_nao_cria_movimentacao(
+    service: EstoqueService, tenant_id
+):
+    ingrediente = await service.criar_ingrediente(
+        tenant_id,
+        CriarIngredienteRequest(nome="Açúcar", unidade="kg", estoque_inicial=Decimal("2")),
+    )
+
+    with pytest.raises(ValidationError, match="corresponde ao estoque atual"):
+        await service.ajustar_saldo(
+            ingrediente.id,
+            tenant_id,
+            AjusteEstoqueRequest(quantidade_alvo=Decimal("2")),
+        )
+
+    movimentacoes = await service.listar_movimentacoes(ingrediente.id, tenant_id)
+    assert not [mov for mov in movimentacoes if mov.tipo == "ajuste"]
 
 
 @pytest.mark.asyncio

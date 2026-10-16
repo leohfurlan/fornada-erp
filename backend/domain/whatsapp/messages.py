@@ -7,6 +7,7 @@ from typing import Protocol
 
 from domain.compras.schemas import ItemConfirmado
 from domain.exceptions import ValidationError
+from domain.number_format import quantity_br
 
 MENU = (
     "Como posso ajudar?\n"
@@ -92,7 +93,7 @@ def preview_text(items: list[ItemConfirmado]) -> str:
     for index, item in enumerate(items, 1):
         total = item.quantidade * item.custo_unitario
         value = f"{total:.2f}".replace(".", ",")
-        quantity = str(item.quantidade).replace(".", ",")
+        quantity = quantity_br(item.quantidade)
         target = "ingrediente existente" if item.ingrediente_id else "novo cadastro"
         lines.append(f"{index}. {item.nome}: {quantity} {item.unidade} — R$ {value} ({target})")
     lines.append(

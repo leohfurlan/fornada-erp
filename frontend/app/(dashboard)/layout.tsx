@@ -24,6 +24,8 @@ import { useDashboardResumo } from "@/hooks/use-dashboard";
 import { SupportBanner } from "@/components/shared/support-banner";
 import { BrandLogo } from "@/components/shared/brand-logo";
 
+import { PwaInstall, PwaInstallMenu } from "@/components/shared/pwa-install";
+
 interface NavItem {
   href: string;
   label: string;
@@ -114,6 +116,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen flex flex-col">
+      <PwaInstall />
       {/* Header mobile */}
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
         <div className="flex h-14 items-center justify-between px-4">
@@ -201,6 +204,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             />
             <div className="absolute bottom-full left-0 right-0 bg-background border-t shadow-lg z-50 max-w-2xl md:max-w-5xl mx-auto">
               <div className="p-2 space-y-0.5">
+                <PwaInstallMenu />
                 {navMais.map(({ href, label, subtitulo, icon: Icon, iconBg, iconColor }) => {
                   const mostrarBadge = href === "/estoque" && criticos > 0;
                   return (

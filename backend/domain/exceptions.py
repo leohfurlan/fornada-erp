@@ -16,7 +16,8 @@ class NotFoundError(FornadaError):
 
 
 class ConflictError(FornadaError):
-    def __init__(self, message: str) -> None:
+    def __init__(self, message: str, *, field: str | None = None) -> None:
+        self.field = field
         super().__init__(message, code="conflict")
 
 
@@ -26,12 +27,14 @@ class PermissionError(FornadaError):
 
 
 class ValidationError(FornadaError):
-    def __init__(self, message: str) -> None:
+    def __init__(self, message: str, *, field: str | None = None) -> None:
+        self.field = field
         super().__init__(message, code="validation_error")
 
 
 class AuthError(FornadaError):
-    def __init__(self, message: str = "Credenciais inválidas") -> None:
+    def __init__(self, message: str = "Credenciais inválidas", *, field: str | None = None) -> None:
+        self.field = field
         super().__init__(message, code="auth_error")
 
 

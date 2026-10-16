@@ -71,11 +71,11 @@ class VendasService:
         if data.cliente_id is not None:
             c = await self._repo.buscar_cliente(data.cliente_id, tenant_id)
             if not c:
-                raise ValidationError(f"Cliente {data.cliente_id} não encontrado")
-        for item in data.itens:
+                raise ValidationError(f"Cliente {data.cliente_id} não encontrado", field="cliente_id")
+        for index, item in enumerate(data.itens):
             r = await self._repo.buscar_receita(item.receita_id, tenant_id)
             if not r:
-                raise ValidationError(f"Receita {item.receita_id} não encontrada")
+                raise ValidationError(f"Receita {item.receita_id} não encontrada", field=f"itens.{index}.receita_id")
 
         # Pré-valida saldo PA pra cada item ANTES de salvar a venda (atômico).
         # Se faltar saldo em qualquer item, raise antes de persistir nada.

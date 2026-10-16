@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { prepararAnexoCompra } from "@/lib/compra-anexo";
 import type { CompraDetalhada, CompraResumo, CompraRevisada, FornecedorCompra, ItemObservado,
   LeituraCompra, Pagina, PreviaCompra, ProdutoCompra, ProdutoCriar, ResultadoCompra,
   VinculoCompra } from "@/types/compras";
@@ -49,9 +50,9 @@ export function useCatalogoCompra() {
 export function useLerCompra() {
   return useMutation({ mutationFn: async (file: File) => {
     const body = new FormData();
-    body.append("arquivo", file);
+    body.append("arquivo", await prepararAnexoCompra(file));
     return (await api.post<LeituraCompra>("/compras/v2/ocr", body,
-      { headers: { "Content-Type": "multipart/form-data" } })).data;
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 150_000 })).data;
   } });
 }
 export function useReconhecerCompra() {

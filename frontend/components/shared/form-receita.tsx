@@ -1,16 +1,20 @@
 "use client";
 
+import { ValidatedForm } from "@/components/shared/validation-feedback";
+
 import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
-import { useForm, useFieldArray, Controller, type SubmitHandler } from "react-hook-form";
+import { useForm, useFieldArray, Controller, type SubmitHandler } from "@/lib/form";
 import { useIngredientes } from "@/hooks/use-estoque";
 import { useEtapasPadrao } from "@/hooks/use-configuracoes";
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { UnidadeSelect } from "@/components/shared/unidade-select";
 import { MarkdownField } from "@/components/shared/markdown-field";
 import { CATEGORIAS_RECEITA, UNIDADES_MEDIDA } from "@/lib/unidades";
+import { erroNome, nomeMaiusculo } from "@/lib/nomes";
 
 export interface ReceitaFormValues {
+  versao?: number;
   nome: string;
   categoria: string;
   rendimento: number;
@@ -62,7 +66,7 @@ export function FormReceita({
     watch,
     formState: { errors, isSubmitting },
   } = useForm<ReceitaFormValues>({
-    defaultValues: { ...defaultsForm, ...valoresIniciais },
+    defaultValues: { ...defaultsForm, ...valoresIniciais, nome: nomeMaiusculo(valoresIniciais?.nome ?? "") },
   });
 
   const {
@@ -96,7 +100,7 @@ export function FormReceita({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <ValidatedForm errors={errors} onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Dados básicos */}
       <section className="space-y-3">
         <div className="space-y-1">
@@ -105,8 +109,15 @@ export function FormReceita({
             type="text"
             placeholder="Ex: Bolo de chocolate"
             className="w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            {...register("nome", { required: "Informe o nome" })}
+            maxLength={200}
+            {...register("nome", {
+              required: "Informe o nome",
+              setValueAs: nomeMaiusculo,
+              validate: (value) => erroNome(value) ?? true,
+              onChange: (event) => { event.target.value = nomeMaiusculo(event.target.value); },
+            })}
           />
+          <p className="text-xs text-muted-foreground">Nome em letras maiúsculas, sem emojis.</p>
           {errors.nome && <p className="text-xs text-destructive">{errors.nome.message}</p>}
         </div>
 
@@ -433,6 +444,6 @@ export function FormReceita({
       >
         {isSubmitting || isPending ? textoBotaoLoading : textoBotao}
       </button>
-    </form>
+    </ValidatedForm>
   );
 }

@@ -26,6 +26,12 @@ from domain.compras.comercial_schemas import (
 )
 from domain.compras.identificadores import normalizar_descricao, validar_evidencia
 from domain.compras.repository import ComprasRepository
+from domain.compras.review_errors import (
+    PurchaseReviewConflict,
+    PurchaseReviewError,
+    PurchaseReviewUnavailable,
+    review_item,
+)
 from domain.estoque.schemas import (
     CriarIngredienteRequest,
     EntradaEstoqueRequest,
@@ -84,129 +90,156 @@ class ComprasComerciais:
     ) -> tuple[FornecedorCompra | None, list[Resolvido], list[Duplicidade]]:
         hoje = datetime.now(UTC).astimezone(timezone(timedelta(hours=-3))).date()
         if data.data_compra and data.data_compra > hoje:
-            raise ValidationError("A data da compra está no futuro. Confira a nota.")
-        fornecedor = (
-            await self.repo.fornecedor(tenant, data.fornecedor_id) if data.fornecedor_id else None
-        )
+            raise PurchaseReviewError("future_purchase_date")
+        try:
+            fornecedor = (
+                await self.repo.fornecedor(tenant, data.fornecedor_id)
+                if data.fornecedor_id
+                else None
+            )
+        except NotFoundError:
+            raise PurchaseReviewUnavailable("supplier_unavailable") from None
         if data.fornecedor_novo and data.fornecedor_novo.cnpj:
             if any(
                 f.cnpj == data.fornecedor_novo.cnpj for f in await self.repo.fornecedores(tenant)
             ):
-                raise ConflictError(
-                    "Esta loja já está cadastrada. Selecione o fornecedor existente."
-                )
+                raise PurchaseReviewConflict("supplier_exists")
         rows: list[Resolvido] = []
         acumulado: dict[UUID, Decimal] = {}
         for idx, item in enumerate(data.itens):
-            material = (
-                await self.estoque.buscar(item.ingrediente_id, tenant)
-                if item.ingrediente_id
-                else None
-            )
-            principal = (
-                material.unidade if material else (item.unidade_principal or item.unidade).lower()
-            )
-            alternativas = (
-                [u.model_dump() for u in material.unidades_alternativas] if material else []
-            )
-            produto = await self.repo.produto(tenant, item.produto_id) if item.produto_id else None
-            comercial = produto or item.produto_novo
-            if produto and (produto.revisao != item.produto_revisao):
-                raise ConflictError("O produto mudou desde a leitura. Atualize a seleção.")
-            if produto and produto.ingrediente_id != item.ingrediente_id:
-                raise ValidationError("O produto pertence a outro material. Confira a seleção.")
-            if comercial:
-                fator_conteudo = self.catalogo.fator(comercial, principal, alternativas)
-                validar_evidencia(
-                    item.descricao_original,
-                    comercial.variante or comercial.nome,
-                    comercial.conteudo_embalagem,
-                    comercial.unidade_conteudo,
-                )
-                if (
-                    item.gtin_confirmado
-                    and comercial.gtin
-                    and item.gtin_confirmado != comercial.gtin
-                ):
-                    raise ValidationError("O GTIN informado difere do produto selecionado.")
-                if item.gtin_confirmado or comercial.gtin:
-                    gtin = item.gtin_confirmado or comercial.gtin
-                    if any(
-                        p.gtin == gtin and (not produto or p.id != produto.id)
-                        for p in await self.repo.produtos(tenant)
-                    ):
-                        raise ConflictError("O GTIN já pertence a outro produto.")
-            unidade = item.unidade.lower().strip()
-            if comercial and unidade in EMBALAGENS:
-                fator = comercial.conteudo_embalagem * fator_conteudo
-            else:
-                fator = converter_para_principal(Decimal("1"), unidade, principal, alternativas)
-            quantidade = item.quantidade * fator
-            if quantidade > LIMITE_ESTOQUE or quantidade != quantidade.quantize(Decimal("0.0001")):
-                raise ValidationError("A quantidade convertida não cabe na precisão do estoque.")
-            if material:
-                acumulado[material.id] = acumulado.get(material.id, Decimal("0")) + quantidade
-                if material.estoque_atual + acumulado[material.id] > LIMITE_ESTOQUE:
-                    raise ValidationError("A entrada excede o limite do estoque.")
-            total = (item.quantidade * item.custo_unitario - item.desconto_item).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            )
-            if total != item.preco_total:
-                raise ValidationError(
-                    "Quantidade, preço e desconto não conferem com o total do item."
-                )
-            custo = item.preco_total / quantidade
-            if custo > LIMITE_ESTOQUE:
-                raise ValidationError("O custo convertido excede o limite do estoque.")
-            pendencias: list[str] = []
-            produto_aprovado = bool(produto and produto.aprovado) or item.aprovar_produto
-            if not comercial and item.aprovar_produto:
-                raise ValidationError("Informe o produto antes de aprová-lo.")
-            if not produto_aprovado and not item.aceitar_excecao:
-                pendencias.append("Aprove o produto ou confirme apenas esta compra.")
-            fornecedor_aprovado = bool(
-                produto
-                and fornecedor
-                and fornecedor.id in await self.repo.aprovados(tenant, produto.id)
-            )
-            if item.aprovar_fornecedor and not (fornecedor or data.fornecedor_novo):
-                raise ValidationError("Escolha ou cadastre a loja antes de aprová-la.")
-            if item.aprovar_fornecedor and not comercial:
-                raise ValidationError("Informe o produto para aprovar a loja para esse uso.")
-            if not fornecedor_aprovado and not item.aprovar_fornecedor and not item.aceitar_excecao:
-                pendencias.append("Aprove a loja para este produto ou confirme uma exceção.")
-            if item.guardar_vinculo:
-                if (
-                    not comercial
-                    or not produto_aprovado
-                    or not (fornecedor or data.fornecedor_novo)
-                ):
-                    raise ValidationError(
-                        "Para lembrar o produto, informe e aprove o produto e a loja."
+            with review_item(idx, item):
+                try:
+                    material = (
+                        await self.estoque.buscar(item.ingrediente_id, tenant)
+                        if item.ingrediente_id
+                        else None
                     )
-                if not fornecedor_aprovado and not item.aprovar_fornecedor:
-                    raise ValidationError("Aprove a loja antes de guardar o vínculo.")
-                if fornecedor and produto:
-                    await self.validar_vinculos(tenant, fornecedor.id, produto, item)
-            rows.append(
-                Resolvido(
-                    item,
-                    material,
-                    produto,
-                    ItemPrevia(
-                        indice=idx,
-                        ingrediente_id=item.ingrediente_id,
-                        nome_material=material.nome if material else item.nome,
-                        produto_id=item.produto_id,
-                        quantidade_principal=quantidade,
-                        unidade_principal=principal,
-                        fator_aplicado=fator,
-                        custo_normalizado=custo.quantize(PRECISAO, rounding=ROUND_HALF_UP),
-                        preco_total=item.preco_total,
-                        pendencias=pendencias,
-                    ),
+                except NotFoundError:
+                    raise PurchaseReviewUnavailable("material_unavailable") from None
+                principal = (
+                    material.unidade
+                    if material
+                    else (item.unidade_principal or item.unidade).lower()
                 )
-            )
+                alternativas = (
+                    [u.model_dump() for u in material.unidades_alternativas] if material else []
+                )
+                try:
+                    produto = (
+                        await self.repo.produto(tenant, item.produto_id)
+                        if item.produto_id
+                        else None
+                    )
+                except NotFoundError:
+                    raise PurchaseReviewUnavailable("product_unavailable") from None
+                comercial = produto or item.produto_novo
+                if produto and (produto.revisao != item.produto_revisao):
+                    raise PurchaseReviewConflict("product_version_changed")
+                if produto and produto.ingrediente_id != item.ingrediente_id:
+                    raise PurchaseReviewError("product_material_mismatch")
+                if comercial:
+                    fator_conteudo = self.catalogo.fator(comercial, principal, alternativas)
+                    validar_evidencia(
+                        item.descricao_original,
+                        comercial.variante or comercial.nome,
+                        comercial.conteudo_embalagem,
+                        comercial.unidade_conteudo,
+                    )
+                    if (
+                        item.gtin_confirmado
+                        and comercial.gtin
+                        and item.gtin_confirmado != comercial.gtin
+                    ):
+                        raise PurchaseReviewError("gtin_mismatch")
+                    if item.gtin_confirmado or comercial.gtin:
+                        gtin = item.gtin_confirmado or comercial.gtin
+                        if any(
+                            p.gtin == gtin and (not produto or p.id != produto.id)
+                            for p in await self.repo.produtos(tenant)
+                        ):
+                            raise PurchaseReviewConflict("gtin_exists")
+                unidade = item.unidade.lower().strip()
+                if comercial and unidade in EMBALAGENS:
+                    fator = comercial.conteudo_embalagem * fator_conteudo
+                else:
+                    try:
+                        fator = converter_para_principal(
+                            Decimal("1"), unidade, principal, alternativas
+                        )
+                    except ValidationError:
+                        raise PurchaseReviewError("fiscal_conversion_required") from None
+                quantidade = item.quantidade * fator
+                if quantidade > LIMITE_ESTOQUE or quantidade != quantidade.quantize(
+                    Decimal("0.0001")
+                ):
+                    raise PurchaseReviewError("stock_precision_exceeded")
+                if material:
+                    acumulado[material.id] = acumulado.get(material.id, Decimal("0")) + quantidade
+                    if material.estoque_atual + acumulado[material.id] > LIMITE_ESTOQUE:
+                        raise PurchaseReviewError("stock_limit_exceeded")
+                total = (item.quantidade * item.custo_unitario - item.desconto_item).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+                if total != item.preco_total:
+                    raise PurchaseReviewError("item_total_mismatch")
+                custo = item.preco_total / quantidade
+                if custo > LIMITE_ESTOQUE:
+                    raise PurchaseReviewError("cost_limit_exceeded")
+                pendencias: list[str] = []
+                pendencias_codigos: list[str] = []
+                produto_aprovado = bool(produto and produto.aprovado) or item.aprovar_produto
+                if not comercial and item.aprovar_produto:
+                    raise PurchaseReviewError("product_required")
+                if not produto_aprovado and not item.aceitar_excecao:
+                    pendencias.append("Aprove o produto ou confirme apenas esta compra.")
+                    pendencias_codigos.append("product_approval_required")
+                fornecedor_aprovado = bool(
+                    produto
+                    and fornecedor
+                    and fornecedor.id in await self.repo.aprovados(tenant, produto.id)
+                )
+                if item.aprovar_fornecedor and not (fornecedor or data.fornecedor_novo):
+                    raise PurchaseReviewError("supplier_required", item_index=idx)
+                if item.aprovar_fornecedor and not comercial:
+                    raise PurchaseReviewError("product_required")
+                if (
+                    not fornecedor_aprovado
+                    and not item.aprovar_fornecedor
+                    and not item.aceitar_excecao
+                ):
+                    pendencias.append("Aprove a loja para este produto ou confirme uma exceção.")
+                    pendencias_codigos.append("supplier_approval_required")
+                if item.guardar_vinculo:
+                    if (
+                        not comercial
+                        or not produto_aprovado
+                        or not (fornecedor or data.fornecedor_novo)
+                    ):
+                        raise PurchaseReviewError("link_requirements")
+                    if not fornecedor_aprovado and not item.aprovar_fornecedor:
+                        raise PurchaseReviewError("supplier_approval_required")
+                    if fornecedor and produto:
+                        await self.validar_vinculos(tenant, fornecedor.id, produto, item)
+                rows.append(
+                    Resolvido(
+                        item,
+                        material,
+                        produto,
+                        ItemPrevia(
+                            indice=idx,
+                            ingrediente_id=item.ingrediente_id,
+                            nome_material=material.nome if material else item.nome,
+                            produto_id=item.produto_id,
+                            quantidade_principal=quantidade,
+                            unidade_principal=principal,
+                            fator_aplicado=fator,
+                            custo_normalizado=custo.quantize(PRECISAO, rounding=ROUND_HALF_UP),
+                            preco_total=item.preco_total,
+                            pendencias=pendencias,
+                            pendencias_codigos=pendencias_codigos,
+                        ),
+                    )
+                )
         duplicadas = await self.repo.duplicadas(
             tenant, data.identidade_nota if data.identidade_confirmada else None
         )
@@ -504,7 +537,7 @@ class ComprasComerciais:
         offset: int,
     ) -> PaginaCompras:
         if inicio and fim and inicio > fim:
-            raise ValidationError("A data inicial deve ser anterior à data final.")
+            raise ValidationError("A data inicial deve ser anterior à data final.", field="data_fim")
         for model, id in (
             (Ingrediente, ingrediente_id),
             (ProdutoCompra, produto_id),

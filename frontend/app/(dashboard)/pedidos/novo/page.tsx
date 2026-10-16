@@ -1,10 +1,12 @@
 "use client";
 
+import { ValidatedForm, ValidationScope } from "@/components/shared/validation-feedback";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ArrowLeft, Plus, Trash2, UserPlus } from "lucide-react";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm } from "@/lib/form";
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { useClientes, useCriarCliente } from "@/hooks/use-clientes";
 import { useCriarPedido } from "@/hooks/use-pedidos";
@@ -71,6 +73,7 @@ export default function NovoPedidoPage() {
 
   const criarClienteInline = async () => {
     if (!novoClienteNome.trim()) return;
+    try {
     const cliente = await criarCliente.mutateAsync({
       nome: novoClienteNome.trim(),
       telefone: novoClienteTelefone.trim() || undefined,
@@ -79,6 +82,7 @@ export default function NovoPedidoPage() {
     setNovoClienteAberto(false);
     setNovoClienteNome("");
     setNovoClienteTelefone("");
+    } catch { /* Feedback remains inside the client editor. */ }
   };
 
   const onSubmit = async (data: PedidoForm) => {
@@ -106,7 +110,7 @@ export default function NovoPedidoPage() {
 
       <h1 className="text-xl font-bold">Novo pedido</h1>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <ValidatedForm errors={errors} onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Cliente */}
         <section className="space-y-1">
           <label className="text-sm font-medium">Cliente</label>
@@ -133,10 +137,10 @@ export default function NovoPedidoPage() {
               </button>
             </div>
           ) : (
-            <div className="rounded-xl border p-3 space-y-2 bg-muted/20">
+            <ValidationScope error={criarCliente.error} className="rounded-xl border p-3 space-y-2 bg-muted/20">
               <input
                 type="text"
-                placeholder="Nome do cliente"
+                name="nome" aria-label="Nome do cliente" placeholder="Nome do cliente"
                 value={novoClienteNome}
                 onChange={(e) => setNovoClienteNome(e.target.value)}
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -144,7 +148,7 @@ export default function NovoPedidoPage() {
               />
               <input
                 type="tel"
-                placeholder="Telefone (opcional)"
+                name="telefone" aria-label="Telefone do cliente" placeholder="Telefone (opcional)"
                 value={novoClienteTelefone}
                 onChange={(e) => setNovoClienteTelefone(e.target.value)}
                 className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -170,7 +174,7 @@ export default function NovoPedidoPage() {
                   Cancelar
                 </button>
               </div>
-            </div>
+            </ValidationScope>
           )}
         </section>
 
@@ -335,7 +339,7 @@ export default function NovoPedidoPage() {
         >
           {isSubmitting || criarPedido.isPending ? "Salvando..." : "Criar pedido"}
         </button>
-      </form>
+      </ValidatedForm>
     </div>
   );
 }

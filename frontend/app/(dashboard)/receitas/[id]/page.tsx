@@ -8,6 +8,7 @@ import { useFichaTecnica } from "@/hooks/use-ficha-tecnica";
 import { CustoCard } from "@/components/shared/custo-card";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { MarkdownContent } from "@/components/shared/markdown-content";
+import { HistoricoReceita } from "@/components/shared/historico-receita";
 import { formatDataHora, formatMinutos, formatQuantidade } from "@/lib/utils";
 
 export default function ReceitaPage() {
@@ -162,6 +163,7 @@ export default function ReceitaPage() {
           </Link>
         </section>
       )}
+      <HistoricoReceita id={id} />
     </div>
   );
 }

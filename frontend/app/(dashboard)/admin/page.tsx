@@ -1,12 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AxiosError } from "axios";
+import { ValidationScope } from "@/components/shared/validation-feedback";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { iniciarSuporte, useContasAdmin } from "@/hooks/use-admin";
 import { setSupportSession } from "@/lib/admin-session";
 import type { ContaAdmin } from "@/lib/admin-session";
+import { PwaAdmin } from "@/components/shared/pwa-admin";
 
 export default function AdminPage() {
   const { usuario } = useAuthStore();
@@ -14,7 +15,7 @@ export default function AdminPage() {
   const [offset, setOffset] = useState(0);
   const [conta, setConta] = useState<ContaAdmin | null>(null);
   const [motivo, setMotivo] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<unknown>();
   const [busy, setBusy] = useState(false);
   const motivoRef = useRef<HTMLTextAreaElement>(null);
   const acessoRef = useRef<HTMLButtonElement | null>(null);
@@ -25,14 +26,14 @@ export default function AdminPage() {
   async function acessar() {
     if (!conta || !usuario || busy) return;
     setBusy(true);
-    setError("");
+    setError(undefined);
     try {
       const session = await iniciarSuporte(conta.id, motivo.trim());
       setSupportSession({ ...session, operador_id: usuario.id });
       // Recarrega toda a aplicação para descartar consultas e formulários da conta anterior.
       window.location.assign("/");
     } catch (err) {
-      setError(err instanceof AxiosError ? err.response?.data?.detail ?? "Não foi possível abrir a conta." : "Não foi possível abrir a conta.");
+      setError(err);
       setBusy(false);
     }
   }
@@ -49,12 +50,13 @@ export default function AdminPage() {
       <h2 className="font-semibold break-words">{item.negocio}</h2>
       <p className="break-words">{item.nome} · {item.email}</p>
       <p className="text-sm text-muted-foreground">{item.is_superuser ? "Administrador da plataforma" : item.ativo ? "Conta ativa" : "Conta desativada"}</p>
-      {!item.is_superuser && item.ativo && <button className="rounded bg-primary px-4 py-2 text-primary-foreground" onClick={(event) => { acessoRef.current = event.currentTarget; setConta(item); setMotivo(""); setError(""); }}>Acessar conta</button>}
+      {!item.is_superuser && item.ativo && <button className="rounded bg-primary px-4 py-2 text-primary-foreground" onClick={(event) => { acessoRef.current = event.currentTarget; setConta(item); setMotivo(""); setError(undefined); }}>Acessar conta</button>}
     </article>)}</div>
     <div className="flex gap-4">
       <button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))}>Anterior</button>
       <button disabled={!data || data.length < 50} onClick={() => setOffset(offset + 50)}>Próxima</button>
     </div>
+    <PwaAdmin q={q} offset={offset} />
     <Dialog.Root open={conta !== null} onOpenChange={(open) => { if (!open && !busy) setConta(null); }}>
       {conta && <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
@@ -66,20 +68,19 @@ export default function AdminPage() {
           onEscapeKeyDown={(event) => { if (busy) event.preventDefault(); }}
           onInteractOutside={(event) => { if (busy) event.preventDefault(); }}
         >
-          <div className="space-y-4">
+          <ValidationScope error={error} fallback="Não foi possível abrir a conta." className="space-y-4">
             <Dialog.Title className="text-lg font-semibold break-words">Acessar {conta.negocio}</Dialog.Title>
             <Dialog.Description className="text-sm text-muted-foreground break-words">
               {conta.email}. Você poderá consultar e alterar dados desta conta durante 15 minutos.
             </Dialog.Description>
             <label className="block">Motivo do suporte
-              <textarea ref={motivoRef} rows={3} className="mt-1 w-full rounded border p-3" maxLength={500} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+              <textarea name="motivo" ref={motivoRef} rows={3} className="mt-1 w-full rounded border p-3" maxLength={500} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
             </label>
-            {error && <p role="alert">{error}</p>}
             <div className="flex flex-wrap gap-3">
               <button disabled={busy || motivo.trim().length < 5} className="rounded bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50" onClick={acessar}>{busy ? "Abrindo conta..." : "Confirmar acesso"}</button>
               <Dialog.Close asChild><button disabled={busy} className="rounded border px-4 py-2">Cancelar</button></Dialog.Close>
             </div>
-          </div>
+          </ValidationScope>
         </Dialog.Content>
       </Dialog.Portal>}
     </Dialog.Root>

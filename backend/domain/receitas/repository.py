@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from domain.receitas.schemas import CriarReceitaRequest
+from domain.nomes import nome_cadastro
 from infrastructure.database.models import Ingrediente, Receita, ReceitaEtapa, ReceitaIngrediente, Tenant, OrdemProducao, EstoqueProdutoAcabado
 
 
@@ -221,7 +222,7 @@ class ReceitaRepository:
 
     async def _proximo_nome_copia(self, nome_original: str, tenant_id: UUID) -> str:
         """Gera "X (cópia)", "X (cópia 2)", "X (cópia 3)" — evita colisões."""
-        base = f"{nome_original} (cópia"
+        base = f"{nome_cadastro(nome_original)[:189]} (CÓPIA"
         result = await self._db.execute(
             select(func.count())
             .select_from(Receita)

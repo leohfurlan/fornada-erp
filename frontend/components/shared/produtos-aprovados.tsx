@@ -1,9 +1,13 @@
 "use client";
+import { ValidationScope } from "@/components/shared/validation-feedback";
 
 import { useState } from "react";
+import { erroNome } from "@/lib/nomes";
 import Link from "next/link";
 import { ProdutoCompraFields } from "@/components/shared/produto-compra-fields";
+import { UNIDADES_MEDIDA } from "@/lib/unidades";
 import { useCatalogoCompra, useFornecedoresCompra, useProdutosCompra, useVinculosCompra } from "@/hooks/use-compras-comerciais";
+import { useIngredientes } from "@/hooks/use-estoque";
 import { decimalCompra, erroCompras, produtoVazio } from "@/lib/compras";
 import type { FornecedorCompra, ProdutoCompra, ProdutoDados } from "@/types/compras";
 
@@ -11,6 +15,7 @@ const input = "w-full rounded-lg border bg-background px-3 py-2.5 text-sm";
 const button = "rounded-lg border px-3 py-2 text-sm disabled:opacity-50";
 export function ProdutosAprovados({ ingredienteId }: { ingredienteId: string }) {
   const produtos = useProdutosCompra();
+  const ingredientes = useIngredientes();
   const fornecedores = useFornecedoresCompra();
   const vinculos = useVinculosCompra();
   const gravar = useCatalogoCompra();
@@ -23,15 +28,30 @@ export function ProdutosAprovados({ ingredienteId }: { ingredienteId: string }) 
   const [editandoLoja, setEditandoLoja] = useState<FornecedorCompra | null>(null);
   const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
+  const [erroProduto, setErroProduto] = useState<unknown>();
+  const [erroLoja, setErroLoja] = useState<unknown>();
   const [correcoes, setCorrecoes] = useState<Record<string, string>>({});
   const meusProdutos = produtos.data?.filter((p) => p.ingrediente_id === ingredienteId) ?? [];
+  const unidadesCadastradas = [...new Set([
+    ...(ingredientes.data ?? []).flatMap((material) => [
+      material.unidade,
+      ...(material.unidades_alternativas ?? []).map((alternativa) => alternativa.unidade),
+    ]),
+    ...(produtos.data ?? []).map((produto) => produto.unidade_conteudo),
+  ].filter((unidade): unidade is string => !!unidade?.trim()))]
+    .filter((unidade) => !UNIDADES_MEDIDA.some((padrao) => padrao.value === unidade));
   const ids = meusProdutos.map((p) => p.id);
   const meusVinculos = vinculos.data?.filter((v) => ids.includes(v.produto_id)) ?? [];
 
   async function executar(action: Parameters<typeof gravar.mutateAsync>[0]) {
-    setErro(""); setMensagem("");
+    setErro(""); setMensagem(""); setErroProduto(undefined); setErroLoja(undefined);
     try { await gravar.mutateAsync(action); setMensagem("Cadastro atualizado."); return true; }
-    catch (e) { setErro(erroCompras(e)); return false; }
+    catch (e) {
+      if (action.recurso === "produtos" && !action.remover) setErroProduto(e);
+      else if (action.recurso === "fornecedores") setErroLoja(e);
+      else setErro(erroCompras(e));
+      return false;
+    }
   }
   function editar(p: ProdutoCompra) {
     setEditando(p); setProduto({ nome: p.nome, marca: p.marca, fabricante: p.fabricante,
@@ -40,6 +60,8 @@ export function ProdutosAprovados({ ingredienteId }: { ingredienteId: string }) 
     setAprovado(p.aprovado); setLojas(p.fornecedores_aprovados); setAberto(true);
   }
   async function salvarProduto() {
+    const erroNomeProduto = erroNome(produto.nome);
+    if (erroNomeProduto) { setErroProduto({ response: { data: { field_errors: [{ path: "nome", message: erroNomeProduto }] } } }); return; }
     const dados = { ...produto, aprovado, fornecedores_aprovados: lojas,
       ...(editando ? { revisao: editando.revisao } : { ingrediente_id: ingredienteId }) };
     if (await executar({ recurso: "produtos", id: editando?.id, dados })) {
@@ -76,9 +98,9 @@ export function ProdutosAprovados({ ingredienteId }: { ingredienteId: string }) 
     <button type="button" className={button} onClick={() => {
       setEditando(null); setProduto(produtoVazio()); setLojas([]); setAprovado(true); setAberto(true);
     }}>Adicionar produto aprovado</button>
-    {aberto && <div className="rounded-xl border p-3 space-y-3">
+    {aberto && <ValidationScope error={erroProduto} className="rounded-xl border p-3 space-y-3">
       <h3 className="font-medium">{editando ? "Editar produto" : "Novo produto para compra"}</h3>
-      <ProdutoCompraFields prefix="cadastro-produto-" value={produto} onChange={setProduto} />
+      <ProdutoCompraFields prefix="cadastro-produto-" value={produto} unidadesCadastradas={unidadesCadastradas} onChange={setProduto} />
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={aprovado} onChange={(e) => setAprovado(e.target.checked)} />Produto aprovado para este material</label>
       <fieldset className="space-y-2"><legend className="text-sm font-medium">Lojas aprovadas para este produto</legend>
         {fornecedores.data?.map((f) => <label className="flex items-center gap-2 text-sm" key={f.id}>
@@ -88,13 +110,13 @@ export function ProdutosAprovados({ ingredienteId }: { ingredienteId: string }) 
       </fieldset>
       <div className="flex gap-2"><button type="button" className={button} disabled={gravar.isPending} onClick={salvarProduto}>Salvar produto</button>
         <button type="button" className={button} onClick={() => setAberto(false)}>Cancelar edição</button></div>
-    </div>}
+    </ValidationScope>}
     <details className="rounded-xl border p-3 space-y-3"><summary className="cursor-pointer text-sm font-medium">Lojas e fornecedores da sua conta</summary>
-      <div className="space-y-2 pt-3">
+      <ValidationScope error={erroLoja} className="space-y-2 pt-3">
         <label className="text-xs" htmlFor="cadastro-loja-nome">Nome da loja</label>
-        <input id="cadastro-loja-nome" className={input} value={loja.nome} onChange={(e) => setLoja({ ...loja, nome: e.target.value })} />
+        <input name="nome" id="cadastro-loja-nome" className={input} value={loja.nome} onChange={(e) => setLoja({ ...loja, nome: e.target.value })} />
         <label className="text-xs" htmlFor="cadastro-loja-cnpj">CNPJ (se conhecido)</label>
-        <input id="cadastro-loja-cnpj" className={input} value={loja.cnpj} onChange={(e) => setLoja({ ...loja, cnpj: e.target.value })} />
+        <input name="cnpj" id="cadastro-loja-cnpj" className={input} value={loja.cnpj} onChange={(e) => setLoja({ ...loja, cnpj: e.target.value })} />
         <button type="button" className={button} disabled={gravar.isPending} onClick={salvarLoja}>{editandoLoja ? "Salvar loja" : "Cadastrar loja"}</button>
         {editandoLoja && <button type="button" className={button} onClick={() => { setEditandoLoja(null); setLoja({ nome: "", cnpj: "" }); }}>Cancelar edição da loja</button>}
         {fornecedores.data?.map((f) => <div key={f.id} className="border-t pt-2 space-y-1">
@@ -107,7 +129,7 @@ export function ProdutosAprovados({ ingredienteId }: { ingredienteId: string }) 
               }
             }}>Inativar loja</button>
           </div></div>)}
-      </div>
+      </ValidationScope>
     </details>
     {!!meusVinculos.length && <details className="rounded-xl border p-3">
       <summary className="cursor-pointer text-sm font-medium">Descrições e códigos já confirmados</summary>

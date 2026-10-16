@@ -6,10 +6,12 @@ import { useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, History, Pencil, Plus, Search } from "lucide-react";
 import { useIngredientes } from "@/hooks/use-estoque";
 import { EstoqueBadge } from "@/components/shared/estoque-badge";
+import { AjustarEstoqueDialog } from "@/components/shared/ajustar-estoque-dialog";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { TabelaEstoqueDesktop } from "@/components/shared/tabela-estoque-desktop";
 import { TabEstoquePA } from "@/components/shared/tab-estoque-pa";
 import { cn, formatDataHora, formatQuantidade } from "@/lib/utils";
+import { custoReferencia } from "@/lib/custo-referencia";
 import { TIPOS_PRODUTO } from "@/lib/unidades";
 import type { Ingrediente } from "@/types";
 
@@ -98,8 +100,8 @@ function TabIngredientes() {
   // Ordenação mobile aplicada sobre a lista filtrada
   const filtradosMobile = useMemo(() => {
     return [...filtrados].sort((a, b) => {
-      const av = a[sortKeyMobile];
-      const bv = b[sortKeyMobile];
+      const av = sortKeyMobile === "custo_medio" ? custoReferencia(a).valor : a[sortKeyMobile];
+      const bv = sortKeyMobile === "custo_medio" ? custoReferencia(b).valor : b[sortKeyMobile];
       const cmp = compararValores(av, bv);
       return sortDirMobile === "asc" ? cmp : -cmp;
     });
@@ -295,6 +297,7 @@ function OrdenacaoMobile({
 }
 
 function CardEstoque({ item }: { item: Ingrediente }) {
+  const custo = custoReferencia(item);
   const [aberto, setAberto] = useState(false);
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
@@ -320,8 +323,8 @@ function CardEstoque({ item }: { item: Ingrediente }) {
           </p>
         </div>
         <div className="text-right shrink-0">
-          <MoneyDisplay value={item.custo_medio} size="sm" />
-          <p className="text-xs text-muted-foreground">/{item.unidade}</p>
+          <MoneyDisplay value={custo.valor} size="sm" />
+          <p className="text-xs text-muted-foreground">/{custo.unidade}</p>
         </div>
         {aberto ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -344,7 +347,7 @@ function CardEstoque({ item }: { item: Ingrediente }) {
             label="Estoque mínimo"
             valor={`${formatQuantidade(item.estoque_minimo)} ${item.unidade}`}
           />
-          <DetalheLinha label="Custo médio" valor={<MoneyDisplay value={item.custo_medio} size="sm" />} />
+          <DetalheLinha label={`Custo médio por ${custo.unidade}`} valor={<MoneyDisplay value={custo.valor} size="sm" />} />
           <DetalheLinha label="Custo atualizado em" valor={formatDataHora(item.data_custo_atualizado)} />
 
           <div className="flex gap-2 pt-2">
@@ -363,6 +366,7 @@ function CardEstoque({ item }: { item: Ingrediente }) {
               Editar
             </Link>
           </div>
+          <AjustarEstoqueDialog item={item} variant="button" />
         </div>
       )}
     </div>

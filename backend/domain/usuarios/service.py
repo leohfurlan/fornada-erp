@@ -24,7 +24,7 @@ class UsuarioService:
         """Cria tenant + usuário administrador e retorna tokens JWT."""
         existente = await self._repo.buscar_por_email(data.email)
         if existente:
-            raise ConflictError("Já existe uma conta com este e-mail")
+            raise ConflictError("Já existe uma conta com este e-mail", field="email")
 
         tenant = await self._repo.criar_tenant(nome=data.nome_negocio)
         usuario = await self._repo.criar_usuario(

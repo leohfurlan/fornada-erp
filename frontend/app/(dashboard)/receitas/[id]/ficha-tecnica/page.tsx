@@ -1,4 +1,7 @@
 "use client";
+import { ValidatedForm } from "@/components/shared/validation-feedback";
+
+import { DecimalField } from "@/components/shared/decimal-field";
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -14,8 +17,8 @@ import { useConsumoComposicao } from "@/hooks/use-ficha-tecnica";
 import { useFichaTecnica, useSalvarFichaTecnica, type FichaTecnica, type PassoMontagem } from "@/hooks/use-ficha-tecnica";
 
 const campo = "w-full rounded-lg border bg-background p-2 text-sm";
-function QuantidadeCampo({ value, onChange, required = false }: { value: string | null; onChange: (valor: string | null) => void; required?: boolean }) {
-  return <input required={required} inputMode="decimal" pattern="[0-9]+([,.][0-9]{1,4})?" className={campo} value={(value ?? "").replace(".", ",")} onChange={e => onChange(sanitizeDecimalInput(e.target.value).replace(",", ".") || null)} />;
+function QuantidadeCampo({ value, onChange, required = false, name }: { name: string; value: string | null; onChange: (valor: string | null) => void; required?: boolean }) {
+  return <DecimalField name={name} required={required} inputMode="decimal" pattern="[0-9]+([,.][0-9]{1,4})?" className={campo} value={value ?? ""} onChange={e => onChange(sanitizeDecimalInput(e.target.value).replace(",", ".") || null)} />;
 }
 export default function FichaPage() {
   const { id } = useParams<{ id: string }>();
@@ -38,7 +41,7 @@ function Editor({ id }: { id: string }) {
     [passos[index], passos[destino]] = [passos[destino], passos[index]];
     setFicha({ ...ficha, passos });
   };
-  return <form className="mx-auto max-w-3xl space-y-5 pb-8" onSubmit={async (event) => {
+  return <ValidatedForm error={salvar.error} className="mx-auto max-w-3xl space-y-5 pb-8" onSubmit={async (event) => {
     event.preventDefault(); setMensagem("");
     try { const data = await salvar.mutateAsync(ficha); setFicha(data); setMensagem("Ficha técnica salva."); }
     catch (error) {
@@ -58,17 +61,17 @@ function Editor({ id }: { id: string }) {
       {receitas.data?.find(r => r.id === id)?.custo && <p className="text-sm">Custo salvo por unidade de rendimento: <MoneyDisplay value={receitas.data.find(r => r.id === id)?.custo?.custo_por_unidade} /></p>}
       <p className="text-xs text-muted-foreground">Este resumo é atualizado ao salvar. As camadas continuam separadas na montagem.</p>
     </section>}
-    <MarkdownField label="Descrição do produto" required maxLength={2000} value={ficha.descricao_produto} onChange={value => setFicha({ ...ficha, descricao_produto: value })} />
-    <MarkdownField label="Apresentação final e dimensões" maxLength={1000} value={ficha.especificacao_final} onChange={value => setFicha({ ...ficha, especificacao_final: value })} />
+    <MarkdownField name="descricao_produto" label="Descrição do produto" required maxLength={2000} value={ficha.descricao_produto} onChange={value => setFicha({ ...ficha, descricao_produto: value })} />
+    <MarkdownField name="especificacao_final" label="Apresentação final e dimensões" maxLength={1000} value={ficha.especificacao_final} onChange={value => setFicha({ ...ficha, especificacao_final: value })} />
     <ol className="space-y-4">{ficha.passos.map((passo, index) => <li key={index} className="space-y-3 rounded-xl border p-4">
       <div className="flex flex-wrap items-center gap-3"><strong>Etapa {index + 1}</strong>
         <button type="button" disabled={index === 0} onClick={() => mover(index, index - 1)} aria-label={`Subir etapa ${index + 1}`}>↑</button>
         <button type="button" disabled={index === ficha.passos.length - 1} onClick={() => mover(index, index + 1)} aria-label={`Descer etapa ${index + 1}`}>↓</button>
         <button type="button" className="text-destructive" onClick={() => { if (confirm("Remover esta etapa?")) setFicha({ ...ficha, passos: ficha.passos.filter((_, i) => i !== index) }); }}>Remover</button>
       </div>
-      <label className="block">Tipo<select className={campo} value={passo.tipo} onChange={e => editar(index, { tipo: e.target.value as PassoMontagem["tipo"] })}>{["componente", "ingrediente", "embalagem", "acabamento"].map(tipo => <option key={tipo}>{tipo}</option>)}</select></label>
-      <label className="block">Componente ou material<input required maxLength={300} className={campo} value={passo.descricao} onChange={e => editar(index, { descricao: e.target.value })} /></label>
-      <label className="block">Vincular ao cadastro<select required={!!ficha.composicao_ativa} className={campo} value={passo.receita_base_id ? `r:${passo.receita_base_id}` : passo.ingrediente_id ? `i:${passo.ingrediente_id}` : ""} onChange={e => {
+      <label className="block">Tipo<select className={campo} name={`passos.${index}.tipo`} value={passo.tipo} onChange={e => editar(index, { tipo: e.target.value as PassoMontagem["tipo"] })}>{["componente", "ingrediente", "embalagem", "acabamento"].map(tipo => <option key={tipo}>{tipo}</option>)}</select></label>
+      <label className="block">Componente ou material<input required maxLength={300} className={campo} name={`passos.${index}.descricao`} value={passo.descricao} onChange={e => editar(index, { descricao: e.target.value })} /></label>
+      <label className="block">Vincular ao cadastro<select required={!!ficha.composicao_ativa} className={campo} data-field={`passos.${index}.ingrediente_id`} name={`passos.${index}.receita_base_id`} value={passo.receita_base_id ? `r:${passo.receita_base_id}` : passo.ingrediente_id ? `i:${passo.ingrediente_id}` : ""} onChange={e => {
         const [tipo, alvo] = e.target.value.split(":");
         if (tipo === "r") { const base = receitas.data?.find(r => r.id === alvo); editar(index, { receita_base_id: alvo, ingrediente_id: null, tipo: "componente", descricao: base?.nome ?? passo.descricao }); }
         else if (tipo === "i") { const material = materiais.data?.find(m => m.id === alvo); editar(index, { ingrediente_id: alvo, receita_base_id: null, tipo: material?.tipo === "embalagem" ? "embalagem" : "ingrediente", descricao: material?.nome ?? passo.descricao }); }
@@ -78,17 +81,17 @@ function Editor({ id }: { id: string }) {
         <optgroup label="Ingredientes e embalagens">{materiais.data?.map(m => <option key={m.id} value={`i:${m.id}`}>{m.nome} ({m.unidade})</option>)}</optgroup>
       </select></label>
       <div className="grid grid-cols-2 gap-3">
-        <label>Quantidade nominal<QuantidadeCampo required value={passo.quantidade} onChange={valor => editar(index, { quantidade: valor ?? "" })} /></label>
-        <label>Unidade<select className={campo} value={passo.unidade} onChange={e => editar(index, { unidade: e.target.value as PassoMontagem["unidade"] })}>{["g", "kg", "ml", "l", "un"].map(un => <option key={un}>{un}</option>)}</select></label>
-        <label>Mínimo (opcional)<QuantidadeCampo value={passo.quantidade_minima} onChange={valor => editar(index, { quantidade_minima: valor })} /></label>
-        <label>Máximo (opcional)<QuantidadeCampo value={passo.quantidade_maxima} onChange={valor => editar(index, { quantidade_maxima: valor })} /></label>
+        <label>Quantidade nominal<QuantidadeCampo required name={`passos.${index}.quantidade`} value={passo.quantidade} onChange={valor => editar(index, { quantidade: valor ?? "" })} /></label>
+        <label>Unidade<select className={campo} name={`passos.${index}.unidade`} value={passo.unidade} onChange={e => editar(index, { unidade: e.target.value as PassoMontagem["unidade"] })}>{["g", "kg", "ml", "l", "un"].map(un => <option key={un}>{un}</option>)}</select></label>
+        <label>Mínimo (opcional)<QuantidadeCampo name={`passos.${index}.quantidade_minima`} value={passo.quantidade_minima} onChange={valor => editar(index, { quantidade_minima: valor })} /></label>
+        <label>Máximo (opcional)<QuantidadeCampo name={`passos.${index}.quantidade_maxima`} value={passo.quantidade_maxima} onChange={valor => editar(index, { quantidade_maxima: valor })} /></label>
       </div>
-      <MarkdownField label="Dimensões, capacidade ou padrão" rows={2} maxLength={500} placeholder="Ex.: copo de **300 ml**; camada de 15 × 15 cm" value={passo.especificacao} onChange={value => editar(index, { especificacao: value })} />
-      <MarkdownField label="Instrução de montagem" maxLength={1000} value={passo.instrucao} onChange={value => editar(index, { instrucao: value })} />
+      <MarkdownField label="Dimensões, capacidade ou padrão" rows={2} maxLength={500} placeholder="Ex.: copo de **300 ml**; camada de 15 × 15 cm" name={`passos.${index}.especificacao`} value={passo.especificacao} onChange={value => editar(index, { especificacao: value })} />
+      <MarkdownField label="Instrução de montagem" maxLength={1000} name={`passos.${index}.instrucao`} value={passo.instrucao} onChange={value => editar(index, { instrucao: value })} />
     </li>)}</ol>
     <button type="button" className="rounded-lg border px-4 py-2" disabled={ficha.passos.length >= 100} onClick={() => setFicha({ ...ficha, passos: [...ficha.passos, { descricao: "", tipo: "componente", quantidade: "", quantidade_minima: null, quantidade_maxima: null, unidade: "g", especificacao: "", instrucao: "" }] })}>Adicionar etapa</button>
     <div className="flex flex-wrap gap-3"><button disabled={salvar.isPending || !ficha.passos.length} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">{salvar.isPending ? "Salvando..." : "Salvar ficha técnica"}</button>
     <button type="button" className="rounded-lg border px-4 py-2" onClick={async () => { if (confirm("Recarregar e descartar alterações locais?")) { const result = await consulta.refetch(); if (result.data) { setFicha(result.data); setMensagem(""); } } }}>Recarregar</button></div>
-    {mensagem && <p role="status">{mensagem}</p>}
-  </form>;
+    {mensagem && !salvar.error && <p role="status">{mensagem}</p>}
+  </ValidatedForm>;
 }

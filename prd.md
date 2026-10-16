@@ -11,6 +11,22 @@
 
 ## Revisão do piloto — outubro de 2026
 
+### F-COZ-01 — Modo cozinha com Alexa — 16 de outubro de 2026
+
+Escopo e identificador aprovados pelo usuário em 16/10/2026: usar uma Echo Dot 3 para buscar receitas, abrir na tela do MacBook Pro Mid 2010 com macOS High Sierra 10.13.6, ler ingredientes e navegar pelas etapas sem usar as mãos. O usuário confirmou que o Fornada funciona no Google Chrome desse Mac; versão do navegador e fluxo integrado ainda precisam ser registrados no aceite. Tela grande com alternativa por toque e retomada da receita/etapa entre sessões de voz.
+
+Critérios de aceite: (AC1) modo cozinha autenticado e utilizável por toque; (AC2) vincular a conta Alexa à conta Fornada e selecionar uma estação; (AC3) buscar por nome, desambiguar e abrir receita na estação; (AC4) ler ingredientes cadastrados sem inventar quantidades; (AC5) avançar, voltar e repetir instruções cadastradas; (AC6) retomar receita/etapa após nova sessão Alexa e recuperar a tela após reconexão; (AC7) impedir acesso entre tenants, repetição de comandos e confirmação falsa de exibição; (AC8) demonstrar o fluxo na Echo Dot 3 e no Chrome do Mac, incluindo teste com ruído de cozinha.
+
+Primeiro incremento somente consulta e navegação; operações sobre estoque, produção, compras, pedidos, exclusões, cálculo de novas proporções e publicação na loja de skills ficam fora. Quatro entregas aprovadas nesta ordem: modo cozinha por toque; vínculo Alexa e abertura por voz; leitura/navegação por voz; retomada, reconexão e aceite real. [Especificação](docs/features/F-COZ-01-modo-cozinha-alexa/spec.md), [contrato](docs/features/F-COZ-01-modo-cozinha-alexa/contract.md), [plano](docs/features/F-COZ-01-modo-cozinha-alexa/plan.md). Desenho técnico proposto; implementação e integração externa pendentes.
+
+### F-PWA-01 — Convite de instalação e acompanhamento — 12 de outubro de 2026
+
+Escopo aprovado pelo usuário em 12/10/2026: oferecer “Deseja instalar o aplicativo Fornada?” após autenticação por e-mail ou WhatsApp, quando o navegador disponibilizar instalação, com ações Instalar e Agora não. Adiar nova oferta automática por sete dias por usuário/navegador; manter opção manual no menu quando disponível. Não oferecer em modo aplicativo nem durante suporte administrativo.
+
+Critérios de aceite: (AC1) aguardar sessão e usuário recuperados antes do convite; (AC2) Instalar abre a confirmação nativa mediante clique, sem prometer instalação automática; (AC3) Agora não preserva o uso e respeita sete dias; (AC4) opção manual respeita disponibilidade e modo aplicativo; (AC5) registrar por usuário convite, adiamento, clique, escolha nativa, sinal de instalação e acesso em modo aplicativo; (AC6) administração da plataforma mostra datas e sinais distintos, inclusive ausência de confirmação, sem afirmar “não instalou”; (AC7) isolamento de identidade/tenant e exclusão de impersonação; (AC8) falhas de telemetria ou navegador incompatível não bloqueiam o ERP.
+
+Sem APK, Play Store, nova infraestrutura PWA, sincronização offline ou detecção de desinstalação nesta entrega. [Especificação](docs/features/F-PWA-01-instalacao/spec.md), [contrato](docs/features/F-PWA-01-instalacao/contract.md) e [plano](docs/features/F-PWA-01-instalacao/plan.md). Status: intenção e escopo aprovados; implementação e validação local concluídas. Aceite Android real e publicação pendentes. [Relatório](docs/features/F-PWA-01-instalacao/implementacao.md).
+
 ### Compras, produtos aprovados e histórico de preços — 7 de outubro de 2026
 
 Proposta aceita pelo usuário em 07/10/2026: vincular produtos comerciais a ingredientes/matérias-primas, cadastrar marcas, fabricantes e fornecedores aprovados, reutilizar a associação nas próximas leituras e guardar loja, data, marca e preço para comparação futura. Marca ou loja ainda não aprovada deve pedir revisão e permitir aprovação na hora. Os requisitos `CMP-01` a `CMP-04`, o exemplo do cupom e os critérios de aceite estão no [planejamento de compras, revisão 2](docs/compras-produtos-aprovados.md), extensão deste PRD. Primeiro incremento aprovado: CMP-01 a CMP-03, cadastro, reconhecimento revisado e histórico; comparação de locais de compra é futura. [Especificações e sequência](docs/compras/README.md). CMP-01 a CMP-03 implementados e validados localmente em 07/10/2026. [Relatório e evidências](docs/compras/implementacao-2026-10-07.md). CMP-04 permanece futuro; publicação e migração de produção são etapas separadas.

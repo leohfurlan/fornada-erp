@@ -55,6 +55,18 @@ export default function DashboardPage() {
         </Link>
       </div>
 
+      {/* Acesso rápido alinhado ao card de pedidos */}
+      <div className="grid grid-cols-2 gap-3">
+        <span aria-hidden="true" />
+        <Link
+          href="/cozinha"
+          className="inline-flex min-h-10 items-center justify-center gap-2 justify-self-end rounded-xl border border-brand-outline bg-brand-rose/15 px-3 py-2 text-sm font-semibold text-primary transition-transform active:scale-95"
+        >
+          <ChefHat className="h-4 w-4" />
+          Modo cozinha
+        </Link>
+      </div>
+
       {/* Métricas */}
       <div className="grid grid-cols-2 gap-3">
         <MetricaCard
