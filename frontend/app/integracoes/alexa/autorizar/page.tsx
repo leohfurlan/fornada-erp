@@ -1,12 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/use-auth-store";
 
 export default function AutorizarAlexaPage() {
+  return (
+    <Suspense fallback={<main className="mx-auto min-h-screen max-w-2xl p-6 sm:p-10">Carregando autorização…</main>}>
+      <AutorizarAlexaConteudo />
+    </Suspense>
+  );
+}
+
+function AutorizarAlexaConteudo() {
   const searchParams = useSearchParams();
   const context = searchParams.get("context");
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
