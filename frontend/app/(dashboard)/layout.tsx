@@ -42,6 +42,7 @@ const navPrincipal: NavItem[] = [
   { href: "/receitas", label: "Receitas", icon: BookOpen },
   { href: "/agenda", label: "Agenda", icon: Calendar },
   { href: "/producao", label: "Produção", icon: ChefHat },
+  { href: "/cozinha", label: "Cozinha", icon: ChefHat },
   { href: "/pedidos", label: "Pedidos", icon: ShoppingCart },
 ];
 

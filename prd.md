@@ -11,6 +11,14 @@
 
 ## Revisão do piloto — outubro de 2026
 
+### F-COZ-01 — Modo cozinha com Alexa — 16 de outubro de 2026
+
+Escopo e identificador aprovados pelo usuário em 16/10/2026: usar uma Echo Dot 3 para buscar receitas, abrir na tela do MacBook Pro Mid 2010 com macOS High Sierra 10.13.6, ler ingredientes e navegar pelas etapas sem usar as mãos. O usuário confirmou que o Fornada funciona no Google Chrome desse Mac; versão do navegador e fluxo integrado ainda precisam ser registrados no aceite. Tela grande com alternativa por toque e retomada da receita/etapa entre sessões de voz.
+
+Critérios de aceite: (AC1) modo cozinha autenticado e utilizável por toque; (AC2) vincular a conta Alexa à conta Fornada e selecionar uma estação; (AC3) buscar por nome, desambiguar e abrir receita na estação; (AC4) ler ingredientes cadastrados sem inventar quantidades; (AC5) avançar, voltar e repetir instruções cadastradas; (AC6) retomar receita/etapa após nova sessão Alexa e recuperar a tela após reconexão; (AC7) impedir acesso entre tenants, repetição de comandos e confirmação falsa de exibição; (AC8) demonstrar o fluxo na Echo Dot 3 e no Chrome do Mac, incluindo teste com ruído de cozinha.
+
+Primeiro incremento somente consulta e navegação; operações sobre estoque, produção, compras, pedidos, exclusões, cálculo de novas proporções e publicação na loja de skills ficam fora. Quatro entregas aprovadas nesta ordem: modo cozinha por toque; vínculo Alexa e abertura por voz; leitura/navegação por voz; retomada, reconexão e aceite real. [Especificação](docs/features/F-COZ-01-modo-cozinha-alexa/spec.md), [contrato](docs/features/F-COZ-01-modo-cozinha-alexa/contract.md), [plano](docs/features/F-COZ-01-modo-cozinha-alexa/plan.md). Desenho técnico proposto; implementação e integração externa pendentes.
+
 ### F-PWA-01 — Convite de instalação e acompanhamento — 12 de outubro de 2026
 
 Escopo aprovado pelo usuário em 12/10/2026: oferecer “Deseja instalar o aplicativo Fornada?” após autenticação por e-mail ou WhatsApp, quando o navegador disponibilizar instalação, com ações Instalar e Agora não. Adiar nova oferta automática por sete dias por usuário/navegador; manter opção manual no menu quando disponível. Não oferecer em modo aplicativo nem durante suporte administrativo.

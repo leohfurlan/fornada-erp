@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
 import sentry_sdk
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -63,12 +63,28 @@ app.state.limiter = limiter
 
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    if request.url.path.startswith("/api/v1/integrations/alexa/oauth/"):
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={"error": "temporarily_unavailable", "error_description": "Tente novamente em alguns instantes."},
+            headers={"Cache-Control": "no-store"},
+        )
     return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         content={
             "detail": "Muitas tentativas. Tente novamente em alguns instantes."
         },
     )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    # OAuth 2 token endpoints require the standard top-level error shape.
+    if request.url.path.startswith("/api/v1/integrations/alexa/oauth/") and isinstance(exc.detail, dict) and "error" in exc.detail:
+        headers = dict(exc.headers or {})
+        headers.setdefault("Cache-Control", "no-store")
+        return JSONResponse(status_code=exc.status_code, content=exc.detail, headers=headers)
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=exc.headers)
 
 app.add_middleware(
     CORSMiddleware,
@@ -113,6 +129,11 @@ from api.routers import central_recipes
 app.include_router(central_recipes.router, prefix="/api/v1")
 from api.routers import pwa
 app.include_router(pwa.router, prefix="/api/v1")
+from api.routers import cozinha
+app.include_router(cozinha.router, prefix="/api/v1")
+from api.routers import alexa
+app.include_router(alexa.router, prefix="/api/v1")
+app.include_router(alexa.link_router, prefix="/api/v1")
 
 
 # Tratamento de erros de domínio — mensagens em português, sem jargão técnico

@@ -11,6 +11,7 @@ from infrastructure.database import compras_models  # noqa: F401
 from infrastructure.database import ifood_models  # noqa: F401
 from infrastructure.database import central_models  # noqa: F401
 from infrastructure.database import pwa_models  # noqa: F401
+from infrastructure.database import cozinha_models  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

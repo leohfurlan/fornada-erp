@@ -1,7 +1,7 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, SecretStr, field_validator, model_validator
+from pydantic import AwareDatetime, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     evolution_enabled: bool = False
     evolution_webhook_secret: str = ""
     frontend_url: str = "http://localhost:3000"
+
+    # Alexa requires explicit opt-in plus a complete skill and OAuth configuration.
+    alexa_feature_enabled: bool = Field(default=False, validation_alias="ALEXA_ENABLED")
+    alexa_skill_application_id: str = ""
+    alexa_oauth_client_id: str = ""
+    alexa_oauth_client_secret: SecretStr = SecretStr("")
+    alexa_redirect_uris: list[str] = []
 
     # Monitoramento
     sentry_dsn: str = ""
@@ -124,6 +131,20 @@ class Settings(BaseSettings):
                 or not self.frontend_url.startswith("https://")
             ):
                 raise ValueError("Evolution e frontend devem usar HTTPS em produção")
+        if self.alexa_feature_enabled:
+            if not all(
+                (
+                    self.alexa_skill_application_id.strip(),
+                    self.alexa_oauth_client_id.strip(),
+                    len(self.alexa_oauth_client_secret.get_secret_value()) >= 24,
+                    self.alexa_redirect_uris,
+                )
+            ):
+                raise ValueError("ALEXA_ENABLED exige skill, cliente OAuth, segredo e redirects")
+            if not self.frontend_url.startswith("https://") or any(
+                not uri.startswith("https://") for uri in self.alexa_redirect_uris
+            ):
+                raise ValueError("A integração Alexa exige frontend e redirects HTTPS")
         if self.is_production:
             if self.whatsapp_auth_enabled and not self.evolution_api_url.startswith("https://"):
                 raise ValueError("EVOLUTION_API_URL deve usar HTTPS em produção")
@@ -146,6 +167,16 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    @property
+    def alexa_enabled(self) -> bool:
+        return bool(
+            self.alexa_feature_enabled
+            and self.alexa_skill_application_id.strip()
+            and self.alexa_oauth_client_id.strip()
+            and len(self.alexa_oauth_client_secret.get_secret_value()) >= 24
+            and self.alexa_redirect_uris
+        )
 
 
 settings = Settings()
