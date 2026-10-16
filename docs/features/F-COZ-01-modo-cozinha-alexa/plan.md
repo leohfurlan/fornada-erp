@@ -14,7 +14,7 @@ Não há paralelismo de implementação autorizado. Cada fatia é um caminho dem
 ## Dependências externas e execução
 
 - Confirmar versão exata do Chrome no Mac; funcionamento atual é relato do usuário. Não trocar navegador ou sistema operacional como pré-requisito presumido.
-- Conta Amazon Developer e Echo na mesma conta de desenvolvimento, ou beta autorizado; idioma pt-BR. Nome de invocação “Fornada” depende de validação no console. Não é necessário publicar na loja para testar em development.
+- Conta Amazon Developer e Echo na mesma conta de desenvolvimento, ou beta autorizado; idioma pt-BR. Nome de invocação “cozinha fornada” está no modelo pt-BR e precisa ser compilado/validado no console. Não é necessário publicar na loja para testar em development. Consulte [configurar-alexa.md](configurar-alexa.md).
 - Credenciais/client OAuth/skill ID/redirect URIs oficiais, hostname HTTPS e certificado válido. Configurar em ambiente de piloto isolado; nunca expor servidor local na internet sem desenho/configuração revisados. Aproveitar infraestrutura existente após autorização de publicação do piloto.
 - Enquanto Amazon indisponível, desenvolvimento local e conformance HTTP seguem, mas ticket 2 não pode ser declarado integrado só com mocks. Sem acesso físico, ticket 4 permanece aguardando aceite do usuário.
 - Migração local/teste via Alembic em banco exclusivo. Antes de produção: backup verificável e restauração em banco temporário, revisão de head/migration e aprovação explícita de deploy/migração. Nada disso é executado por esta spec.

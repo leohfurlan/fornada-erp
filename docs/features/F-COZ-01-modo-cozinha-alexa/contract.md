@@ -101,7 +101,7 @@ Mapa de intents proposto pt-BR:
 | `AMAZON.CancelIntent` | Cancelar seleção e encerrar sessão, manter receita |
 | SessionEndedRequest | Registrar encerramento sem destruir estado ou enviar outputSpeech |
 
-Frases são propostas, a confirmar no console/Echo: “Alexa, abrir Fornada”; “buscar receita de brownie”; “ler ingredientes”; “mostrar preparo”; “próxima etapa”; “voltar etapa”; “repetir”; “continuar leitura”. Nome de invocação sujeito à validação Amazon; não prometer reconhecer frases sem modelo treinado.
+Frases são propostas, a confirmar no console/Echo: “Alexa, abrir cozinha fornada”; “buscar receita de brownie”; “ler ingredientes”; “mostrar preparo”; “próxima etapa”; “voltar etapa”; “repetir”; “continuar leitura”. O nome de invocação está definido no modelo pt-BR; o aceite de voz depende do console Amazon e do teste na Echo. Consulte [configurar-alexa.md](configurar-alexa.md) para rotas, Skill ID, OAuth e confirmação da Echo.
 
 O adapter lê revisão atual e executa sob lock; não usa sessionAttributes como revisão autoritativa. Idempotência Alexa por `(applicationId, userId, requestId)` associado à conta e comando; persistir hash do payload para rejeitar reutilização divergente. Comandos concorrentes Alexa são serializados por estação; duplicatas retornam recibo. Concorrência com browser respeita transação/CAS. Fala pode afirmar “receita enviada”; só usa “na tela” se a revisão retornada tiver ACK. Não esperar polling dentro da transação/webhook.
 

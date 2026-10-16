@@ -312,6 +312,26 @@ export default function CozinhaPage() {
         </button>}
       </div>
 
+      <details className="rounded-2xl border bg-card p-5 sm:p-6">
+        <summary className="cursor-pointer text-lg font-semibold">Como configurar a Alexa na Echo Dot 3</summary>
+        <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+          <p>O Fornada já tem o receptor e a validação dos pedidos Alexa. Para conectar, cadastre a skill na Amazon e configure as credenciais no servidor conforme os passos abaixo.</p>
+          <ol className="list-decimal space-y-2 pl-5">
+            <li>Na <a className="font-medium text-primary underline" href="https://developer.amazon.com/alexa/console/ask" target="_blank" rel="noreferrer">Alexa Developer Console</a>, crie uma skill personalizada no idioma Português (Brasil), com nome de invocação <strong>cozinha fornada</strong>. Em Endpoint, selecione HTTPS e use a URL abaixo.</li>
+            <li>Importe o modelo de interação pt-BR do Fornada e clique em salvar e compilar.</li>
+            <li>Em Account Linking, escolha Authorization Code Grant. Use os endereços abaixo, autenticação do cliente HTTP Basic e os escopos <code>cozinha:read cozinha:control</code>. Copie as Redirect URLs mostradas pela Amazon sem alterá-las.</li>
+            <li>Na configuração do servidor, preencha o ID da skill exibido pela Amazon, gere um ID e segredo OAuth próprios, cadastre todas as Redirect URLs copiadas e ative <code>ALEXA_ENABLED=true</code>. Depois, reinicie/deploy a API.</li>
+            <li>No app Alexa, habilite a skill de desenvolvimento e vincule sua conta Fornada. Abra esta tela no Chrome, crie/ative uma estação e diga: <strong>“Alexa, abrir cozinha fornada”</strong>. Confirme aqui a Echo que aparecer e escolha a estação.</li>
+          </ol>
+          <div className="space-y-1 rounded-xl bg-muted/50 p-3 font-mono text-xs text-foreground sm:text-sm">
+            <p>Endpoint da skill: https://fornada.atospd.com/api/v1/integrations/alexa/requests</p>
+            <p>Authorization URI: https://fornada.atospd.com/api/v1/integrations/alexa/oauth/authorize</p>
+            <p>Access Token URI: https://fornada.atospd.com/api/v1/integrations/alexa/oauth/token</p>
+          </div>
+          <p>A Amazon identifica a skill pelo ID validado em cada pedido. Na primeira chamada vinculada, o Fornada identifica a Echo por um código interno temporário; confirme a Echo nesta tela para autorizar o controle da estação. O ID do dispositivo não é mostrado.</p>
+        </div>
+      </details>
+
       {alexaLinkQuery.data?.linked && <section className="rounded-2xl border bg-card p-5 sm:p-6">
         <h2 className="text-xl font-semibold">Alexa · Echo Dot</h2>
         <p className="mt-2 text-base text-muted-foreground">Confirme a Echo que pediu acesso e escolha qual estação ativa receberá as receitas.</p>
