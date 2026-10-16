@@ -38,6 +38,9 @@ from infrastructure.database.session import get_db
 router = APIRouter(prefix="/integrations/alexa", tags=["Alexa - Modo cozinha"])
 link_router = APIRouter(prefix="/cozinha/alexa", tags=["Vínculo Alexa"])
 basic_auth = HTTPBasic(auto_error=False)
+# Amazon's opaque OAuth state exceeds 1 KiB in real account-linking requests.
+# Keep a bounded input while preserving the complete value for the callback.
+MAX_OAUTH_STATE_LENGTH = 8192
 
 
 class ConsentRequest(BaseModel):
@@ -105,7 +108,11 @@ async def authorize(
     _enabled()
     if response_type != "code" or client_id != settings.alexa_oauth_client_id:
         raise _oauth_error("invalid_request", "Pedido de autorização inválido.")
-    if redirect_uri not in settings.alexa_redirect_uris or not state or len(state) > 512:
+    if (
+        redirect_uri not in settings.alexa_redirect_uris
+        or not state
+        or len(state) > MAX_OAUTH_STATE_LENGTH
+    ):
         raise _oauth_error("invalid_request", "Redirecionamento ou estado inválido.")
     if code_challenge is not None:
         if (
