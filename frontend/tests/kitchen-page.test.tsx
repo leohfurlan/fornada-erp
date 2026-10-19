@@ -17,8 +17,10 @@ async function openKitchen() {
     rendered_revision: 1, notice: null,
     projection: {
       recipe_id: "recipe", recipe_version: "v1", session_id: "session",
-      name: "Bolo", yield_quantity: "1", yield_unit: "un", ingredients: [], warnings: [], completed_block_ids: [] as string[],
+      name: "Bolo", yield_quantity: "1", yield_unit: "un", ingredients: [{ id: "ingredient-0", name: "Farinha", quantity: "0.5", unit: "kg" }], warnings: [], completed_block_ids: [] as string[], checked_ingredient_ids: [] as string[],
       blocks: [
+        { id: "ingredients-1", section: "ingredients", checkable: false, title: "Ingredientes", markdown: "Farinha" },
+        { id: "assembly-1", section: "assembly", checkable: false, title: "Montagem", markdown: "Sirva." },
         { id: "step-1", section: "steps", checkable: true, title: "Misturar", markdown: "Duração: 5 min" },
         { id: "preparation-text", section: "preparation", checkable: false, title: "Modo de preparo", markdown: "1. Texto integral para leitura\n2. Continue a receita" },
       ],
@@ -131,4 +133,48 @@ it("apresenta as OPs antes do catálogo e abre a receita da ordem selecionada", 
   expect(order.compareDocumentPosition(catalog) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   fireEvent.click(order);
   await waitFor(() => expect(mocks.post).toHaveBeenCalledWith("/cozinha/stations/station/commands", expect.objectContaining({ type: "open_recipe", payload: { recipe_id: "recipe" } })));
+});
+
+it("oferece avanço entre ingredientes, preparo e montagem mesmo com um único bloco", async () => {
+  const { station, client } = await openKitchen();
+  expect(screen.getByRole("button", { name: "Ir para montagem" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "Ir para montagem" }));
+  await waitFor(() => expect(mocks.post).toHaveBeenCalledWith(expect.stringContaining("/commands"), expect.objectContaining({ type: "show_section", payload: { section: "assembly" } })));
+  station.section = "ingredients"; station.revision++;
+  await act(async () => { await client.invalidateQueries({ queryKey: ["cozinha", "cook", "station"] }); });
+  expect(await screen.findByRole("button", { name: "Ir para modo de preparo" })).toBeEnabled();
+});
+
+it("confere ingrediente imediatamente, envia uma vez e reverte após erro sem afetar etapas", async () => {
+  const { station, client } = await openKitchen();
+  station.section = "ingredients"; station.revision++;
+  await act(async () => { await client.invalidateQueries({ queryKey: ["cozinha", "cook", "station"] }); });
+  mocks.post.mockRejectedValue(new Error("Offline"));
+  const ingredient = await screen.findByRole("button", { name: "Confirmar ingrediente Farinha à mão" });
+  fireEvent.click(ingredient); fireEvent.click(ingredient);
+  expect(screen.getByText("1 de 1 ingredientes à mão")).toBeVisible();
+  await screen.findByText("Não foi possível concluir. Verifique a conexão e tente novamente.");
+  await waitFor(() => expect(screen.getByText("0 de 1 ingredientes à mão")).toBeVisible());
+  expect(mocks.post.mock.calls.filter(([path]) => path.endsWith("/commands"))).toHaveLength(1);
+  expect(station.projection.completed_block_ids).toEqual([]);
+});
+
+it("fecha os resultados e foca Receita aberta ao reabrir a mesma receita", async () => {
+  const { station } = await openKitchen();
+  const previous = mocks.get.getMockImplementation()!;
+  mocks.get.mockImplementation(async (path: string, ...rest: unknown[]) => path === "/cozinha/recipes/search" ? { data: { items: [{ recipe_id: "recipe", name: "Bolo encontrado" }], next_offset: null } } : previous(path, ...rest));
+  const scroll = vi.fn();
+  const header = screen.getByLabelText("Receita aberta");
+  header.scrollIntoView = scroll;
+  mocks.post.mockImplementation(async (path: string) => {
+    if (path.endsWith("/commands")) { station.revision++; return { data: { status: "accepted", revision: station.revision } }; }
+    return { data: {} };
+  });
+  fireEvent.change(screen.getByRole("textbox", { name: "Buscar receita" }), { target: { value: "Bolo" } });
+  fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Bolo encontrado Abrir" }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Bolo encontrado Abrir" })).not.toBeInTheDocument());
+  expect(screen.getByRole("textbox", { name: "Buscar receita" })).toHaveValue("");
+  await waitFor(() => expect(header).toHaveFocus());
+  expect(scroll).toHaveBeenCalled();
 });

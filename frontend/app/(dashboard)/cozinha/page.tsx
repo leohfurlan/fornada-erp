@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, ChefHat, CircleAlert, LoaderCircle, Play, Search
 import { api } from "@/lib/api";
 import { formatQuantidade } from "@/lib/utils";
 import { KitchenDayOverview, KitchenProductionQueue } from "@/components/shared/kitchen-operations";
+import { KitchenIngredients, type KitchenIngredient } from "@/components/shared/kitchen-ingredients";
 import { KitchenChecklist } from "@/components/shared/kitchen-checklist";
 import { MarkdownContent } from "@/components/shared/markdown-content";
 import { useAuthStore } from "@/stores/use-auth-store";
@@ -15,12 +16,13 @@ type KitchenBlock = { id: string; section: string; title: string; markdown: stri
 type Projection = {
   session_id?: string;
   completed_block_ids?: string[];
+  checked_ingredient_ids?: string[];
   recipe_id: string;
   recipe_version: string;
   name: string;
   yield_quantity: string;
   yield_unit: string;
-  ingredients: { name: string; quantity: string; unit: string }[];
+  ingredients: KitchenIngredient[];
   blocks: KitchenBlock[];
   warnings: string[];
 };
@@ -80,6 +82,9 @@ export default function CozinhaPage() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [loadingCommand, setLoadingCommand] = useState(false);
   const commandPending = useRef(false);
+  const recipeHeader = useRef<HTMLElement>(null);
+  const [focusRecipe, setFocusRecipe] = useState(0);
+  const [optimisticIngredients, setOptimisticIngredients] = useState<string[] | null>(null);
   const [optimisticCompleted, setOptimisticCompleted] = useState<string[] | null>(null);
 
   const stationsQuery = useQuery({
@@ -131,6 +136,28 @@ export default function CozinhaPage() {
   const currentBlock = activeBlocks[station?.block_index ?? 0];
   const showingPreparation = station?.section === "preparation" || station?.section === "steps";
   const preparationText = station?.projection?.blocks.find(block => block.section === "preparation");
+
+  const navigationSections = ([
+    { section: "ingredients", label: "ingredientes" },
+    { section: preparationText ? "preparation" : "steps", label: "modo de preparo" },
+    { section: "assembly", label: "montagem" },
+  ] as const).filter(item => station?.projection?.blocks.some(block => block.section === item.section));
+  const sectionIndex = navigationSections.findIndex(item => showingPreparation ? item.section === "preparation" || item.section === "steps" : item.section === station?.section);
+  const previousSection = navigationSections[sectionIndex - 1];
+  const nextSection = navigationSections[sectionIndex + 1];
+  const assemblyPrevious = station?.section === "assembly" && station.block_index > 0;
+  const assemblyNext = station?.section === "assembly" && station.block_index < activeBlocks.length - 1;
+
+  useEffect(() => {
+    if (!station?.projection || !leaseId) return;
+    setBusca(""); setTermo(""); setOffsetBusca(0);
+    // Wait for the search results and expanded queue to leave the layout.
+    const frame = window.requestAnimationFrame(() => {
+      recipeHeader.current?.focus({ preventScroll: true });
+      recipeHeader.current?.scrollIntoView?.({ block: "start", behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [station?.projection?.recipe_id, focusRecipe, leaseId]);
 
   const invalidateStation = useCallback(async () => {
     await Promise.all([
@@ -233,6 +260,11 @@ export default function CozinhaPage() {
   const sendCommand = async (type: string, extras: Record<string, unknown> = {}) => {
     if (!station || !leaseId || commandPending.current || remoteUnavailable) return;
     commandPending.current = true;
+    if (type === "set_ingredient_checked") {
+      const ids = new Set(station.projection?.checked_ingredient_ids ?? []);
+      if (extras.completed) ids.add(String(extras.block_id)); else ids.delete(String(extras.block_id));
+      setOptimisticIngredients([...ids]);
+    }
     if (type === "reset_steps") setOptimisticCompleted([]);
     if (type === "set_step_completed") {
       const ids = new Set(station.projection?.completed_block_ids ?? []);
@@ -249,6 +281,7 @@ export default function CozinhaPage() {
       if (data.status === "no_results") setAviso("Não encontrei essa receita. Confira o nome e tente novamente.");
       else if (data.status === "selection_required") setAviso("Encontrei mais de uma receita. Escolha na lista da tela.");
       await invalidateStation();
+      if (["open_recipe", "show_section", "next", "previous"].includes(type) && data.status === "accepted") setFocusRecipe(current => current + 1);
     } catch (error) {
       const status = (error as { response?: { status?: number } }).response?.status;
       setAviso(status === 409 ? "A estação foi atualizada. Aguarde a tela sincronizar e tente de novo." : "Não foi possível concluir. Verifique a conexão e tente novamente.");
@@ -256,6 +289,7 @@ export default function CozinhaPage() {
     } finally {
       commandPending.current = false;
       setOptimisticCompleted(null);
+      setOptimisticIngredients(null);
       setLoadingCommand(false);
     }
   };
@@ -418,7 +452,7 @@ export default function CozinhaPage() {
         </section>
 
         {station.projection ? <section className="space-y-5">
-          <header className="rounded-2xl border bg-card p-5 sm:p-8">
+          <header ref={recipeHeader} tabIndex={-1} aria-label="Receita aberta" className="scroll-mt-20 rounded-2xl border bg-card p-5 outline-none sm:p-8">
             <p className="text-sm font-medium uppercase tracking-widest text-primary">Receita aberta</p>
             <h2 className="mt-2 break-words text-3xl font-bold sm:text-4xl">{station.projection.name}</h2>
             <p className="mt-2 text-lg text-muted-foreground">Rende {formatQuantidade(station.projection.yield_quantity)} {station.projection.yield_unit}</p>
@@ -444,18 +478,14 @@ export default function CozinhaPage() {
           {!showingPreparation && (currentBlock ? <article className="min-h-64 rounded-2xl border bg-card p-5 sm:p-8" aria-live="polite">
             <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">{station.section === "ingredients" ? "Lista da receita" : "Leitura da receita"}</p>
             <h3 className="mt-2 text-2xl font-bold sm:text-3xl">{currentBlock.title}</h3>
-            {station.section === "ingredients" ? <ul className="mt-6 divide-y rounded-xl border">
-              {station.projection.ingredients.map((ingredient, index) => <li key={`${ingredient.name}-${index}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-4 sm:px-6">
-                <span className="text-xl font-semibold sm:text-2xl">{ingredient.name}</span><span className="text-xl text-primary">{formatQuantidade(ingredient.quantity)} {ingredient.unit}</span>
-              </li>)}
-            </ul> : <MarkdownContent className="mt-6 text-xl leading-relaxed sm:text-2xl">{currentBlock.markdown}</MarkdownContent>}
+            {station.section === "ingredients" ? <KitchenIngredients ingredients={station.projection.ingredients} checkedIds={optimisticIngredients ?? station.projection.checked_ingredient_ids ?? []} disabled={loadingCommand || remoteUnavailable} onCheck={(block_id, completed) => void sendCommand("set_ingredient_checked", { block_id, completed })} /> : <MarkdownContent className="mt-6 text-xl leading-relaxed sm:text-2xl">{currentBlock.markdown}</MarkdownContent>}
           </article> : <article className="rounded-2xl border border-dashed bg-card p-8 text-center"><p className="text-xl font-semibold">Esta receita ainda não tem conteúdo nesta seção.</p><p className="mt-2 text-base text-muted-foreground">Você pode continuar consultando as outras seções.</p></article>)}
 
-          <div className="grid grid-cols-2 gap-3 sm:flex sm:justify-between">
-            {station.section !== "preparation" && <button type="button" disabled={loadingCommand || remoteUnavailable || station.block_index === 0 || activeBlocks.length === 0} onClick={() => void sendCommand("previous")} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-xl border bg-card px-5 text-lg font-semibold disabled:opacity-40"><ArrowLeft className="h-5 w-5" />Anterior</button>}
-            <div className="col-span-2 order-first flex items-center justify-center gap-2 sm:order-none"><span className="text-base text-muted-foreground">{station.section === "preparation" ? "Texto para leitura" : activeBlocks.length ? `${station.block_index + 1} / ${activeBlocks.length}` : "0 etapas"}</span><button type="button" disabled={!currentBlock || loadingCommand || remoteUnavailable} onClick={() => void sendCommand("repeat")} className="min-h-12 rounded-xl px-4 text-base font-semibold text-primary hover:bg-muted">{station.section === "preparation" ? "Repetir leitura" : "Repetir"}</button></div>
-            {station.section !== "preparation" && <button type="button" disabled={loadingCommand || remoteUnavailable || station.block_index >= activeBlocks.length - 1 || activeBlocks.length === 0} onClick={() => void sendCommand("next")} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-xl bg-primary px-5 text-lg font-semibold text-primary-foreground disabled:opacity-40">Próxima etapa<ArrowRight className="h-5 w-5" /></button>}
-          </div>
+          <nav aria-label="Navegação da receita" className="flex flex-wrap items-center justify-between gap-3 pb-6">
+            {(assemblyPrevious || previousSection) && <button type="button" disabled={loadingCommand || remoteUnavailable} onClick={() => void (assemblyPrevious ? sendCommand("previous") : sendCommand("show_section", { section: previousSection.section }))} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-xl border bg-card px-5 text-lg font-semibold disabled:opacity-40"><ArrowLeft className="h-5 w-5" />{assemblyPrevious ? "Montagem anterior" : `Voltar para ${previousSection.label}`}</button>}
+            <button type="button" disabled={!currentBlock || loadingCommand || remoteUnavailable} onClick={() => void sendCommand("repeat")} className="min-h-12 rounded-xl px-4 text-base font-semibold text-primary hover:bg-muted">{showingPreparation ? "Repetir leitura" : "Repetir"}</button>
+            {(assemblyNext || nextSection) && <button type="button" disabled={loadingCommand || remoteUnavailable} onClick={() => void (assemblyNext ? sendCommand("next") : sendCommand("show_section", { section: nextSection.section }))} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-xl bg-primary px-5 text-lg font-semibold text-primary-foreground disabled:opacity-40">{assemblyNext ? "Próxima montagem" : `Ir para ${nextSection.label}`}<ArrowRight className="h-5 w-5" /></button>}
+          </nav>
         </section> : <section className="rounded-2xl border border-dashed bg-card p-10 text-center">
           {station.notice && <p role="status" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-base text-amber-950">{station.notice}</p>}
           <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" /><h2 className="mt-4 text-2xl font-semibold">Escolha uma receita</h2><p className="mt-2 text-base text-muted-foreground">A receita e a etapa ficam salvas para você retomar depois.</p>

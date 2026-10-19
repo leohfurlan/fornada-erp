@@ -21,7 +21,7 @@ def preparation_blocks(markdown: str | None) -> list[dict[str, str]]:
 
 
 def build_projection(data: dict[str, Any]) -> dict[str, Any]:
-    ingredients = data["ingredients"]
+    ingredients = [{**item, "id": f"ingredient-{index}"} for index, item in enumerate(data["ingredients"])]
     ingredient_text = "\n".join(
         f"- {item['name']}: {item['quantity']} {item['unit']}" for item in ingredients
     )
@@ -72,6 +72,7 @@ def build_projection(data: dict[str, Any]) -> dict[str, Any]:
     return {
         "session_id": str(uuid4()),
         "completed_block_ids": [],
+        "checked_ingredient_ids": [],
         "recipe_id": data["recipe_id"],
         "recipe_version": data["version"],
         "name": data["name"],
@@ -91,6 +92,10 @@ def resume_completion(previous: dict[str, Any] | None, current: dict[str, Any]) 
         return {
             **current,
             "session_id": previous.get("session_id") or current["session_id"],
+            "checked_ingredient_ids": [
+                item_id for item_id in previous.get("checked_ingredient_ids", [])
+                if item_id in {item["id"] for item in current["ingredients"]}
+            ],
             "completed_block_ids": [
                 bid
                 for bid in previous.get("completed_block_ids", [])
@@ -123,6 +128,26 @@ def update_completion(
         "session_id": projection.get("session_id") or str(uuid4()),
         "completed_block_ids": sorted(ids),
     }
+
+
+def update_ingredient_checks(
+    projection: dict[str, Any], ingredient_id: str | None, checked: bool | None
+) -> dict[str, Any]:
+    """Persist preparation readiness separately from step completion and stock.
+
+    Positions belong to the immutable recipe version in this session. Recipe edits
+    invalidate the projection before a command can apply to a different ingredient.
+    Legacy projections without ingredient IDs use the same position-based IDs.
+    """
+    valid = {f"ingredient-{index}" for index, _ in enumerate(projection["ingredients"])}
+    if ingredient_id not in valid or checked is None:
+        raise ValueError("Escolha um ingrediente válido e informe sua conferência.")
+    ids = set(projection.get("checked_ingredient_ids", [])) & valid
+    if checked:
+        ids.add(ingredient_id)
+    else:
+        ids.discard(ingredient_id)
+    return {**projection, "checked_ingredient_ids": sorted(ids)}
 
 
 def station_view(station) -> dict[str, Any]:

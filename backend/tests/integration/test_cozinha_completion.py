@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.dependencies import get_authenticated_actor
 from domain.receitas.central_snapshot import snapshot
 from infrastructure.database.cozinha_models import CozinhaEstacao
-from infrastructure.database.models import Receita, ReceitaEtapa, Tenant, Usuario
+from infrastructure.database.models import Ingrediente, Receita, ReceitaEtapa, ReceitaIngrediente, Tenant, Usuario
 from main import app
 
 
@@ -44,6 +44,10 @@ async def test_checklist_persists_through_pause_and_new_lease(
     )
     db.add_all([user, recipe, other_recipe])
     await db.flush()
+    ingredient = Ingrediente(tenant_id=tenant.id, codigo=1, nome="Farinha", unidade="kg", estoque_atual=Decimal("5"))
+    db.add(ingredient)
+    await db.flush()
+    db.add(ReceitaIngrediente(receita_id=recipe.id, ingrediente_id=ingredient.id, quantidade=Decimal("0.5"), unidade="kg"))
     registered = [
         ReceitaEtapa(receita_id=recipe.id, nome="Misturar", duracao_minutos=5, ordem=0),
         ReceitaEtapa(receita_id=recipe.id, nome="Assar", duracao_minutos=30, ordem=1),
@@ -105,6 +109,9 @@ async def test_checklist_persists_through_pause_and_new_lease(
     )
     assert rejected.status_code == 422
     session = state["projection"]["session_id"]
+    await send("set_ingredient_checked", block_id="ingredient-0", completed=True)
+    assert (await read())["projection"]["checked_ingredient_ids"] == ["ingredient-0"]
+    assert ingredient.estoque_atual == Decimal("5")
     body, receipt = await send("set_step_completed", block_id=second_step, completed=True)
     retry = await client.post(root + "/commands", json=body)
     assert retry.json() == receipt
@@ -121,12 +128,16 @@ async def test_checklist_persists_through_pause_and_new_lease(
     lease = activated.json()["lease_id"]
     revision = activated.json()["station"]["revision"]
     resumed = await read()
+    assert resumed["projection"]["checked_ingredient_ids"] == ["ingredient-0"]
     assert resumed["projection"]["session_id"] == session
     assert resumed["projection"]["completed_block_ids"] == [second_step]
     await send("open_recipe", recipe_id=str(recipe.id))
     assert (await read())["projection"]["session_id"] == session
     assert (await read())["projection"]["completed_block_ids"] == [second_step]
 
+    assert (await read())["projection"]["checked_ingredient_ids"] == ["ingredient-0"]
+    await send("set_ingredient_checked", block_id="ingredient-0", completed=False)
+    assert (await read())["projection"]["checked_ingredient_ids"] == []
     await send("set_step_completed", block_id=first_step, completed=True)
     assert len((await read())["projection"]["completed_block_ids"]) == 2
     await send("set_step_completed", block_id=second_step, completed=False)

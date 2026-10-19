@@ -37,6 +37,7 @@ class KitchenCommand(Input):
     expected_revision: int = Field(ge=0)
     lease_id: UUID
     type: Literal[
+        "set_ingredient_checked",
         "set_step_completed",
         "reset_steps",
         "search_recipe",

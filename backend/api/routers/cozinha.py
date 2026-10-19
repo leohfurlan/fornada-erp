@@ -26,6 +26,7 @@ from domain.cozinha.service import (
     resume_completion,
     station_view,
     update_completion,
+    update_ingredient_checks,
 )
 from domain.cozinha.speech import projection_speech_parts
 from domain.receitas.central_snapshot import normalized, search
@@ -393,6 +394,15 @@ async def command(
         station.secao = "ingredients"
         station.bloco_indice = 0
         station.parte_fala_indice = 0
+    elif data.type == "set_ingredient_checked":
+        if not station.projection:
+            raise HTTPException(422, detail="Abra uma receita antes de conferir ingredientes.")
+        try:
+            station.projection = update_ingredient_checks(
+                station.projection, data.payload.block_id, data.payload.completed
+            )
+        except ValueError as error:
+            raise HTTPException(422, detail=str(error)) from error
     elif data.type in ("set_step_completed", "reset_steps"):
         if not station.projection:
             raise HTTPException(422, detail="Abra uma receita antes de concluir etapas.")
