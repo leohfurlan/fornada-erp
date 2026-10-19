@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, cleanup } from "@testing-library/react";
 import FichaPage from "@/app/(dashboard)/receitas/[id]/ficha-tecnica/page";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 const mocks = vi.hoisted(() => ({ salvar: vi.fn() }));
 vi.mock("next/navigation", () => ({ useParams: () => ({ id: "receita-1" }) }));
@@ -15,7 +16,10 @@ vi.mock("@/hooks/use-ficha-tecnica", () => ({
   ] }, refetch: vi.fn() }),
   useSalvarFichaTecnica: () => ({ mutateAsync: mocks.salvar, isPending: false }),
 }));
-beforeEach(() => { cleanup(); mocks.salvar.mockReset(); });
+beforeEach(() => {
+  cleanup(); mocks.salvar.mockReset(); localStorage.clear();
+  useAuthStore.setState({ usuario: { id: "user-1", tenant_id: "tenant-1", nome: "Teste", email: "teste@example.com", valor_hora: "0" } });
+});
 describe("montagem", () => {
   it("salva a sequência reordenada preservando componentes repetidos e revisão", async () => {
     mocks.salvar.mockImplementation(async (data) => ({ ...data, revisao: 3 }));
@@ -37,6 +41,23 @@ describe("montagem", () => {
     fireEvent.click(screen.getByRole("button", { name: "Salvar ficha técnica" }));
     await screen.findByText(/Não foi possível salvar/);
     expect(screen.getByDisplayValue("Minha alteração")).toBeTruthy();
+    expect(localStorage.getItem("fornada:rascunho:v1:tenant-1:user-1:ficha:receita-1")).toContain("Minha alteração");
+  });
+
+  it("recupera montagem, Markdown e revisão após fechar e limpa após salvar", async () => {
+    mocks.salvar.mockImplementation(async (data) => ({ ...data, revisao: 3 }));
+    const view = render(<FichaPage />);
+    await screen.findByDisplayValue("Sedução");
+    fireEvent.change(screen.getByLabelText("Descrição do produto"), { target: { value: "**Meu produto**" } });
+    fireEvent.click(screen.getByRole("button", { name: "Subir etapa 2" }));
+    view.unmount();
+    render(<FichaPage />);
+    await screen.findByDisplayValue("**Meu produto**");
+    fireEvent.click(screen.getByRole("button", { name: "Salvar ficha técnica" }));
+    await screen.findByText("Ficha técnica salva.");
+    expect(mocks.salvar.mock.calls[0][0].revisao).toBe(2);
+    expect(mocks.salvar.mock.calls[0][0].passos[0].descricao).toBe("Brownie");
+    expect(localStorage.getItem("fornada:rascunho:v1:tenant-1:user-1:ficha:receita-1")).toBeNull();
   });
 
   it("salva Markdown da descrição e montagem sem converter o conteúdo", async () => {

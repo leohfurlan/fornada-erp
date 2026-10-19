@@ -1,6 +1,9 @@
 "use client";
 
 import { ValidatedForm } from "@/components/shared/validation-feedback";
+import { useEffect } from "react";
+import { useRascunho } from "@/hooks/use-rascunho";
+import { RascunhoFeedback } from "@/components/shared/rascunho-feedback";
 
 import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
@@ -27,6 +30,7 @@ export interface ReceitaFormValues {
 }
 
 interface FormReceitaProps {
+  rascunhoId?: string;
   valoresIniciais?: Partial<ReceitaFormValues>;
   textoBotao: string;
   textoBotaoLoading: string;
@@ -48,6 +52,7 @@ const defaultsForm: ReceitaFormValues = {
 };
 
 export function FormReceita({
+  rascunhoId = "receita:nova",
   valoresIniciais,
   textoBotao,
   textoBotaoLoading,
@@ -64,10 +69,18 @@ export function FormReceita({
     control,
     setValue,
     watch,
+    reset,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<ReceitaFormValues>({
     defaultValues: { ...defaultsForm, ...valoresIniciais, nome: nomeMaiusculo(valoresIniciais?.nome ?? "") },
   });
+
+  const rascunho = useRascunho(rascunhoId, getValues(), reset);
+  useEffect(() => {
+    const subscription = watch(() => rascunho.persist(getValues()));
+    return () => subscription.unsubscribe();
+  }, [watch, getValues, rascunho.persist]);
 
   const {
     fields: camposIngredientes,
@@ -100,7 +113,11 @@ export function FormReceita({
   };
 
   return (
-    <ValidatedForm errors={errors} onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <ValidatedForm errors={errors} onSubmit={handleSubmit(async (values, event) => {
+      await onSubmit(values, event);
+      rascunho.complete(values, values);
+    })} className="space-y-6">
+      <RascunhoFeedback {...rascunho} />
       {/* Dados básicos */}
       <section className="space-y-3">
         <div className="space-y-1">
@@ -444,6 +461,7 @@ export function FormReceita({
       >
         {isSubmitting || isPending ? textoBotaoLoading : textoBotao}
       </button>
+      <Link href="/receitas" className="block rounded-lg border px-4 py-3 text-center text-sm">Cancelar</Link>
     </ValidatedForm>
   );
 }

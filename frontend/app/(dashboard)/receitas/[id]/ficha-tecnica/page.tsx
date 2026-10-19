@@ -1,5 +1,7 @@
 "use client";
 import { ValidatedForm } from "@/components/shared/validation-feedback";
+import { useRascunho } from "@/hooks/use-rascunho";
+import { RascunhoFeedback } from "@/components/shared/rascunho-feedback";
 
 import { DecimalField } from "@/components/shared/decimal-field";
 
@@ -30,9 +32,13 @@ function Editor({ id }: { id: string }) {
   const receitas = useReceitas();
   const materiais = useIngredientes();
   const consumo = useConsumoComposicao(id);
-  const [ficha, setFicha] = useState<FichaTecnica | null>(null);
+  const [ficha, atualizarFicha] = useState<FichaTecnica | null>(null);
+  const rascunho = useRascunho(`ficha:${id}`, consulta.data ?? null, atualizarFicha);
+  const setFicha = (value: FichaTecnica) => { rascunho.persist(value); atualizarFicha(value); };
   const [mensagem, setMensagem] = useState("");
-  useEffect(() => { if (consulta.data && !ficha) setFicha(consulta.data); }, [consulta.data, ficha]);
+  useEffect(() => {
+    if (consulta.data) atualizarFicha(current => current ?? consulta.data);
+  }, [consulta.data]);
   if (consulta.isError) return <p role="alert">Não foi possível carregar a ficha técnica.</p>;
   if (!ficha) return <p>Carregando ficha técnica...</p>;
   const editar = (index: number, patch: Partial<PassoMontagem>) => setFicha({ ...ficha, passos: ficha.passos.map((p, i) => i === index ? { ...p, ...patch } : p) });
@@ -43,7 +49,12 @@ function Editor({ id }: { id: string }) {
   };
   return <ValidatedForm error={salvar.error} className="mx-auto max-w-3xl space-y-5 pb-8" onSubmit={async (event) => {
     event.preventDefault(); setMensagem("");
-    try { const data = await salvar.mutateAsync(ficha); setFicha(data); setMensagem("Ficha técnica salva."); }
+    try {
+      const data = await salvar.mutateAsync(ficha);
+      rascunho.complete(data, ficha);
+      atualizarFicha(current => JSON.stringify(current) === JSON.stringify(ficha) ? data : current);
+      setMensagem("Ficha técnica salva.");
+    }
     catch (error) {
       const detail = error instanceof AxiosError ? error.response?.data?.detail : undefined;
       setMensagem(typeof detail === "string" ? detail : "Não foi possível salvar. Confira as quantidades e os limites informados.");
@@ -51,6 +62,7 @@ function Editor({ id }: { id: string }) {
   }}>
     <Link href={`/receitas/${id}`} className="text-sm text-primary">← Voltar à receita</Link>
     <h1 className="text-xl font-bold">Ficha técnica do produto</h1>
+    <RascunhoFeedback {...rascunho} />
     <p className="text-sm text-muted-foreground">Descreva uma unidade do produto na ordem de montagem. Vincule receitas-base, ingredientes e embalagens para calcular custos e consumir o estoque de componentes prontos.</p>
     <label className="flex items-start gap-2"><input type="checkbox" checked={!!ficha.composicao_ativa} onChange={e => setFicha({ ...ficha, composicao_ativa: e.target.checked })} />Produto final - Usar montagem com materiais listados para calcular custo.</label>
     {ficha.composicao_ativa && <p className="text-sm text-muted-foreground">O custo usa os componentes abaixo e o tempo de montagem da receita. A lista antiga de ingredientes é preservada, mas não é somada novamente.</p>}
@@ -91,7 +103,8 @@ function Editor({ id }: { id: string }) {
     </li>)}</ol>
     <button type="button" className="rounded-lg border px-4 py-2" disabled={ficha.passos.length >= 100} onClick={() => setFicha({ ...ficha, passos: [...ficha.passos, { descricao: "", tipo: "componente", quantidade: "", quantidade_minima: null, quantidade_maxima: null, unidade: "g", especificacao: "", instrucao: "" }] })}>Adicionar etapa</button>
     <div className="flex flex-wrap gap-3"><button disabled={salvar.isPending || !ficha.passos.length} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground">{salvar.isPending ? "Salvando..." : "Salvar ficha técnica"}</button>
-    <button type="button" className="rounded-lg border px-4 py-2" onClick={async () => { if (confirm("Recarregar e descartar alterações locais?")) { const result = await consulta.refetch(); if (result.data) { setFicha(result.data); setMensagem(""); } } }}>Recarregar</button></div>
+    <button type="button" className="rounded-lg border px-4 py-2" onClick={async () => { if (confirm("Recarregar e descartar alterações locais?")) { const result = await consulta.refetch(); if (result.data) { rascunho.complete(result.data); atualizarFicha(result.data); setMensagem(""); } } }}>Recarregar</button>
+    <Link href={`/receitas/${id}`} className="rounded-lg border px-4 py-2">Cancelar</Link></div>
     {mensagem && !salvar.error && <p role="status">{mensagem}</p>}
   </ValidatedForm>;
 }

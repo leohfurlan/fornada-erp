@@ -68,6 +68,7 @@ export default function EditarReceitaPage() {
       <h1 className="text-xl font-bold">Editar receita</h1>
 
       <FormReceita
+        rascunhoId={`receita:${id}`}
         key={id} /* força remount com novos defaultValues quando trocar de id */
         valoresIniciais={valoresIniciais}
         onSubmit={onSubmit}

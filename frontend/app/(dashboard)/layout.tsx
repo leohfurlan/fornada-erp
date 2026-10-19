@@ -133,6 +133,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               }}
               className="p-2 rounded-lg hover:bg-muted"
               aria-label="Sair"
+              data-rascunho-sair
             >
               <LogOut className="h-4 w-4" />
             </button>
