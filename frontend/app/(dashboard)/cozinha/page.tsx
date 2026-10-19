@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, ChefHat, CircleAlert, LoaderCircle, Play, Search, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatQuantidade } from "@/lib/utils";
+import { KitchenDayOverview, KitchenProductionQueue } from "@/components/shared/kitchen-operations";
 import { KitchenChecklist } from "@/components/shared/kitchen-checklist";
 import { MarkdownContent } from "@/components/shared/markdown-content";
 import { useAuthStore } from "@/stores/use-auth-store";
@@ -66,6 +67,7 @@ export default function CozinhaPage() {
   const queryClient = useQueryClient();
   const usuarioId = useAuthStore(state => state.usuario?.id ?? "anonimo");
   const autenticada = useAuthStore(state => state.isAuthenticated);
+  const [manageAlexa, setManageAlexa] = useState(false);
   const [leaseId, setLeaseId] = useState<string | null>(null);
   const [takeover, setTakeover] = useState(false);
   const [browserOnline, setBrowserOnline] = useState(true);
@@ -91,6 +93,8 @@ export default function CozinhaPage() {
     enabled: autenticada,
     staleTime: 0,
   });
+  const alexaConfigured = Boolean(alexaLinkQuery.data?.linked && alexaLinkQuery.data.approved_device_id && alexaLinkQuery.data.station_id);
+  const showAlexaSetup = Boolean(alexaLinkQuery.data && (!alexaConfigured || manageAlexa));
   const stationId = stationsQuery.data?.items[0]?.id ?? null;
   const stationQuery = useQuery({
     queryKey: ["cozinha", usuarioId, "station", stationId],
@@ -329,7 +333,9 @@ export default function CozinhaPage() {
         </button>}
       </div>
 
-      <details className="rounded-2xl border bg-card p-5 sm:p-6">
+      {alexaConfigured && <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground"><span>Alexa conectada</span><button type="button" className="min-h-12 rounded-xl px-4 font-semibold text-primary hover:bg-muted" onClick={() => setManageAlexa(current => !current)}>{manageAlexa ? "Fechar ajustes da Alexa" : "Gerenciar Alexa"}</button></div>}
+      {alexaLinkQuery.isError && <p role="alert">Não foi possível consultar a conexão da Alexa. <button type="button" className="min-h-12 px-3 font-semibold text-primary" onClick={() => void alexaLinkQuery.refetch()}>Tentar novamente</button></p>}
+      {showAlexaSetup && <details className="rounded-2xl border bg-card p-5 sm:p-6">
         <summary className="cursor-pointer text-lg font-semibold">Como configurar a Alexa na Echo Dot 3</summary>
         <div className="mt-4 space-y-3 text-sm text-muted-foreground">
           <p>O Fornada já tem o receptor e a validação dos pedidos Alexa. Para conectar, cadastre a skill na Amazon e configure as credenciais no servidor conforme os passos abaixo.</p>
@@ -347,9 +353,9 @@ export default function CozinhaPage() {
           </div>
           <p>A Amazon identifica a skill pelo ID validado em cada pedido. Na primeira chamada vinculada, o Fornada identifica a Echo por um código interno temporário; confirme a Echo nesta tela para autorizar o controle da estação. O ID do dispositivo não é mostrado.</p>
         </div>
-      </details>
+      </details>}
 
-      {alexaLinkQuery.data?.linked && <section className="rounded-2xl border bg-card p-5 sm:p-6">
+      {showAlexaSetup && alexaLinkQuery.data?.linked && <section className="rounded-2xl border bg-card p-5 sm:p-6">
         <h2 className="text-xl font-semibold">Alexa · Echo Dot</h2>
         <p className="mt-2 text-base text-muted-foreground">Confirme a Echo que pediu acesso e escolha qual estação ativa receberá as receitas.</p>
         {alexaLinkQuery.data.pending_devices.map(device => <div key={device.id} className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/40 p-4">
@@ -372,6 +378,8 @@ export default function CozinhaPage() {
         {!browserOnline ? "Sem conexão. A receita que ficou na tela pode estar desatualizada; os comandos estão pausados." : stationQuery.isError || heartbeatFailed ? "Não foi possível confirmar o estado atual. A receita pode estar desatualizada e os comandos estão pausados." : "A tela está em segundo plano. Volte para confirmar a estação e retomar os comandos."}
       </div>}
 
+      {autenticada && <KitchenDayOverview recipeOpen={Boolean(station?.projection && leaseId)} />}
+
       {!stationId ? <section className="rounded-2xl border bg-card p-6 sm:p-8">
         <ChefHat className="h-10 w-10 text-primary" />
         <h2 className="mt-4 text-2xl font-semibold">Prepare sua estação</h2>
@@ -393,13 +401,15 @@ export default function CozinhaPage() {
           <form onSubmit={doSearch} className="flex flex-col gap-3 sm:flex-row">
             <label className="sr-only" htmlFor="buscar-receita">Buscar receita</label>
             <div className="relative min-w-0 flex-1"><Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-              <input id="buscar-receita" value={termo} onChange={event => setTermo(event.target.value)} placeholder="Qual receita vamos preparar?" className="min-h-14 w-full rounded-xl border bg-background pl-12 pr-4 text-lg" />
+              <input id="buscar-receita" value={termo} onChange={event => setTermo(event.target.value)} placeholder="Busque uma OP ou receita para preparar" className="min-h-14 w-full rounded-xl border bg-background pl-12 pr-4 text-lg" />
             </div>
             <button type="submit" disabled={!termo.trim() || remoteUnavailable} className="min-h-14 rounded-xl bg-primary px-7 text-lg font-semibold text-primary-foreground disabled:opacity-50">Buscar</button>
           </form>
+          <KitchenProductionQueue search={termo} recipeOpen={Boolean(station.projection)} disabled={loadingCommand || remoteUnavailable} onOpen={recipe_id => void sendCommand("open_recipe", { recipe_id })} />
           {busca && <div className="mt-5 space-y-2" aria-live="polite">
             {searchQuery.isFetching && <p className="text-base text-muted-foreground">Procurando receitas…</p>}
             {searchQuery.data?.items.length === 0 && !searchQuery.isFetching && <p className="rounded-xl bg-muted p-4 text-base">Nenhuma receita encontrada para “{busca}”.</p>}
+            {searchQuery.data && <h2 className="text-lg font-semibold">Outras receitas</h2>}
             {searchQuery.data?.items.map((item, index) => <button type="button" key={item.recipe_id} disabled={loadingCommand || remoteUnavailable} onClick={() => void sendCommand("open_recipe", { recipe_id: item.recipe_id })} className="flex min-h-14 w-full items-center justify-between rounded-xl border px-4 text-left text-lg font-medium hover:border-primary hover:bg-muted disabled:opacity-50">
               <span>{item.name}</span><span className="text-sm font-normal text-muted-foreground">Abrir</span>
             </button>)}

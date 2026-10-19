@@ -25,6 +25,8 @@ async function openKitchen() {
     },
   };
   mocks.get.mockImplementation(async (path: string) => {
+    if (["/agenda", "/vendas", "/producao/ordens"].includes(path)) return { data: [] };
+    if (path === "/integracoes/ifood/monitor") return { data: { habilitado: false, pedidos: [] } };
     if (path.endsWith("/stations")) return { data: { items: [{ id: "station", revision: station.revision }] } };
     if (path.endsWith("/alexa/link")) return { data: { linked: false } };
     return { data: { changed: true, station: structuredClone(station) } };
@@ -101,4 +103,32 @@ it("mantém o texto no topo também quando a navegação está nas etapas", asyn
   expect(screen.getByRole("button", { name: "Modo de preparo" })).toHaveClass("bg-primary");
   expect(screen.queryByRole("button", { name: "Etapas" })).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Voltar ao início do modo de preparo" })).toHaveAttribute("href", "#modo-de-preparo");
+});
+
+it("oculta a configuração após vincular conta, Echo e estação e permite gerenciar explicitamente", async () => {
+  const { client } = await openKitchen();
+  client.setQueryData(["cozinha", "cook", "alexa-link"], { linked: true, approved_device_id: "echo", station_id: "station", pending_devices: [] });
+  await waitFor(() => expect(screen.getByText("Alexa conectada")).toBeVisible());
+  expect(screen.queryByText("Como configurar a Alexa na Echo Dot 3")).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "Alexa · Echo Dot" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Gerenciar Alexa" }));
+  expect(screen.getByText("Como configurar a Alexa na Echo Dot 3")).toBeInTheDocument();
+});
+
+it("apresenta as OPs antes do catálogo e abre a receita da ordem selecionada", async () => {
+  const { client } = await openKitchen();
+  const previousGet = mocks.get.getMockImplementation()!;
+  mocks.get.mockImplementation(async (path: string, ...rest: unknown[]) => {
+    if (path === "/producao/ordens") return { data: [{ id: "op", numero: 7, receita_id: "recipe", nome_receita: "Bolo", status: "planejada", qtd_planejada: "1", receita_rendimento: "10", receita_rendimento_unidade: "un", data_prevista: null, pedido_numero: null, proximas_transicoes: [] }] };
+    if (path === "/cozinha/recipes/search") return { data: { items: [{ recipe_id: "other", name: "Bolo de chocolate" }], next_offset: null } };
+    return previousGet(path, ...rest);
+  });
+  await act(async () => { await client.invalidateQueries({ queryKey: ["cozinha-operacao"] }); });
+  fireEvent.change(screen.getByRole("textbox", { name: "Buscar receita" }), { target: { value: "Bolo" } });
+  fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+  const catalog = await screen.findByText("Bolo de chocolate");
+  const order = screen.getByRole("button", { name: "Abrir receita da OP #7" });
+  expect(order.compareDocumentPosition(catalog) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  fireEvent.click(order);
+  await waitFor(() => expect(mocks.post).toHaveBeenCalledWith("/cozinha/stations/station/commands", expect.objectContaining({ type: "open_recipe", payload: { recipe_id: "recipe" } })));
 });
