@@ -84,7 +84,7 @@ it("une texto e etapas no modo de preparo, mantendo o texto fora da seleção", 
   expect(await screen.findByText(/Texto integral para leitura/)).toBeVisible();
   const step = screen.getByRole("article", { name: "Etapa 1" });
   expect(screen.getByRole("button", { name: "Marcar etapa 1 como concluída" })).toBeVisible();
-  expect(screen.queryByRole("button", { name: "Etapas", exact: true })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Etapas" })).not.toBeInTheDocument();
   expect(screen.getByText(/Texto integral para leitura/).compareDocumentPosition(step) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   fireEvent.click(screen.getByText(/Texto integral para leitura/));
   expect(mocks.post.mock.calls.filter(([path]) => path.endsWith("/commands"))).toHaveLength(0);
@@ -98,7 +98,7 @@ it("mantém o texto no topo também quando a navegação está nas etapas", asyn
   const text = screen.getByText(/Texto integral para leitura/);
   const step = screen.getByRole("article", { name: "Etapa 1" });
   expect(text.compareDocumentPosition(step) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Modo de preparo", exact: true })).toHaveClass("bg-primary");
-  expect(screen.queryByRole("button", { name: "Etapas", exact: true })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Modo de preparo" })).toHaveClass("bg-primary");
+  expect(screen.queryByRole("button", { name: "Etapas" })).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Voltar ao início do modo de preparo" })).toHaveAttribute("href", "#modo-de-preparo");
 });
