@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, History, Pencil, Plus, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, History, Pencil, Plus, Search, SlidersHorizontal, XCircle } from "lucide-react";
+import { useEstoqueFilters, type EstoqueSortKey, type EstoqueSortDir } from "@/hooks/use-estoque-filters";
 import { useIngredientes } from "@/hooks/use-estoque";
 import { EstoqueBadge } from "@/components/shared/estoque-badge";
 import { AjustarEstoqueDialog } from "@/components/shared/ajustar-estoque-dialog";
@@ -15,8 +16,8 @@ import { custoReferencia } from "@/lib/custo-referencia";
 import { TIPOS_PRODUTO } from "@/lib/unidades";
 import type { Ingrediente } from "@/types";
 
-type SortKeyMobile = "codigo" | "nome" | "saldo" | "custo_medio" | "data_custo_atualizado";
-type SortDir = "asc" | "desc";
+type SortKeyMobile = EstoqueSortKey;
+type SortDir = EstoqueSortDir;
 type Tab = "ingredientes" | "pa";
 
 export default function EstoquePage() {
@@ -73,13 +74,12 @@ export default function EstoquePage() {
 
 function TabIngredientes() {
   const { data: ingredientes, isLoading, error } = useIngredientes();
-  const [busca, setBusca] = useState("");
-  const [filtroTipo, setFiltroTipo] = useState<string>("");
-  const [filtroStatus, setFiltroStatus] = useState<string>("");
-
-  // Ordenação só para o layout mobile (desktop usa o controle da própria tabela)
-  const [sortKeyMobile, setSortKeyMobile] = useState<SortKeyMobile>("codigo");
-  const [sortDirMobile, setSortDirMobile] = useState<SortDir>("asc");
+  const { filters, update, clear } = useEstoqueFilters();
+  const { busca, tipo: filtroTipo, status: filtroStatus, sortKey: sortKeyMobile, sortDir: sortDirMobile } = filters;
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const activeFilters = Number(Boolean(filtroTipo)) + Number(Boolean(filtroStatus));
+  const hasOptions = activeFilters > 0 || sortKeyMobile !== "codigo" || sortDirMobile !== "asc";
 
   const filtrados = useMemo(() => {
     if (!ingredientes) return [];
@@ -135,44 +135,38 @@ function TabIngredientes() {
         </div>
       )}
 
-      {/* Filtros */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Buscar por nome ou código..."
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            className="w-full rounded-lg border pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+          <label className="sr-only" htmlFor="estoque-busca">Buscar por nome ou código</label>
+          <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input ref={searchInput} id="estoque-busca" type="text" placeholder="Buscar por nome ou código..." value={busca}
+            onChange={event => update({ busca: event.target.value })}
+            className="min-h-12 w-full rounded-lg border py-2 pl-9 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          {busca && <button type="button" aria-label="Limpar busca" onClick={() => { update({ busca: "" }); searchInput.current?.focus(); }} className="absolute right-0 top-0 flex h-full min-h-12 min-w-12 items-center justify-center rounded-r-lg text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"><XCircle aria-hidden="true" className="h-5 w-5" /></button>}
         </div>
-
-        <div className="flex gap-2">
-          <select
-            value={filtroTipo}
-            onChange={(e) => setFiltroTipo(e.target.value)}
-            className="flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
-          >
-            <option value="">Todos os tipos</option>
-            {TIPOS_PRODUTO.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={filtroStatus}
-            onChange={(e) => setFiltroStatus(e.target.value)}
-            className="flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
-          >
-            <option value="">Todos os status</option>
-            <option value="ok">Estoque OK</option>
-            <option value="baixo">Baixo</option>
-            <option value="critico">Crítico</option>
-            <option value="zerado">Zerado</option>
-          </select>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" aria-expanded={filtersOpen} aria-controls="filtros-estoque" onClick={() => setFiltersOpen(current => !current)}
+            className={cn("inline-flex min-h-12 items-center gap-2 rounded-lg border px-4 text-sm font-semibold hover:bg-muted", (filtersOpen || activeFilters > 0) && "border-primary text-primary")}>
+            <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />Filtros{activeFilters > 0 && <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">{activeFilters}</span>}
+          </button>
+          <button type="button" disabled={!hasOptions} onClick={clear} className="min-h-12 rounded-lg border px-4 text-sm font-semibold hover:bg-muted disabled:opacity-40">Limpar filtros</button>
         </div>
+        {filtersOpen && <section id="filtros-estoque" aria-label="Filtros do estoque" className="space-y-4 rounded-xl border bg-card p-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-2 text-sm font-medium">Tipo de item
+              <select value={filtroTipo} onChange={event => update({ tipo: event.target.value })} className="mt-2 min-h-12 w-full rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="">Todos os tipos</option>
+                {TIPOS_PRODUTO.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
+              </select>
+            </label>
+            <label className="space-y-2 text-sm font-medium">Situação do estoque
+              <select value={filtroStatus} onChange={event => update({ status: event.target.value })} className="mt-2 min-h-12 w-full rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                <option value="">Todos os status</option><option value="ok">Estoque OK</option><option value="baixo">Baixo</option><option value="critico">Crítico</option><option value="zerado">Zerado</option>
+              </select>
+            </label>
+          </div>
+          <div className="md:hidden"><p className="mb-2 text-sm font-medium">Ordenação</p><OrdenacaoMobile sortKey={sortKeyMobile} sortDir={sortDirMobile} onMudar={(sortKey, sortDir) => update({ sortKey, sortDir })} /></div>
+        </section>}
       </div>
 
       {isLoading ? (
@@ -196,14 +190,6 @@ function TabIngredientes() {
 
           {/* MOBILE: Cards expansíveis */}
           <div className="md:hidden">
-            <OrdenacaoMobile
-              sortKey={sortKeyMobile}
-              sortDir={sortDirMobile}
-              onMudar={(k, d) => {
-                setSortKeyMobile(k);
-                setSortDirMobile(d);
-              }}
-            />
             <div className="space-y-2 mt-3">
               {filtradosMobile.map((i) => (
                 <CardEstoque key={i.id} item={i} />
@@ -274,9 +260,10 @@ function OrdenacaoMobile({
   return (
     <div className="flex items-center gap-2">
       <select
+        aria-label="Ordenar itens"
         value={sortKey}
         onChange={(e) => onMudar(e.target.value as SortKeyMobile, sortDir)}
-        className="flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
+        className="min-h-12 min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
       >
         {OPCOES_ORDENACAO.map((o) => (
           <option key={o.key} value={o.key}>
@@ -287,7 +274,7 @@ function OrdenacaoMobile({
       <button
         type="button"
         onClick={() => onMudar(sortKey, sortDir === "asc" ? "desc" : "asc")}
-        className="p-2 rounded-lg border hover:bg-muted"
+        className="flex min-h-12 min-w-12 items-center justify-center rounded-lg border hover:bg-muted"
         aria-label="Inverter ordem"
       >
         {sortDir === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
