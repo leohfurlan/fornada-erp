@@ -69,7 +69,6 @@ export function KitchenDayOverview({ recipeOpen }: { recipeOpen: boolean }) {
       </section>
       <section aria-label="Pedidos e vendas recebidos" className="min-w-0 space-y-3">
         <h2 className="text-lg font-semibold">Pedidos e vendas recebidos</h2>
-        <p className="text-sm text-muted-foreground">Atualização automática a cada 15 segundos. WhatsApp: vendas registradas no Fornada.</p>
         {ifood.isPending && <p role="status">Consultando pedidos iFood…</p>}
         {ifood.isError ? <p role="alert">Não foi possível atualizar os pedidos iFood.</p> : <>
           {ifood.data?.erro && <p role="alert">O monitor iFood informou uma falha. Os pedidos abaixo podem estar desatualizados.</p>}
@@ -79,7 +78,6 @@ export function KitchenDayOverview({ recipeOpen }: { recipeOpen: boolean }) {
             <p className="text-sm text-muted-foreground">Último evento: {order.ultimo_evento}{order.evento_em ? ` · ${formatDataHora(order.evento_em)}` : ""}</p>
             <ul>{order.snapshot.items.map((item, index) => <li key={index}>{formatQuantidade(item.quantity)} × {item.name}</li>)}</ul>
           </li>)}</ul>
-          {ifood.data?.habilitado && !ifood.data.pedidos.length && <p className="text-sm text-muted-foreground">Nenhum pedido recebido pelo monitor iFood.</p>}
         </>}
         {sales.isPending && <p role="status">Consultando vendas de hoje…</p>}
         {sales.isError ? <p role="alert">Não foi possível atualizar as vendas.</p> : <>
