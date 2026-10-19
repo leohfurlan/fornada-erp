@@ -1,5 +1,7 @@
 # Conclusão de etapas no Modo Cozinha
 
+> Correção de escopo em 19/10/2026: o checklist usa os registros de ETAPAS, e não o modo de preparo ou a montagem. Consulte [a correção](modo-cozinha-etapas-cadastradas-2026-10-19.md). O relato abaixo documenta a implementação inicial.
+
 Implementação local em 18/10/2026, preservando as alterações que já existiam no checkout.
 
 ## Investigação antes da implementação

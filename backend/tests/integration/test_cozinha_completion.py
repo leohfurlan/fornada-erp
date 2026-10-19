@@ -9,8 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_authenticated_actor
+from domain.receitas.central_snapshot import snapshot
 from infrastructure.database.cozinha_models import CozinhaEstacao
-from infrastructure.database.models import Receita, Tenant, Usuario
+from infrastructure.database.models import Receita, ReceitaEtapa, Tenant, Usuario
 from main import app
 
 
@@ -43,6 +44,17 @@ async def test_checklist_persists_through_pause_and_new_lease(
     )
     db.add_all([user, recipe, other_recipe])
     await db.flush()
+    registered = [
+        ReceitaEtapa(receita_id=recipe.id, nome="Misturar", duracao_minutos=5, ordem=0),
+        ReceitaEtapa(receita_id=recipe.id, nome="Assar", duracao_minutos=30, ordem=1),
+    ]
+    db.add_all(registered)
+    await db.flush()
+    first_step, second_step = (f"step-{step.id}" for step in registered)
+    central = await snapshot(db, tenant.id, recipe.id)
+    kitchen = await snapshot(db, tenant.id, recipe.id, include_steps=True)
+    assert "steps" not in central
+    assert [step["id"] for step in kitchen["steps"]] == [str(step.id) for step in registered]
     app.dependency_overrides[get_authenticated_actor] = lambda: user
     created = await client.post("/api/v1/cozinha/stations", json={"name": "Checklist"})
     station_id = created.json()["station"]["id"]
@@ -77,12 +89,27 @@ async def test_checklist_persists_through_pause_and_new_lease(
 
     await send("open_recipe", recipe_id=str(recipe.id))
     state = await read()
+    assert [block["id"] for block in state["projection"]["blocks"] if block.get("checkable")] == [
+        first_step,
+        second_step,
+    ]
+    rejected = await client.post(
+        root + "/commands",
+        json={
+            "command_id": str(uuid4()),
+            "expected_revision": revision,
+            "lease_id": lease,
+            "type": "set_step_completed",
+            "payload": {"block_id": "preparation-text", "completed": True},
+        },
+    )
+    assert rejected.status_code == 422
     session = state["projection"]["session_id"]
-    body, receipt = await send("set_step_completed", block_id="preparation-2", completed=True)
+    body, receipt = await send("set_step_completed", block_id=second_step, completed=True)
     retry = await client.post(root + "/commands", json=body)
     assert retry.json() == receipt
-    await send("show_section", section="preparation")
-    assert (await read())["projection"]["completed_block_ids"] == ["preparation-2"]
+    await send("show_section", section="steps")
+    assert (await read())["projection"]["completed_block_ids"] == [second_step]
 
     closed = await client.post(root + "/close", json={"lease_id": lease})
     assert closed.status_code == 204
@@ -95,20 +122,20 @@ async def test_checklist_persists_through_pause_and_new_lease(
     revision = activated.json()["station"]["revision"]
     resumed = await read()
     assert resumed["projection"]["session_id"] == session
-    assert resumed["projection"]["completed_block_ids"] == ["preparation-2"]
+    assert resumed["projection"]["completed_block_ids"] == [second_step]
     await send("open_recipe", recipe_id=str(recipe.id))
     assert (await read())["projection"]["session_id"] == session
-    assert (await read())["projection"]["completed_block_ids"] == ["preparation-2"]
+    assert (await read())["projection"]["completed_block_ids"] == [second_step]
 
-    await send("set_step_completed", block_id="preparation-1", completed=True)
+    await send("set_step_completed", block_id=first_step, completed=True)
     assert len((await read())["projection"]["completed_block_ids"]) == 2
-    await send("set_step_completed", block_id="preparation-2", completed=False)
-    assert (await read())["projection"]["completed_block_ids"] == ["preparation-1"]
+    await send("set_step_completed", block_id=second_step, completed=False)
+    assert (await read())["projection"]["completed_block_ids"] == [first_step]
     await send("reset_steps")
     reset = (await read())["projection"]
     assert reset["completed_block_ids"] == []
     assert reset["session_id"] != session
-    await send("set_step_completed", block_id="preparation-1", completed=True)
+    await send("set_step_completed", block_id=first_step, completed=True)
     # Switching recipes starts a new preparation session.
     await send("open_recipe", recipe_id=str(other_recipe.id))
     assert (await read())["projection"]["completed_block_ids"] == []

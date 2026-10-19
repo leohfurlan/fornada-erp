@@ -502,12 +502,13 @@ def _position_prompt(station: CozinhaEstacao) -> str:
     section = {
         "ingredients": "ingredientes",
         "preparation": "preparo",
+        "steps": "etapas",
         "assembly": "montagem",
     }.get(station.secao, "receita")
     blocks = _section_blocks(station)
     stage = (
         f", etapa {min(station.bloco_indice + 1, len(blocks))} de {len(blocks)}"
-        if station.secao != "ingredients" and blocks
+        if station.secao in ("steps", "assembly") and blocks
         else ""
     )
     parts = _current_speech_parts(station)
@@ -524,6 +525,7 @@ def _speak_current_part(station: CozinhaEstacao, *, prefix: str = "") -> str:
         labels = {
             "ingredients": "ingredientes",
             "preparation": "modo de preparo",
+            "steps": "etapas",
             "assembly": "montagem",
         }
         return f"Esta receita não tem {labels.get(station.secao, 'conteúdo')} cadastrados."
@@ -533,11 +535,12 @@ def _speak_current_part(station: CozinhaEstacao, *, prefix: str = "") -> str:
     section = {
         "ingredients": "Ingredientes",
         "preparation": "Preparo",
+        "steps": "Etapas",
         "assembly": "Montagem",
     }.get(station.secao, "Receita")
     block_info = ""
     blocks = _section_blocks(station)
-    if station.secao != "ingredients" and blocks:
+    if station.secao in ("steps", "assembly") and blocks:
         block_index = min(max(station.bloco_indice, 0), len(blocks) - 1)
         block_info = f", etapa {block_index + 1} de {len(blocks)}"
     return f"{prefix}{section}{block_info}, parte {index + 1} de {len(parts)}. {parts[index]}"

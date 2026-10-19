@@ -19,6 +19,22 @@ def projection(recipe_id: str = "recipe-a") -> dict[str, Any]:
             "yield_unit": "un",
             "ingredients": [],
             "sections": [{"title": "Modo de preparo", "text": "1. Misture\n2. Asse"}],
+            "steps": [
+                {
+                    "id": "one",
+                    "name": "Misturar",
+                    "duration_minutes": 5,
+                    "work_type": "direta",
+                    "order": 0,
+                },
+                {
+                    "id": "two",
+                    "name": "Assar",
+                    "duration_minutes": 30,
+                    "work_type": "direta",
+                    "order": 1,
+                },
+            ],
             "warnings": [],
         }
     )
@@ -26,20 +42,20 @@ def projection(recipe_id: str = "recipe-a") -> dict[str, Any]:
 
 def test_completion_is_reversible_out_of_order_and_idempotent() -> None:
     original = projection()
-    result = update_completion(original, "preparation-2", True)
-    assert result["completed_block_ids"] == ["preparation-2"]
+    result = update_completion(original, "step-two", True)
+    assert result["completed_block_ids"] == ["step-two"]
     assert original["completed_block_ids"] == []
-    assert update_completion(result, "preparation-2", True) == result
-    result = update_completion(result, "preparation-1", True)
+    assert update_completion(result, "step-two", True) == result
+    result = update_completion(result, "step-one", True)
     assert len(result["completed_block_ids"]) == 2
-    result = update_completion(result, "preparation-2", False)
-    assert result["completed_block_ids"] == ["preparation-1"]
+    result = update_completion(result, "step-two", False)
+    assert result["completed_block_ids"] == ["step-one"]
 
 
 def test_json_recovery_preserves_session_and_reset_is_isolated() -> None:
     first = projection()
     other_recipe, other_session = projection("recipe-b"), projection()
-    completed = update_completion(first, "preparation-1", True)
+    completed = update_completion(first, "step-one", True)
     restored = json.loads(json.dumps(completed))
     assert restored == completed
     assert restored["session_id"] == first["session_id"]
@@ -55,17 +71,17 @@ def test_legacy_projection_gains_a_session_without_recipe_changes() -> None:
     legacy = projection()
     del legacy["session_id"]
     del legacy["completed_block_ids"]
-    result = update_completion(legacy, "preparation-1", True)
+    result = update_completion(legacy, "step-one", True)
     assert result["session_id"]
-    assert result["completed_block_ids"] == ["preparation-1"]
+    assert result["completed_block_ids"] == ["step-one"]
     assert result["blocks"] == legacy["blocks"]
 
 
 def test_reopening_recipe_resumes_only_the_same_recipe_and_version() -> None:
-    first = update_completion(projection(), "preparation-1", True)
+    first = update_completion(projection(), "step-one", True)
     resumed = resume_completion(first, projection())
     assert resumed["session_id"] == first["session_id"]
-    assert resumed["completed_block_ids"] == ["preparation-1"]
+    assert resumed["completed_block_ids"] == ["step-one"]
     changed = {**projection(), "recipe_version": "v2"}
     assert resume_completion(first, changed)["completed_block_ids"] == []
     assert resume_completion(first, projection("recipe-b"))["completed_block_ids"] == []
@@ -74,16 +90,16 @@ def test_reopening_recipe_resumes_only_the_same_recipe_and_version() -> None:
 async def test_alexa_reopening_keeps_the_checklist(monkeypatch: pytest.MonkeyPatch) -> None:
     from api.routers import alexa
 
-    completed = update_completion(projection(), "preparation-1", True)
+    completed = update_completion(projection(), "step-one", True)
     station = SimpleNamespace(projection=completed, revisao=1)
     monkeypatch.setattr(alexa, "recipe_projection", AsyncMock(return_value=projection()))
     await alexa._open_recipe(None, SimpleNamespace(tenant_id=uuid4()), station, uuid4(), "Bolo")
     assert station.projection["session_id"] == completed["session_id"]
-    assert station.projection["completed_block_ids"] == ["preparation-1"]
+    assert station.projection["completed_block_ids"] == ["step-one"]
 
 
 @pytest.mark.parametrize(
-    "block_id,completed", [("missing", True), ("ingredients-1", True), ("preparation-1", None)]
+    "block_id,completed", [("missing", True), ("ingredients-1", True), ("step-one", None)]
 )
 def test_rejects_invalid_steps(block_id: str, completed: bool | None) -> None:
     with pytest.raises(ValueError):

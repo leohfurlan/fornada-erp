@@ -13,12 +13,15 @@ afterEach(() => { cleanup(); vi.resetAllMocks(); });
 async function openKitchen() {
   const station = {
     id: "station", name: "Bancada", status: "active", revision: 1,
-    recipe_id: "recipe", section: "preparation", block_index: 0, speech_part_index: 0,
+    recipe_id: "recipe", section: "steps", block_index: 0, speech_part_index: 0,
     rendered_revision: 1, notice: null,
     projection: {
       recipe_id: "recipe", recipe_version: "v1", session_id: "session",
       name: "Bolo", yield_quantity: "1", yield_unit: "un", ingredients: [], warnings: [], completed_block_ids: [] as string[],
-      blocks: [{ id: "preparation-1", section: "preparation", title: "Misturar", markdown: "Misture bem." }],
+      blocks: [
+        { id: "step-1", section: "steps", checkable: true, title: "Misturar", markdown: "Duração: 5 min" },
+        { id: "preparation-text", section: "preparation", checkable: false, title: "Modo de preparo", markdown: "1. Texto integral para leitura\n2. Continue a receita" },
+      ],
     },
   };
   mocks.get.mockImplementation(async (path: string) => {
@@ -43,7 +46,7 @@ it("marca imediatamente, bloqueia eventos duplicados e recupera do servidor ao r
   mocks.post.mockImplementation((path: string) => {
     if (path.endsWith("/commands")) return new Promise(resolve => {
       finish = () => {
-        station.projection.completed_block_ids = ["preparation-1"];
+        station.projection.completed_block_ids = ["step-1"];
         station.revision++;
         resolve({ data: { revision: station.revision, status: "accepted" } });
       };
@@ -71,4 +74,18 @@ it("desfaz a marcação otimista quando o servidor recusa o comando", async () =
   expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
   await screen.findByText("Não foi possível concluir. Verifique a conexão e tente novamente.");
   await waitFor(() => expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0"));
+});
+
+it("exibe o modo de preparo como texto único sem controle de conclusão", async () => {
+  const { station, client } = await openKitchen();
+  station.section = "preparation";
+  station.revision++;
+  await act(async () => { await client.invalidateQueries({ queryKey: ["cozinha", "cook", "station"] }); });
+  expect(await screen.findByText(/Texto integral para leitura/)).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Marcar etapa 1 como concluída" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByText(/Texto integral para leitura/));
+  expect(mocks.post.mock.calls.filter(([path]) => path.endsWith("/commands"))).toHaveLength(0);
+  expect(screen.getByText("0 de 1 etapas concluídas")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Próxima etapa" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Repetir leitura" })).toBeVisible();
 });

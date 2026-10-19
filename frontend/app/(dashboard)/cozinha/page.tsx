@@ -6,10 +6,11 @@ import { ArrowLeft, ArrowRight, ChefHat, CircleAlert, LoaderCircle, Play, Search
 import { api } from "@/lib/api";
 import { formatQuantidade } from "@/lib/utils";
 import { KitchenChecklist } from "@/components/shared/kitchen-checklist";
+import { MarkdownContent } from "@/components/shared/markdown-content";
 import { useAuthStore } from "@/stores/use-auth-store";
 
 type SearchItem = { recipe_id: string; name: string };
-type KitchenBlock = { id: string; section: string; title: string; markdown: string };
+type KitchenBlock = { id: string; section: string; title: string; markdown: string; checkable?: boolean };
 type Projection = {
   session_id?: string;
   completed_block_ids?: string[];
@@ -28,7 +29,7 @@ type Station = {
   status: "active" | "paused" | "closed";
   revision: number;
   recipe_id: string | null;
-  section: "ingredients" | "preparation" | "assembly";
+  section: "ingredients" | "preparation" | "steps" | "assembly";
   block_index: number;
   speech_part_index: number;
   rendered_revision: number | null;
@@ -410,7 +411,7 @@ export default function CozinhaPage() {
             <h2 className="mt-2 break-words text-3xl font-bold sm:text-4xl">{station.projection.name}</h2>
             <p className="mt-2 text-lg text-muted-foreground">Rende {formatQuantidade(station.projection.yield_quantity)} {station.projection.yield_unit}</p>
             <div className="mt-5 flex flex-wrap gap-2">
-              {([ ["ingredients", "Ingredientes"], ["preparation", "Preparo"], ["assembly", "Montagem"] ] as const).map(([section, label]) => {
+              {([ ["ingredients", "Ingredientes"], ["preparation", "Modo de preparo"], ["steps", "Etapas"], ["assembly", "Montagem"] ] as const).map(([section, label]) => {
                 const available = station.projection?.blocks.some(block => block.section === section);
                 return <button type="button" key={section} disabled={!available || loadingCommand || remoteUnavailable} onClick={() => void sendCommand("show_section", { section })} className={`min-h-12 rounded-xl border px-5 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${station.section === section ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted"}`}>{label}</button>;
               })}
@@ -419,20 +420,20 @@ export default function CozinhaPage() {
 
           {station.projection.warnings.map((warning, index) => <div key={`${warning}-${index}`} className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-base text-amber-950">{warning}</div>)}
           <KitchenChecklist blocks={station.projection.blocks} completedIds={optimisticCompleted ?? station.projection.completed_block_ids ?? []} section={station.section} currentId={currentBlock?.id} disabled={loadingCommand || remoteUnavailable} onComplete={(block_id, completed) => void sendCommand("set_step_completed", { block_id, completed })} onReset={() => void sendCommand("reset_steps")} />
-          {station.section === "ingredients" && (currentBlock ? <article className="min-h-64 rounded-2xl border bg-card p-5 sm:p-8" aria-live="polite">
-            <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Lista da receita</p>
+          {station.section !== "steps" && (currentBlock ? <article className="min-h-64 rounded-2xl border bg-card p-5 sm:p-8" aria-live="polite">
+            <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">{station.section === "ingredients" ? "Lista da receita" : "Leitura da receita"}</p>
             <h3 className="mt-2 text-2xl font-bold sm:text-3xl">{currentBlock.title}</h3>
-            <ul className="mt-6 divide-y rounded-xl border">
+            {station.section === "ingredients" ? <ul className="mt-6 divide-y rounded-xl border">
               {station.projection.ingredients.map((ingredient, index) => <li key={`${ingredient.name}-${index}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-4 sm:px-6">
                 <span className="text-xl font-semibold sm:text-2xl">{ingredient.name}</span><span className="text-xl text-primary">{formatQuantidade(ingredient.quantity)} {ingredient.unit}</span>
               </li>)}
-            </ul>
-          </article> : <article className="rounded-2xl border border-dashed bg-card p-8 text-center"><p className="text-xl font-semibold">Esta receita ainda não tem ingredientes cadastrados.</p><p className="mt-2 text-base text-muted-foreground">Você pode continuar consultando as outras seções.</p></article>)}
+            </ul> : <MarkdownContent className="mt-6 text-xl leading-relaxed sm:text-2xl">{currentBlock.markdown}</MarkdownContent>}
+          </article> : <article className="rounded-2xl border border-dashed bg-card p-8 text-center"><p className="text-xl font-semibold">Esta receita ainda não tem conteúdo nesta seção.</p><p className="mt-2 text-base text-muted-foreground">Você pode continuar consultando as outras seções.</p></article>)}
 
           <div className="grid grid-cols-2 gap-3 sm:flex sm:justify-between">
-            <button type="button" disabled={loadingCommand || remoteUnavailable || station.block_index === 0 || activeBlocks.length === 0} onClick={() => void sendCommand("previous")} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-xl border bg-card px-5 text-lg font-semibold disabled:opacity-40"><ArrowLeft className="h-5 w-5" />Anterior</button>
-            <div className="col-span-2 order-first flex items-center justify-center gap-2 sm:order-none"><span className="text-base text-muted-foreground">{activeBlocks.length ? `${station.block_index + 1} / ${activeBlocks.length}` : "0 etapas"}</span><button type="button" disabled={!currentBlock || loadingCommand || remoteUnavailable} onClick={() => void sendCommand("repeat")} className="min-h-12 rounded-xl px-4 text-base font-semibold text-primary hover:bg-muted">Repetir</button></div>
-            <button type="button" disabled={loadingCommand || remoteUnavailable || station.block_index >= activeBlocks.length - 1 || activeBlocks.length === 0} onClick={() => void sendCommand("next")} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-xl bg-primary px-5 text-lg font-semibold text-primary-foreground disabled:opacity-40">Próxima etapa<ArrowRight className="h-5 w-5" /></button>
+            {station.section !== "preparation" && <button type="button" disabled={loadingCommand || remoteUnavailable || station.block_index === 0 || activeBlocks.length === 0} onClick={() => void sendCommand("previous")} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-xl border bg-card px-5 text-lg font-semibold disabled:opacity-40"><ArrowLeft className="h-5 w-5" />Anterior</button>}
+            <div className="col-span-2 order-first flex items-center justify-center gap-2 sm:order-none"><span className="text-base text-muted-foreground">{station.section === "preparation" ? "Texto para leitura" : activeBlocks.length ? `${station.block_index + 1} / ${activeBlocks.length}` : "0 etapas"}</span><button type="button" disabled={!currentBlock || loadingCommand || remoteUnavailable} onClick={() => void sendCommand("repeat")} className="min-h-12 rounded-xl px-4 text-base font-semibold text-primary hover:bg-muted">{station.section === "preparation" ? "Repetir leitura" : "Repetir"}</button></div>
+            {station.section !== "preparation" && <button type="button" disabled={loadingCommand || remoteUnavailable || station.block_index >= activeBlocks.length - 1 || activeBlocks.length === 0} onClick={() => void sendCommand("next")} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-xl bg-primary px-5 text-lg font-semibold text-primary-foreground disabled:opacity-40">Próxima etapa<ArrowRight className="h-5 w-5" /></button>}
           </div>
         </section> : <section className="rounded-2xl border border-dashed bg-card p-10 text-center">
           {station.notice && <p role="status" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-base text-amber-950">{station.notice}</p>}

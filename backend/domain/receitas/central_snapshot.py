@@ -55,7 +55,7 @@ async def search(db, tenant_id, query, offset, limit):
     }
 
 
-async def snapshot(db, tenant_id, recipe_id):
+async def snapshot(db, tenant_id, recipe_id, *, include_steps: bool = False):
     # joinedload emits one SELECT: ingredients, steps and every component share
     # the same statement snapshot even under the default READ COMMITTED level.
     materials_query = (
@@ -197,5 +197,19 @@ async def snapshot(db, tenant_id, recipe_id):
         "sections": sections,
         "warnings": warnings,
     }
+    if include_steps:
+        # Kitchen-only structured data, from the same tenant-scoped SELECT.
+        # Keep the Central's existing response and version contract unchanged.
+        data["steps"] = [
+            {
+                "id": str(step.id),
+                "name": step.nome,
+                "duration_minutes": step.duracao_minutos,
+                "work_type": step.tipo_mao_obra,
+                "order": step.ordem,
+            }
+            for step in sorted(root.etapas, key=lambda step: (step.ordem, str(step.id)))
+            if not step.deleted_at
+        ]
     data["version"] = fingerprint(data)
     return data

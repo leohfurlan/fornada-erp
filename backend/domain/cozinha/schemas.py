@@ -29,7 +29,7 @@ class CommandPayload(Input):
     selection_id: UUID | None = None
     ordinal: int | None = Field(default=None, ge=1, le=5)
     recipe_id: UUID | None = None
-    section: Literal["ingredients", "preparation", "assembly"] | None = None
+    section: Literal["ingredients", "preparation", "steps", "assembly"] | None = None
 
 
 class KitchenCommand(Input):

@@ -6,28 +6,13 @@ from uuid import UUID, uuid4
 
 from domain.receitas.central_snapshot import snapshot
 
-ORDERED_ITEM = re.compile(r"^\s*\d+[.)]\s+(.+?)\s*$")
-
 
 def preparation_blocks(markdown: str | None) -> list[dict[str, str]]:
     if not markdown or not markdown.strip():
         return []
-    lines = [line for line in markdown.splitlines() if line.strip()]
-    parsed = [ORDERED_ITEM.fullmatch(line) for line in lines]
-    if lines and all(parsed):
-        return [
-            {
-                "id": f"preparation-{index}",
-                "section": "preparation",
-                "title": f"Etapa {index}",
-                "markdown": match.group(1),
-            }
-            for index, match in enumerate(parsed, start=1)
-            if match is not None
-        ]
     return [
         {
-            "id": "preparation-1",
+            "id": "preparation-text",
             "section": "preparation",
             "title": "Modo de preparo",
             "markdown": markdown,
@@ -40,7 +25,7 @@ def build_projection(data: dict[str, Any]) -> dict[str, Any]:
     ingredient_text = "\n".join(
         f"- {item['name']}: {item['quantity']} {item['unit']}" for item in ingredients
     )
-    blocks: list[dict[str, str]] = []
+    blocks: list[dict[str, Any]] = []
     if ingredients:
         blocks.append(
             {
@@ -55,6 +40,23 @@ def build_projection(data: dict[str, Any]) -> dict[str, Any]:
         None,
     )
     blocks.extend(preparation_blocks(preparation))
+    for step in sorted(data.get("steps", []), key=lambda step: (step["order"], step["id"])):
+        duration = step.get("duration_minutes")
+        description = (
+            f"Duração: {duration} min" if duration is not None else "Tempo ainda não informado."
+        )
+        work_type = {"direta": "direta", "indireta": "indireta"}.get(step.get("work_type"))
+        if work_type:
+            description += f"\nMão de obra {work_type}."
+        blocks.append(
+            {
+                "id": f"step-{step['id']}",
+                "section": "steps",
+                "title": step["name"],
+                "markdown": description,
+                "checkable": True,
+            }
+        )
     for section in data["sections"]:
         match = re.fullmatch(r"Montagem (\d+)", section["title"])
         if match:
@@ -89,7 +91,11 @@ def resume_completion(previous: dict[str, Any] | None, current: dict[str, Any]) 
         return {
             **current,
             "session_id": previous.get("session_id") or current["session_id"],
-            "completed_block_ids": previous.get("completed_block_ids", []),
+            "completed_block_ids": [
+                bid
+                for bid in previous.get("completed_block_ids", [])
+                if any(b["id"] == bid and b.get("checkable") is True for b in current["blocks"])
+            ],
         }
     return current
 
@@ -104,7 +110,7 @@ def update_completion(
     """
     if block_id is None:
         return {**projection, "session_id": str(uuid4()), "completed_block_ids": []}
-    valid = {b["id"] for b in projection["blocks"] if b["section"] != "ingredients"}
+    valid = {b["id"] for b in projection["blocks"] if b.get("checkable") is True}
     if block_id not in valid or completed is None:
         raise ValueError("Escolha uma etapa válida do preparo.")
     ids = set(projection.get("completed_block_ids", [])) & valid
@@ -139,7 +145,7 @@ def station_view(station) -> dict[str, Any]:
 
 
 async def recipe_projection(db, tenant_id: UUID, recipe_id: UUID) -> dict[str, Any] | None:
-    data = await snapshot(db, tenant_id, recipe_id)
+    data = await snapshot(db, tenant_id, recipe_id, include_steps=True)
     return build_projection(data) if data else None
 
 

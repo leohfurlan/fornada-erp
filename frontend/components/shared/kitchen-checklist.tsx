@@ -3,7 +3,7 @@
 import { Check } from "lucide-react";
 import { MarkdownContent } from "@/components/shared/markdown-content";
 
-export type KitchenStep = { id: string; section: string; title: string; markdown: string };
+export type KitchenStep = { id: string; section: string; title: string; markdown: string; checkable?: boolean };
 
 interface KitchenChecklistProps {
   blocks: KitchenStep[];
@@ -16,7 +16,7 @@ interface KitchenChecklistProps {
 }
 
 export function KitchenChecklist({ blocks, completedIds, section, currentId, disabled, onComplete, onReset }: KitchenChecklistProps) {
-  const steps = blocks.filter(block => block.section !== "ingredients");
+  const steps = blocks.filter(block => block.checkable === true);
   const done = steps.filter(step => completedIds.includes(step.id)).length;
   const progress = steps.length ? done / steps.length * 100 : 0;
   const percent = Math.round(progress);
@@ -66,7 +66,7 @@ export function KitchenChecklist({ blocks, completedIds, section, currentId, dis
         </div>
       </article>;
     })}
-    {section !== "ingredients" && !steps.some(step => step.section === section) && <p className="rounded-2xl border border-dashed p-8 text-lg">Esta receita ainda não tem etapas nesta seção.</p>}
+    {section === "steps" && !steps.length && <p className="rounded-2xl border border-dashed p-8 text-lg">Esta receita ainda não tem etapas cadastradas.</p>}
     {steps.length > 0 && <button type="button" disabled={disabled || done === 0} onClick={() => {
       if (window.confirm("Reiniciar etapas? Todas as marcações deste preparo serão apagadas.")) onReset();
     }} className="min-h-12 rounded-xl border px-5 text-base font-semibold hover:bg-muted disabled:opacity-40">Reiniciar etapas</button>}
