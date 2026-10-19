@@ -76,16 +76,29 @@ it("desfaz a marcação otimista quando o servidor recusa o comando", async () =
   await waitFor(() => expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0"));
 });
 
-it("exibe o modo de preparo como texto único sem controle de conclusão", async () => {
+it("une texto e etapas no modo de preparo, mantendo o texto fora da seleção", async () => {
   const { station, client } = await openKitchen();
   station.section = "preparation";
   station.revision++;
   await act(async () => { await client.invalidateQueries({ queryKey: ["cozinha", "cook", "station"] }); });
   expect(await screen.findByText(/Texto integral para leitura/)).toBeVisible();
-  expect(screen.queryByRole("button", { name: "Marcar etapa 1 como concluída" })).not.toBeInTheDocument();
+  const step = screen.getByRole("article", { name: "Etapa 1" });
+  expect(screen.getByRole("button", { name: "Marcar etapa 1 como concluída" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Etapas", exact: true })).not.toBeInTheDocument();
+  expect(screen.getByText(/Texto integral para leitura/).compareDocumentPosition(step) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   fireEvent.click(screen.getByText(/Texto integral para leitura/));
   expect(mocks.post.mock.calls.filter(([path]) => path.endsWith("/commands"))).toHaveLength(0);
   expect(screen.getByText("0 de 1 etapas concluídas")).toBeVisible();
   expect(screen.queryByRole("button", { name: "Próxima etapa" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Repetir leitura" })).toBeVisible();
+});
+
+it("mantém o texto no topo também quando a navegação está nas etapas", async () => {
+  await openKitchen();
+  const text = screen.getByText(/Texto integral para leitura/);
+  const step = screen.getByRole("article", { name: "Etapa 1" });
+  expect(text.compareDocumentPosition(step) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Modo de preparo", exact: true })).toHaveClass("bg-primary");
+  expect(screen.queryByRole("button", { name: "Etapas", exact: true })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Voltar ao início do modo de preparo" })).toHaveAttribute("href", "#modo-de-preparo");
 });

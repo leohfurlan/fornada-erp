@@ -43,7 +43,7 @@ it("marca fora de ordem, mantém dimensões/classes estruturais, calcula e rever
   expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "50");
 });
 
-it("preserva links e não duplica a marcação do botão interno", () => {
+it("preserva links e permite concluir pelo cabeçalho inteiro sem botão de seleção separado", () => {
   const onComplete = vi.fn();
   render(<KitchenChecklist blocks={blocks} section="steps" completedIds={[]} disabled={false} onComplete={onComplete} onReset={vi.fn()} />);
   fireEvent.click(screen.getByRole("link", { name: "Ajuda" }));
@@ -51,6 +51,9 @@ it("preserva links e não duplica a marcação do botão interno", () => {
   fireEvent.click(screen.getByRole("button", { name: "Marcar etapa 1 como concluída" }));
   expect(onComplete).toHaveBeenCalledTimes(1);
   expect(onComplete).toHaveBeenCalledWith("step-1", true);
+  const header = screen.getByRole("button", { name: "Marcar etapa 1 como concluída" });
+  expect(header).toHaveClass("w-full");
+  expect(header).toContainElement(screen.getByRole("heading", { name: "Misturar" }));
 });
 
 it("só reinicia após confirmar e mantém a receita visível", () => {

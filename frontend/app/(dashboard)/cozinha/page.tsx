@@ -125,6 +125,8 @@ export default function CozinhaPage() {
     [station?.projection, station?.section],
   );
   const currentBlock = activeBlocks[station?.block_index ?? 0];
+  const showingPreparation = station?.section === "preparation" || station?.section === "steps";
+  const preparationText = station?.projection?.blocks.find(block => block.section === "preparation");
 
   const invalidateStation = useCallback(async () => {
     await Promise.all([
@@ -411,16 +413,25 @@ export default function CozinhaPage() {
             <h2 className="mt-2 break-words text-3xl font-bold sm:text-4xl">{station.projection.name}</h2>
             <p className="mt-2 text-lg text-muted-foreground">Rende {formatQuantidade(station.projection.yield_quantity)} {station.projection.yield_unit}</p>
             <div className="mt-5 flex flex-wrap gap-2">
-              {([ ["ingredients", "Ingredientes"], ["preparation", "Modo de preparo"], ["steps", "Etapas"], ["assembly", "Montagem"] ] as const).map(([section, label]) => {
-                const available = station.projection?.blocks.some(block => block.section === section);
-                return <button type="button" key={section} disabled={!available || loadingCommand || remoteUnavailable} onClick={() => void sendCommand("show_section", { section })} className={`min-h-12 rounded-xl border px-5 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${station.section === section ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted"}`}>{label}</button>;
+              {([ ["ingredients", "Ingredientes"], ["preparation", "Modo de preparo"], ["assembly", "Montagem"] ] as const).map(([section, label]) => {
+                const targetSection = section === "preparation" && !preparationText ? "steps" : section;
+                const available = station.projection?.blocks.some(block => block.section === targetSection);
+                const selected = section === "preparation" ? showingPreparation : station.section === section;
+                return <button type="button" key={section} disabled={!available || loadingCommand || remoteUnavailable} onClick={() => void sendCommand("show_section", { section: targetSection })} className={`min-h-12 rounded-xl border px-5 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${selected ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted"}`}>{label}</button>;
               })}
             </div>
           </header>
 
           {station.projection.warnings.map((warning, index) => <div key={`${warning}-${index}`} className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-base text-amber-950">{warning}</div>)}
-          <KitchenChecklist blocks={station.projection.blocks} completedIds={optimisticCompleted ?? station.projection.completed_block_ids ?? []} section={station.section} currentId={currentBlock?.id} disabled={loadingCommand || remoteUnavailable} onComplete={(block_id, completed) => void sendCommand("set_step_completed", { block_id, completed })} onReset={() => void sendCommand("reset_steps")} />
-          {station.section !== "steps" && (currentBlock ? <article className="min-h-64 rounded-2xl border bg-card p-5 sm:p-8" aria-live="polite">
+          {showingPreparation && <section id="modo-de-preparo" aria-label="Modo de preparo" className="scroll-mt-6 space-y-5">
+            <article className="rounded-2xl border bg-card p-5 sm:p-8">
+              <h3 className="text-2xl font-bold sm:text-3xl">Modo de preparo</h3>
+              {preparationText ? <MarkdownContent className="mt-6 text-xl leading-relaxed sm:text-2xl">{preparationText.markdown}</MarkdownContent> : <p className="mt-4 text-lg text-muted-foreground">Acompanhe o preparo nas etapas abaixo.</p>}
+            </article>
+          <KitchenChecklist blocks={station.projection.blocks} completedIds={optimisticCompleted ?? station.projection.completed_block_ids ?? []} section="preparation" currentId={currentBlock?.id} disabled={loadingCommand || remoteUnavailable} onComplete={(block_id, completed) => void sendCommand("set_step_completed", { block_id, completed })} onReset={() => void sendCommand("reset_steps")} />
+            <a href="#modo-de-preparo" className="inline-flex min-h-12 items-center rounded-xl px-4 font-semibold text-primary hover:bg-muted">Voltar ao início do modo de preparo</a>
+          </section>}
+          {!showingPreparation && (currentBlock ? <article className="min-h-64 rounded-2xl border bg-card p-5 sm:p-8" aria-live="polite">
             <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">{station.section === "ingredients" ? "Lista da receita" : "Leitura da receita"}</p>
             <h3 className="mt-2 text-2xl font-bold sm:text-3xl">{currentBlock.title}</h3>
             {station.section === "ingredients" ? <ul className="mt-6 divide-y rounded-xl border">
