@@ -21,7 +21,12 @@ from domain.cozinha.schemas import (
     LeaseRequest,
     StationCreate,
 )
-from domain.cozinha.service import recipe_projection, station_view
+from domain.cozinha.service import (
+    recipe_projection,
+    resume_completion,
+    station_view,
+    update_completion,
+)
 from domain.cozinha.speech import projection_speech_parts
 from domain.receitas.central_snapshot import normalized, search
 from infrastructure.database.cozinha_models import CozinhaComando, CozinhaEstacao
@@ -378,6 +383,7 @@ async def command(
             ) from None
         if projection is None:
             raise HTTPException(404, detail="Receita não encontrada.")
+        projection = resume_completion(station.projection, projection)
         station.receita_id = data.payload.recipe_id
         station.aviso = None
         station.selecao_id = None
@@ -387,6 +393,21 @@ async def command(
         station.secao = "ingredients"
         station.bloco_indice = 0
         station.parte_fala_indice = 0
+    elif data.type in ("set_step_completed", "reset_steps"):
+        if not station.projection:
+            raise HTTPException(422, detail="Abra uma receita antes de concluir etapas.")
+        if data.type == "set_step_completed" and (
+            data.payload.block_id is None or data.payload.completed is None
+        ):
+            raise HTTPException(422, detail="Informe a etapa e seu estado de conclusão.")
+        try:
+            station.projection = update_completion(
+                station.projection,
+                data.payload.block_id if data.type == "set_step_completed" else None,
+                data.payload.completed,
+            )
+        except ValueError as error:
+            raise HTTPException(422, detail=str(error)) from error
     elif data.type == "show_section":
         if not station.projection or data.payload.section is None:
             raise HTTPException(422, detail="Abra uma receita antes de escolher uma seção.")

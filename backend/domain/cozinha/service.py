@@ -2,7 +2,7 @@
 
 import re
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from domain.receitas.central_snapshot import snapshot
 
@@ -68,6 +68,8 @@ def build_projection(data: dict[str, Any]) -> dict[str, Any]:
                 }
             )
     return {
+        "session_id": str(uuid4()),
+        "completed_block_ids": [],
         "recipe_id": data["recipe_id"],
         "recipe_version": data["version"],
         "name": data["name"],
@@ -76,6 +78,44 @@ def build_projection(data: dict[str, Any]) -> dict[str, Any]:
         "ingredients": ingredients,
         "blocks": blocks,
         "warnings": data["warnings"],
+    }
+
+
+def resume_completion(previous: dict[str, Any] | None, current: dict[str, Any]) -> dict[str, Any]:
+    """Keep the current session when touch or voice reopens an unchanged recipe."""
+    if previous and all(
+        previous.get(key) == current[key] for key in ("recipe_id", "recipe_version")
+    ):
+        return {
+            **current,
+            "session_id": previous.get("session_id") or current["session_id"],
+            "completed_block_ids": previous.get("completed_block_ids", []),
+        }
+    return current
+
+
+def update_completion(
+    projection: dict[str, Any], block_id: str | None = None, completed: bool | None = None
+) -> dict[str, Any]:
+    """Return a new JSON value so SQLAlchemy persists the session checklist.
+
+    Explicit desired state makes retries safe. A reset starts a fresh preparation
+    session; recipe projections are invalidated on edits because IDs are positional.
+    """
+    if block_id is None:
+        return {**projection, "session_id": str(uuid4()), "completed_block_ids": []}
+    valid = {b["id"] for b in projection["blocks"] if b["section"] != "ingredients"}
+    if block_id not in valid or completed is None:
+        raise ValueError("Escolha uma etapa válida do preparo.")
+    ids = set(projection.get("completed_block_ids", [])) & valid
+    if completed:
+        ids.add(block_id)
+    else:
+        ids.discard(block_id)
+    return {
+        **projection,
+        "session_id": projection.get("session_id") or str(uuid4()),
+        "completed_block_ids": sorted(ids),
     }
 
 

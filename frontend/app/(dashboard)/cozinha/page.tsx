@@ -1,16 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, ChefHat, CircleAlert, LoaderCircle, Play, Search, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatQuantidade } from "@/lib/utils";
-import { MarkdownContent } from "@/components/shared/markdown-content";
+import { KitchenChecklist } from "@/components/shared/kitchen-checklist";
 import { useAuthStore } from "@/stores/use-auth-store";
 
 type SearchItem = { recipe_id: string; name: string };
 type KitchenBlock = { id: string; section: string; title: string; markdown: string };
 type Projection = {
+  session_id?: string;
+  completed_block_ids?: string[];
   recipe_id: string;
   recipe_version: string;
   name: string;
@@ -74,6 +76,8 @@ export default function CozinhaPage() {
   const [offsetBusca, setOffsetBusca] = useState(0);
   const [aviso, setAviso] = useState<string | null>(null);
   const [loadingCommand, setLoadingCommand] = useState(false);
+  const commandPending = useRef(false);
+  const [optimisticCompleted, setOptimisticCompleted] = useState<string[] | null>(null);
 
   const stationsQuery = useQuery({
     queryKey: ["cozinha", usuarioId, "stations"],
@@ -220,7 +224,15 @@ export default function CozinhaPage() {
   };
 
   const sendCommand = async (type: string, extras: Record<string, unknown> = {}) => {
-    if (!station || !leaseId || loadingCommand || remoteUnavailable) return;
+    if (!station || !leaseId || commandPending.current || remoteUnavailable) return;
+    commandPending.current = true;
+    if (type === "reset_steps") setOptimisticCompleted([]);
+    if (type === "set_step_completed") {
+      const ids = new Set(station.projection?.completed_block_ids ?? []);
+      if (extras.completed) ids.add(String(extras.block_id));
+      else ids.delete(String(extras.block_id));
+      setOptimisticCompleted([...ids]);
+    }
     setLoadingCommand(true);
     setAviso(null);
     try {
@@ -235,6 +247,8 @@ export default function CozinhaPage() {
       setAviso(status === 409 ? "A estação foi atualizada. Aguarde a tela sincronizar e tente de novo." : "Não foi possível concluir. Verifique a conexão e tente novamente.");
       await invalidateStation();
     } finally {
+      commandPending.current = false;
+      setOptimisticCompleted(null);
       setLoadingCommand(false);
     }
   };
@@ -404,15 +418,16 @@ export default function CozinhaPage() {
           </header>
 
           {station.projection.warnings.map((warning, index) => <div key={`${warning}-${index}`} className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-base text-amber-950">{warning}</div>)}
-          {currentBlock ? <article className="min-h-64 rounded-2xl border bg-card p-5 sm:p-8" aria-live="polite">
-            <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">{station.section === "ingredients" ? "Lista da receita" : `Etapa ${station.block_index + 1} de ${activeBlocks.length}`}</p>
+          <KitchenChecklist blocks={station.projection.blocks} completedIds={optimisticCompleted ?? station.projection.completed_block_ids ?? []} section={station.section} currentId={currentBlock?.id} disabled={loadingCommand || remoteUnavailable} onComplete={(block_id, completed) => void sendCommand("set_step_completed", { block_id, completed })} onReset={() => void sendCommand("reset_steps")} />
+          {station.section === "ingredients" && (currentBlock ? <article className="min-h-64 rounded-2xl border bg-card p-5 sm:p-8" aria-live="polite">
+            <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Lista da receita</p>
             <h3 className="mt-2 text-2xl font-bold sm:text-3xl">{currentBlock.title}</h3>
-            {station.section === "ingredients" ? <ul className="mt-6 divide-y rounded-xl border">
+            <ul className="mt-6 divide-y rounded-xl border">
               {station.projection.ingredients.map((ingredient, index) => <li key={`${ingredient.name}-${index}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-4 sm:px-6">
                 <span className="text-xl font-semibold sm:text-2xl">{ingredient.name}</span><span className="text-xl text-primary">{formatQuantidade(ingredient.quantity)} {ingredient.unit}</span>
               </li>)}
-            </ul> : <MarkdownContent className="mt-6 space-y-5 text-xl leading-relaxed sm:text-2xl">{currentBlock.markdown}</MarkdownContent>}
-          </article> : <article className="rounded-2xl border border-dashed bg-card p-8 text-center"><p className="text-xl font-semibold">Esta receita ainda não tem {station.section === "preparation" ? "modo de preparo" : "etapas de montagem"} cadastrados.</p><p className="mt-2 text-base text-muted-foreground">Você pode continuar consultando as outras seções.</p></article>}
+            </ul>
+          </article> : <article className="rounded-2xl border border-dashed bg-card p-8 text-center"><p className="text-xl font-semibold">Esta receita ainda não tem ingredientes cadastrados.</p><p className="mt-2 text-base text-muted-foreground">Você pode continuar consultando as outras seções.</p></article>)}
 
           <div className="grid grid-cols-2 gap-3 sm:flex sm:justify-between">
             <button type="button" disabled={loadingCommand || remoteUnavailable || station.block_index === 0 || activeBlocks.length === 0} onClick={() => void sendCommand("previous")} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-xl border bg-card px-5 text-lg font-semibold disabled:opacity-40"><ArrowLeft className="h-5 w-5" />Anterior</button>

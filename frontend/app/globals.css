@@ -30,6 +30,8 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
     --accent-foreground: var(--brand-ink);
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
+    --success: 142 76% 28%;
+    --success-foreground: 0 0% 100%;
     --border: 23.61 27.11% 55.88%; /* #AD8870: contorno marrom definido */
     --input: var(--border);
     --ring: var(--primary);

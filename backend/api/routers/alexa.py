@@ -22,7 +22,7 @@ from starlette.concurrency import run_in_threadpool
 from api.dependencies import get_authenticated_actor
 from core.config import settings
 from core.rate_limit import limiter
-from domain.cozinha.service import recipe_projection
+from domain.cozinha.service import recipe_projection, resume_completion
 from domain.cozinha.speech import projection_speech_parts
 from domain.receitas.central_snapshot import search
 from infrastructure.database.cozinha_models import (
@@ -996,7 +996,7 @@ async def _open_recipe(
         return "Não consegui abrir essa receita. Confira se ela ainda está cadastrada no Fornada."
     station.receita_id = recipe_id
     station.receita_versao = projection["recipe_version"]
-    station.projection = projection
+    station.projection = resume_completion(station.projection, projection)
     station.secao = "ingredients"
     station.bloco_indice = 0
     station.parte_fala_indice = 0
