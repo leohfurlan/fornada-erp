@@ -16,7 +16,13 @@ class NotFoundError(FornadaError):
 
 
 class ConflictError(FornadaError):
-    def __init__(self, message: str) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        related_recipes: list[dict[str, str]] | None = None,
+    ) -> None:
+        self.related_recipes = related_recipes
         super().__init__(message, code="conflict")
 
 

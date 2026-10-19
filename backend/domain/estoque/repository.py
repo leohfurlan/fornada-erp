@@ -66,14 +66,22 @@ class EstoqueRepository:
         )
         return list(result.scalars().all())
 
-    async def ingrediente_em_uso(self, ingrediente_id: UUID) -> bool:
-        """Verifica se o ingrediente está referenciado em alguma receita ativa."""
+    async def listar_receitas_com_ingrediente(
+        self, ingrediente_id: UUID, tenant_id: UUID
+    ) -> list[tuple[UUID, str]]:
+        """Lista receitas ativas do tenant que usam o ingrediente."""
         result = await self._db.execute(
-            select(ReceitaIngrediente.id)
-            .where(ReceitaIngrediente.ingrediente_id == ingrediente_id)
-            .limit(1)
+            select(Receita.id, Receita.nome)
+            .join(ReceitaIngrediente, ReceitaIngrediente.receita_id == Receita.id)
+            .where(
+                Receita.tenant_id == tenant_id,
+                Receita.deleted_at.is_(None),
+                ReceitaIngrediente.ingrediente_id == ingrediente_id,
+            )
+            .distinct()
+            .order_by(Receita.nome)
         )
-        return result.scalar_one_or_none() is not None
+        return [(receita_id, nome) for receita_id, nome in result.all()]
 
     async def unidades_receitas(self, ingrediente_id: UUID, tenant_id: UUID) -> list[str]:
         """Unidades usadas em receitas/fichas ativas do mesmo tenant."""
