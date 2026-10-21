@@ -339,4 +339,5 @@ export interface ListaComprasResponse {
 
 export interface ApiError {
   detail: string;
+  related_recipes?: Array<{ id: string; nome: string }>;
 }

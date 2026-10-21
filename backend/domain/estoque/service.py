@@ -154,10 +154,15 @@ class EstoqueService:
         if not ingrediente:
             raise NotFoundError("Ingrediente", str(ingrediente_id))
 
-        if await self._repo.ingrediente_em_uso(ingrediente_id):
+        receitas = await self._repo.listar_receitas_com_ingrediente(ingrediente_id, tenant_id)
+        if receitas:
             raise ConflictError(
                 "Este ingrediente está sendo usado em uma ou mais receitas. "
-                "Remova-o das receitas antes de excluir."
+                "Remova-o das receitas antes de excluir.",
+                related_recipes=[
+                    {"id": str(receita_id), "nome": nome}
+                    for receita_id, nome in receitas
+                ],
             )
 
         await self._repo.soft_delete(ingrediente)

@@ -95,6 +95,7 @@ export default function EditarIngredientePage() {
 
   const deletarError = deletar.error as AxiosError<ApiError> | null;
   const mensagemDeletar = deletarError?.response?.data?.detail;
+  const receitasRelacionadas = deletarError?.response?.data?.related_recipes ?? [];
 
   return (
     <div className="space-y-5">
@@ -189,7 +190,21 @@ export default function EditarIngredientePage() {
         <h2 className="text-sm font-medium text-destructive">Zona de risco</h2>
         {mensagemDeletar && (
           <div className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {mensagemDeletar}
+            <p>{mensagemDeletar}</p>
+            {receitasRelacionadas.length > 0 && (
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {receitasRelacionadas.map((receita) => (
+                  <li key={receita.id}>
+                    <Link
+                      href={`/receitas/${receita.id}`}
+                      className="font-medium underline underline-offset-2 hover:opacity-80"
+                    >
+                      {receita.nome}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
         <button

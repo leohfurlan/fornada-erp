@@ -151,7 +151,10 @@ async def not_found_handler(request: Request, exc: NotFoundError) -> JSONRespons
 
 @app.exception_handler(ConflictError)
 async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
-    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=error_detail(exc))
+    content = error_detail(exc)
+    if exc.related_recipes:
+        content["related_recipes"] = exc.related_recipes
+    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=content)
 
 
 @app.exception_handler(AuthError)
