@@ -278,11 +278,11 @@ class PedidosService:
         if cliente_id is not None:
             c = await self._repo.buscar_cliente(cliente_id, tenant_id)
             if not c:
-                raise ValidationError(f"Cliente {cliente_id} não encontrado")
+                raise ValidationError(f"Cliente {cliente_id} não encontrado", field="cliente_id")
         if itens is not None:
-            for item in itens:
+            for index, item in enumerate(itens):
                 receita = await self._repo.buscar_receita(item.receita_id, tenant_id)
                 if not receita:
                     raise ValidationError(
-                        f"Receita {item.receita_id} não encontrada"
+                        f"Receita {item.receita_id} não encontrada", field=f"itens.{index}.receita_id"
                     )

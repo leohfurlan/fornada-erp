@@ -85,3 +85,17 @@ export function useEntradaEstoque() {
     },
   });
 }
+
+export function useAjustarEstoque(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation<Ingrediente, Error, { quantidade_alvo: string }>({
+    mutationFn: async (payload) => {
+      const { data } = await api.post(`/estoque/ingredientes/${id}/ajustes`, payload);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["ingredientes"] });
+      queryClient.setQueryData(["ingredientes", id], data);
+    },
+  });
+}

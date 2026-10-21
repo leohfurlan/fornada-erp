@@ -1,11 +1,13 @@
 "use client";
+import { fieldIssues } from "@/lib/validation";
+import { ValidatedForm } from "@/components/shared/validation-feedback";
 
 import { useState, useEffect } from "react";
 import { useWhatsAppDisponivel } from "@/hooks/use-whatsapp-auth";
 import { WhatsAppAccess } from "@/components/shared/whatsapp-access";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm } from "@/lib/form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { api } from "@/lib/api";
@@ -43,8 +45,15 @@ export default function LoginPage() {
       setTokens(response.data.access_token, response.data.refresh_token);
       setUsuario(response.data.usuario);
       router.push("/");
-    } catch {
-      setErro("E-mail ou senha incorretos. Tente novamente.");
+    } catch (error) {
+      if (fieldIssues(error).length) throw error;
+      if ((error as { response?: { status?: number } }).response?.status === 401) {
+        throw { response: { data: { field_errors: [
+          { path: "email", message: "Confira o e-mail e a senha informados." },
+          { path: "senha", message: "Confira o e-mail e a senha informados." },
+        ] } } };
+      }
+      throw error;
     }
   };
 
@@ -55,7 +64,7 @@ export default function LoginPage() {
           <h1 className="text-xl font-semibold">Entrar na sua conta</h1>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <ValidatedForm errors={errors} onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-1">
             <label htmlFor="email" className="text-sm font-medium">
               E-mail
@@ -101,7 +110,7 @@ export default function LoginPage() {
           >
             {isSubmitting ? "Entrando..." : "Entrar"}
           </button>
-        </form>
+        </ValidatedForm>
 
         <p className="text-center text-sm text-muted-foreground">
           Ainda não tem conta?{" "}

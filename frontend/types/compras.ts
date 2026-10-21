@@ -40,9 +40,10 @@ export interface VinculoCompra {
   produto_revisao_confirmada: number;
   ativo: boolean;
 }
-export interface Pagina<T> { itens: T[]; total: number }
+export interface Pagina<T> { itens: T[]; total: number; sugestoes?: string[] }
 export interface ItemObservado {
   indice: number;
+  linhas_origem?: number[];
   descricao: string;
   quantidade: string | null;
   unidade: string | null;

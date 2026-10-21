@@ -1,0 +1,7 @@
+# Estoque: filtros persistentes e controles compactos
+
+A busca permanece visível e recebe um botão X circular à direita para limpar somente o texto, devolvendo o foco ao campo. O botão Filtros expande um submenu com tipo de item, situação do estoque e ordenação mobile. O contador no botão identifica filtros ativos mesmo com o submenu fechado. Limpar filtros restaura tipo, situação e ordenação padrão, preservando a busca. A tabela desktop mantém seus controles de coluna e ordenação existentes.
+
+O hook useEstoqueFilters guarda busca, tipo, situação e ordenação em sessionStorage, com chave por empresa, usuário e sessão de suporte. Ao voltar da edição, histórico ou alternar a aba de estoque, o contexto da lista de ingredientes é recuperado sem alterar os links de retorno existentes. A preferência dura a sessão da aba do navegador. Dados inválidos são normalizados; armazenamento bloqueado ou corrompido não impede filtrar. A leitura ocorre após montagem para evitar divergência de hidratação e a gravação só começa após recuperar a chave correta, evitando apagar o filtro salvo com valores iniciais.
+
+Alteração somente frontend; sem novas dependências, backend ou migração. Testes cobrem submenu, retorno após desmontagem, limpeza independente de busca/filtros, isolamento por conta/empresa e indisponibilidade de armazenamento. Publicação incremental preserva as alterações recentes do Modo Cozinha, rascunhos e edição de ingredientes.

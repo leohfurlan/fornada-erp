@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, model_validator
 
+from domain.validation import field_error
+
 TipoAgendaItem = Literal["receita", "pedido", "tarefa"]
 
 # Tipos válidos de item de agenda (mesma fonte de verdade do service).
@@ -15,16 +17,16 @@ _COR_HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 def _validar_cor(cor: str | None) -> str | None:
     if cor is not None and not _COR_HEX_RE.match(cor):
-        raise ValueError("Cor deve estar no formato hexadecimal, ex: #f97316")
+        raise field_error(("cor",), "Cor deve estar no formato hexadecimal, ex: #f97316")
     return cor
 
 
 def _validar_horario(hora_inicio: time | None, hora_fim: time | None) -> None:
     # hora_fim só faz sentido junto de hora_inicio, e deve ser posterior.
     if hora_fim is not None and hora_inicio is None:
-        raise ValueError("Defina a hora de início antes da hora de término")
+        raise field_error(("hora_inicio",), "Defina a hora de início antes da hora de término")
     if hora_inicio is not None and hora_fim is not None and hora_fim <= hora_inicio:
-        raise ValueError("A hora de término deve ser maior que a hora de início")
+        raise field_error(("hora_fim",), "A hora de término deve ser maior que a hora de início")
 
 
 class CriarAgendaItemRequest(BaseModel):

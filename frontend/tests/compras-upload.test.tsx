@@ -4,9 +4,9 @@ import { expect, it } from "vitest";
 import { api } from "@/lib/api";
 import { useLerCompra } from "@/hooks/use-compras-comerciais";
 
-it("envia a imagem como arquivo multipart através da transformação real do Axios", async () => {
+it.each(["image/jpeg", "application/pdf"])("envia %s como arquivo multipart através da transformação real do Axios", async (type) => {
   const previous = api.defaults.adapter;
-  const file = new File(["image"], "cupom.jpeg", { type: "image/jpeg" });
+  const file = new File(["receipt"], type === "application/pdf" ? "cupom.pdf" : "cupom.jpeg", { type });
   let recebeuArquivo = false;
   api.defaults.adapter = async (config) => {
     expect(config.data).toBeInstanceOf(FormData);

@@ -19,7 +19,7 @@ export function formatDecimal(value: string | number | null | undefined, decimal
   if (isNaN(num)) return "0";
   return new Intl.NumberFormat("pt-BR", {
     minimumFractionDigits: 0,
-    maximumFractionDigits: decimals,
+    maximumFractionDigits: Math.min(3, Math.max(0, decimals)),
   }).format(num);
 }
 

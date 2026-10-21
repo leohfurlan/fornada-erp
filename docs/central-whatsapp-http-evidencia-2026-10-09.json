@@ -1,0 +1,25 @@
+{
+  "synthetic": true,
+  "checks": [
+    "migration preserva usuário e iFood após upgrade/downgrade/upgrade",
+    "imagem sem OCR abre revisão humana",
+    "salvar revisão não envia nem executa",
+    "compra manual confirma com referência real",
+    "imagem sem OCR abre revisão humana",
+    "salvar revisão não envia nem executa",
+    "resposta perdida após commit fica incerta",
+    "reconciliação recupera sem novo execute",
+    "imagem sem OCR abre revisão humana",
+    "salvar revisão não envia nem executa",
+    "revogação antes de executar não lança",
+    "imagem sem OCR abre revisão humana",
+    "salvar revisão não envia nem executa",
+    "execuções HTTP concorrentes devolvem a mesma compra",
+    "imagem sem OCR abre revisão humana",
+    "salvar revisão não envia nem executa",
+    "assumir conversa impede execução automática",
+    "três compras confirmadas e três movimentos no total",
+    "estoque final equivale a três entradas de 2 kg"
+  ],
+  "status": "passed"
+}

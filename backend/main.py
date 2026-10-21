@@ -2,9 +2,10 @@ from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
 import sentry_sdk
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from slowapi.errors import RateLimitExceeded
 
 from api.routers import (
@@ -23,6 +24,7 @@ from api.routers import (
 )
 from core.config import settings
 from api.routers import whatsapp
+from api.routers import ifood
 from core.logging import configure_logging
 from core.rate_limit import limiter
 from domain.exceptions import (
@@ -61,12 +63,28 @@ app.state.limiter = limiter
 
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    if request.url.path.startswith("/api/v1/integrations/alexa/oauth/"):
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={"error": "temporarily_unavailable", "error_description": "Tente novamente em alguns instantes."},
+            headers={"Cache-Control": "no-store"},
+        )
     return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         content={
             "detail": "Muitas tentativas. Tente novamente em alguns instantes."
         },
     )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    # OAuth 2 token endpoints require the standard top-level error shape.
+    if request.url.path.startswith("/api/v1/integrations/alexa/oauth/") and isinstance(exc.detail, dict) and "error" in exc.detail:
+        headers = dict(exc.headers or {})
+        headers.setdefault("Cache-Control", "no-store")
+        return JSONResponse(status_code=exc.status_code, content=exc.detail, headers=headers)
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=exc.headers)
 
 app.add_middleware(
     CORSMiddleware,
@@ -104,9 +122,28 @@ app.include_router(compras.router, prefix="/api/v1")
 from api.routers import compras_comerciais
 app.include_router(compras_comerciais.router, prefix="/api/v1")
 app.include_router(whatsapp.router, prefix="/api/v1")
+app.include_router(ifood.router, prefix="/api/v1")
+from api.routers import central
+app.include_router(central.router, prefix="/api/v1")
+from api.routers import central_recipes
+app.include_router(central_recipes.router, prefix="/api/v1")
+from api.routers import pwa
+app.include_router(pwa.router, prefix="/api/v1")
+from api.routers import cozinha
+app.include_router(cozinha.router, prefix="/api/v1")
+from api.routers import alexa
+app.include_router(alexa.router, prefix="/api/v1")
+app.include_router(alexa.link_router, prefix="/api/v1")
 
 
 # Tratamento de erros de domínio — mensagens em português, sem jargão técnico
+def error_detail(exc: FornadaError) -> dict:
+    content = {"detail": exc.message}
+    if field := getattr(exc, "field", None):
+        content["field_errors"] = [{"path": field, "message": exc.message}]
+    return content
+
+
 @app.exception_handler(NotFoundError)
 async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
     return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": exc.message})
@@ -114,7 +151,7 @@ async def not_found_handler(request: Request, exc: NotFoundError) -> JSONRespons
 
 @app.exception_handler(ConflictError)
 async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
-    content = {"detail": exc.message}
+    content = error_detail(exc)
     if exc.related_recipes:
         content["related_recipes"] = exc.related_recipes
     return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=content)
@@ -123,14 +160,14 @@ async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse
 @app.exception_handler(AuthError)
 async def auth_handler(request: Request, exc: AuthError) -> JSONResponse:
     return JSONResponse(
-        status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": exc.message}
+        status_code=status.HTTP_401_UNAUTHORIZED, content=error_detail(exc)
     )
 
 
 @app.exception_handler(ValidationError)
 async def validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": exc.message}
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content=error_detail(exc)
     )
 
 
@@ -162,3 +199,23 @@ async def domain_error_handler(request: Request, exc: FornadaError) -> JSONRespo
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok", "version": "0.1.0"}
+
+
+@app.exception_handler(RequestValidationError)
+async def central_validation_handler(request: Request, exc: RequestValidationError):
+    if request.url.path == "/api/v1/central/review":
+        from domain.compras.review_errors import detail, schema_issues
+        return JSONResponse(status_code=422, content={"detail": detail(schema_issues(exc.errors()))})
+    if request.url.path.startswith("/api/v1/central/"):
+        return JSONResponse(status_code=422, content={"detail": "Solicitação inválida"})
+    from core.validation import schema_issues
+
+    issues = schema_issues(exc.errors())
+    return JSONResponse(status_code=422, content={
+        "detail": [
+            {"loc": ["body", *issue["path"].split(".")], "msg": issue["message"],
+             "type": "value_error"}
+            for issue in issues
+        ],
+        "field_errors": issues,
+    })

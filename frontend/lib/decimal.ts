@@ -15,7 +15,7 @@ export function parseDecimalBR(input: string | number | null | undefined): numbe
     .trim()
     .replace(/\s+/g, "")
     // remove separador de milhar (ponto antes de 3 dígitos seguido de vírgula em algum lugar)
-    .replace(/\.(?=\d{3}(\D|$))/g, "")
+    .replace(/\.(?=\d{3}(\D|$))/g, input.includes(",") ? "" : ".")
     .replace(",", ".");
 
   const num = parseFloat(limpa);
@@ -28,7 +28,7 @@ export function formatDecimalInput(value: number | string | null | undefined): s
   const num = typeof value === "string" ? parseFloat(value) : value;
   if (isNaN(num)) return "";
   // Remove zeros decimais inúteis: 1.50 → "1,5"; 1.0 → "1"
-  return String(num).replace(".", ",");
+  return new Intl.NumberFormat("pt-BR", { useGrouping: false, maximumFractionDigits: 3 }).format(num);
 }
 
 /** Permite só caracteres válidos de decimal pt-BR (0-9 + . + , uma única vez). */

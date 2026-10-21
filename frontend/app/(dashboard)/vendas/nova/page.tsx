@@ -1,10 +1,12 @@
 "use client";
 
+import { ValidatedForm } from "@/components/shared/validation-feedback";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm } from "@/lib/form";
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { CANAIS_VENDA } from "@/components/shared/canal-venda-icon";
 import { useClientes } from "@/hooks/use-clientes";
@@ -106,7 +108,7 @@ export default function NovaVendaPage() {
 
       <h1 className="text-xl font-bold">Nova venda</h1>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <ValidatedForm errors={errors} onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Canal — chips grandes */}
         <section className="space-y-2">
           <label className="text-sm font-medium">Canal</label>
@@ -311,7 +313,7 @@ export default function NovaVendaPage() {
         >
           {isSubmitting || criar.isPending ? "Registrando..." : "Registrar venda"}
         </button>
-      </form>
+      </ValidatedForm>
     </div>
   );
 }

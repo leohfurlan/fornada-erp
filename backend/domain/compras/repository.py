@@ -229,7 +229,9 @@ class ComprasRepository:
         if produto_id:
             item_predicates.append(CompraItem.produto_id == produto_id)
         if marca:
-            item_predicates.append(func.lower(CompraItem.snapshot["marca"].astext) == marca.lower())
+            item_predicates.append(
+                func.lower(CompraItem.snapshot["marca"].astext).contains(marca.lower(), autoescape=True)
+            )
         if ingrediente_id or produto_id or marca:
             predicates.append(select(CompraItem.id).where(*item_predicates).exists())
         count = await self.db.scalar(select(func.count()).select_from(Compra).where(*predicates))
@@ -249,3 +251,17 @@ class ComprasRepository:
             ).all()
         )
         return rows, int(count or 0)
+
+    async def marcas_historico(self, tenant: UUID) -> list[str]:
+        values = await self.db.scalars(
+            select(func.distinct(CompraItem.snapshot["marca"].astext))
+            .join(Compra, Compra.id == CompraItem.compra_id)
+            .where(
+                Compra.tenant_id == tenant,
+                Compra.deleted_at.is_(None),
+                CompraItem.tenant_id == tenant,
+                CompraItem.deleted_at.is_(None),
+                CompraItem.snapshot["marca"].astext.is_not(None),
+            )
+        )
+        return [value for value in values.all() if value]

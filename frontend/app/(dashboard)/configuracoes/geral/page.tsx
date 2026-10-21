@@ -1,9 +1,11 @@
 "use client";
 
+import { ValidatedForm } from "@/components/shared/validation-feedback";
+
 import Link from "next/link";
 import { ArrowLeft, Info } from "lucide-react";
 import { useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller } from "@/lib/form";
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { percentualParaTaxa, taxaParaPercentual } from "@/lib/taxas";
 import { MoneyDisplay } from "@/components/shared/money-display";
@@ -23,7 +25,7 @@ export default function ConfiguracoesGeralPage() {
   const { data: config, isLoading } = useConfiguracaoCusto();
   const atualizar = useAtualizarConfiguracaoCusto();
 
-  const { control, handleSubmit, reset, watch } = useForm<FormData>({
+  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<FormData>({
     defaultValues: {
       custo_operacional_mensal: 0,
       horas_mensais: 160,
@@ -95,7 +97,7 @@ export default function ConfiguracoesGeralPage() {
           ))}
         </div>
       ) : (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <ValidatedForm errors={errors} onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div className="rounded-xl border p-4 space-y-2">
             <label className="text-sm font-medium">Seu valor/hora (R$)</label>
             <p className="text-xs text-muted-foreground">
@@ -199,7 +201,7 @@ export default function ConfiguracoesGeralPage() {
           >
             {atualizar.isPending ? "Salvando..." : "Salvar configurações"}
           </button>
-        </form>
+        </ValidatedForm>
       )}
     </div>
   );

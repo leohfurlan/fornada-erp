@@ -1,10 +1,12 @@
 "use client";
 
+import { ValidatedForm } from "@/components/shared/validation-feedback";
+
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Trash2 } from "lucide-react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm } from "@/lib/form";
 import {
   useAtualizarIngrediente,
   useDeletarIngrediente,
@@ -109,7 +111,7 @@ export default function EditarIngredientePage() {
         </span>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <ValidatedForm errors={errors} onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-1">
           <label className="text-sm font-medium">Tipo</label>
           <select
@@ -180,7 +182,7 @@ export default function EditarIngredientePage() {
         >
           {isSubmitting || atualizar.isPending ? "Salvando..." : "Salvar alterações"}
         </button>
-      </form>
+      </ValidatedForm>
 
       <ProdutosAprovados ingredienteId={id} />
 

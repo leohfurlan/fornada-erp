@@ -1,0 +1,82 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "cozinha fornada",
+      "intents": [
+        {
+          "name": "ResumeKitchenIntent",
+          "slots": [],
+          "samples": ["retomar estação", "continuar modo cozinha", "voltar para a receita"]
+        },
+        {
+          "name": "SearchRecipeIntent",
+          "slots": [
+            { "name": "recipe_name", "type": "AMAZON.SearchQuery" }
+          ],
+          "samples": [
+            "buscar receita de {recipe_name}",
+            "procure receita de {recipe_name}",
+            "quero preparar {recipe_name}",
+            "abrir receita de {recipe_name}"
+          ]
+        },
+        {
+          "name": "SelectRecipeIntent",
+          "slots": [
+            { "name": "ordinal", "type": "AMAZON.NUMBER" }
+          ],
+          "samples": [
+            "opção {ordinal}",
+            "receita {ordinal}",
+            "a {ordinal}"
+          ]
+        },
+        {
+          "name": "MoreRecipesIntent",
+          "slots": [],
+          "samples": ["mais receitas", "ver mais opções", "próximas receitas"]
+        },
+        {
+          "name": "ShowIngredientsIntent",
+          "slots": [],
+          "samples": ["ler ingredientes", "quais são os ingredientes", "ingredientes da receita"]
+        },
+        {
+          "name": "ShowPreparationIntent",
+          "slots": [],
+          "samples": ["mostrar preparo", "ler modo de preparo", "como preparar"]
+        },
+        {
+          "name": "ShowAssemblyIntent",
+          "slots": [],
+          "samples": ["mostrar montagem", "ler montagem", "como montar"]
+        },
+        {
+          "name": "NextStepIntent",
+          "slots": [],
+          "samples": ["próxima etapa", "próximo passo", "avançar etapa"]
+        },
+        {
+          "name": "PreviousStepIntent",
+          "slots": [],
+          "samples": ["etapa anterior", "passo anterior", "voltar etapa"]
+        },
+        {
+          "name": "RepeatContentIntent",
+          "slots": [],
+          "samples": ["repetir", "repita esta parte", "ler novamente"]
+        },
+        {
+          "name": "ContinueReadingIntent",
+          "slots": [],
+          "samples": ["continuar leitura", "continuar lendo", "próxima parte"]
+        },
+        { "name": "AMAZON.HelpIntent", "samples": [] },
+        { "name": "AMAZON.CancelIntent", "samples": [] },
+        { "name": "AMAZON.StopIntent", "samples": [] },
+        { "name": "AMAZON.FallbackIntent", "samples": [] }
+      ],
+      "types": []
+    }
+  }
+}

@@ -84,7 +84,7 @@ async def entrar(request: Request, data: ProvaRequest, otp: OtpService = Depends
 async def cadastrar(request: Request, data: CadastroWhatsappRequest, otp: OtpService = Depends(get_otp_service), db: AsyncSession = Depends(get_db)) -> TokenResponse:
     repo = UsuarioRepository(db)
     if await repo.buscar_por_email(str(data.email)):
-        raise ConflictError("Este e-mail já tem uma conta. Entre por e-mail e vincule o WhatsApp nas configurações.")
+        raise ConflictError("Este e-mail já tem uma conta. Entre por e-mail e vincule o WhatsApp nas configurações.", field="email")
     telefone = await otp.consumir_prova(data.prova)
     if await repo.buscar_por_telefone(telefone):
         raise ConflictError("Este WhatsApp já está vinculado. Solicite um novo código para entrar.")

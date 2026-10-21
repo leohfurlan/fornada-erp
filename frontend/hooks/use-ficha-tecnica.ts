@@ -42,6 +42,7 @@ export function useSalvarFichaTecnica(id: string) {
   return useMutation<FichaTecnica, Error, FichaTecnica>({
     mutationFn: async (payload) => (await api.put(`/receitas/${id}/ficha-tecnica`, payload)).data,
     onSuccess: (data) => {
+      client.invalidateQueries({ queryKey: ["receita-versoes", id] });
       client.setQueryData(["ficha-tecnica", id], data);
       client.invalidateQueries({ queryKey: ["receitas"] });
       client.invalidateQueries({ queryKey: ["consumo-composicao", id] });

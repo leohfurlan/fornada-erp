@@ -47,7 +47,7 @@ class OtpService:
         """Consome desafio atomicamente e cria prova curta para login/cadastro."""
         telefone = await self.store.verificar(desafio, self.digest(f"{desafio}:{codigo}"))
         if not telefone:
-            raise AuthError("Código inválido ou expirado. Solicite outro código se necessário.")
+            raise AuthError("Código inválido ou expirado. Solicite outro código se necessário.", field="codigo")
         prova = secrets.token_urlsafe(32)
         await self.store.guardar_prova(self.digest(prova), telefone)
         return prova

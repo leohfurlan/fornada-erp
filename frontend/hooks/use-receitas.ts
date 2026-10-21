@@ -44,6 +44,7 @@ export function useAtualizarReceita(id: string) {
       return data;
     },
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["receita-versoes", id] });
       queryClient.invalidateQueries({ queryKey: ["receitas"] });
       queryClient.setQueryData(["receitas", id], data);
     },

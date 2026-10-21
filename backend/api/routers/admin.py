@@ -1,3 +1,4 @@
+import unicodedata
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -8,11 +9,35 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import require_superuser
+from domain.text_search import edit_distance
 from infrastructure.database.models import SessaoAdministrativa, Tenant, Usuario
 from infrastructure.database.session import get_db
 
 router = APIRouter(prefix="/admin", tags=["Administração"])
 logger = structlog.get_logger(__name__)
+
+
+def _normalizar_busca(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value.casefold())
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
+
+
+def _pontuacao_sugestao(query: str, values: tuple[str, ...]) -> int | None:
+    query_words = _normalizar_busca(query).split()
+    if not query_words or any(len(word) < 3 for word in query_words):
+        return None
+    candidates = [_normalizar_busca(value).split() for value in values]
+    distances = []
+    for query_word in query_words:
+        distance = min(
+            (edit_distance(query_word, word) for words in candidates for word in words),
+            default=99,
+        )
+        if distance > (2 if len(query_word) >= 8 else 1):
+            return None
+        distances.append(distance)
+    score = sum(distances)
+    return score if score > 0 else None
 
 
 class ContaResponse(BaseModel):
@@ -55,6 +80,7 @@ def conta_response(usuario: Usuario, tenant: Tenant) -> ContaResponse:
 
 @router.get("/usuarios", response_model=list[ContaResponse])
 async def listar_contas(
+    response: Response,
     q: str = Query(default="", max_length=200),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -71,15 +97,31 @@ async def listar_contas(
         )
     )
     if q.strip():
-        term = q.strip().lower()
+        term = q.strip().casefold()
         query = query.where(
             func.lower(Usuario.email).contains(term, autoescape=True)
             | func.lower(Usuario.nome).contains(term, autoescape=True)
             | func.lower(Tenant.nome).contains(term, autoescape=True)
         )
-    rows = (
-        await db.execute(query.order_by(Usuario.email, Usuario.id).limit(limit).offset(offset))
-    ).all()
+    rows = (await db.execute(query.order_by(Usuario.email, Usuario.id).limit(limit).offset(offset))).all()
+    similar = False
+    if q.strip() and not rows:
+        all_rows_query = (
+            select(Usuario, Tenant)
+            .join(Tenant)
+            .where(Usuario.deleted_at.is_(None), Tenant.deleted_at.is_(None))
+        )
+        all_rows = (await db.execute(all_rows_query.order_by(Usuario.email, Usuario.id))).all()
+        ranked = []
+        for user, tenant in all_rows:
+            score = _pontuacao_sugestao(q.strip(), (user.nome, user.email, tenant.nome))
+            if score is not None:
+                ranked.append((score, user.email.casefold(), str(user.id), user, tenant))
+        ranked.sort(key=lambda item: item[:3])
+        rows = [(user, tenant) for _, _, _, user, tenant in ranked[offset : offset + limit]]
+        similar = bool(rows)
+    if similar:
+        response.headers["X-Search-Similar"] = "true"
     return [conta_response(user, tenant) for user, tenant in rows]
 
 

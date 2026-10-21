@@ -35,6 +35,7 @@ export default function EditarReceitaPage() {
 
   // Mapeia receita do backend → valores iniciais do form
   const valoresIniciais: ReceitaFormValues = {
+    versao: receita.versao,
     nome: receita.nome,
     categoria: receita.categoria,
     rendimento: parseFloat(receita.rendimento),
@@ -67,6 +68,7 @@ export default function EditarReceitaPage() {
       <h1 className="text-xl font-bold">Editar receita</h1>
 
       <FormReceita
+        rascunhoId={`receita:${id}`}
         key={id} /* força remount com novos defaultValues quando trocar de id */
         valoresIniciais={valoresIniciais}
         onSubmit={onSubmit}

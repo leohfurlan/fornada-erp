@@ -2,7 +2,9 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
+
+from domain.nomes import nome_cadastro
 
 
 class EtapaInput(BaseModel):
@@ -50,6 +52,8 @@ class CriarReceitaRequest(BaseModel):
     ingredientes: list[IngredienteInput]
     etapas: list[EtapaInput]
 
+    _nome = field_validator("nome")(nome_cadastro)
+
     @field_validator("rendimento")
     @classmethod
     def positivo(cls, v: Decimal) -> Decimal:
@@ -73,6 +77,7 @@ class CriarReceitaRequest(BaseModel):
 
 
 class AtualizarReceitaRequest(BaseModel):
+    versao: int | None = Field(default=None, ge=1, strict=True)
     nome: str | None = None
     categoria: str | None = None
     rendimento: Decimal | None = None
@@ -82,6 +87,8 @@ class AtualizarReceitaRequest(BaseModel):
     modo_preparo: str | None = None
     ingredientes: list[IngredienteInput] | None = None
     etapas: list[EtapaInput] | None = None
+
+    _nome = field_validator("nome")(nome_cadastro)
 
 
 class EtapaResponse(BaseModel):
@@ -144,6 +151,7 @@ class ReceitaResponse(BaseModel):
     etapas: list[EtapaResponse]
     custo: CustoDetalhadoResponse | None = None
     tipo_cadastro: str = "receita_base"
+    versao: int = 1
 
     model_config = {"from_attributes": True}
 
@@ -158,3 +166,11 @@ class ReceitaResumoResponse(BaseModel):
     preco_recomendado: Decimal | None = None
 
     model_config = {"from_attributes": True}
+
+
+class ReceitaVersaoResponse(BaseModel):
+    versao: int
+    created_at: datetime
+    origem: str
+    responsavel: str | None
+    snapshot: dict

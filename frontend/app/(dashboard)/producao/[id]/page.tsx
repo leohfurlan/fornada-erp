@@ -1,4 +1,5 @@
 "use client";
+import { ValidationFeedback } from "@/components/shared/validation-feedback";
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -250,7 +251,7 @@ export default function OrdemProducaoDetalhePage() {
       {/* Modal de apontamento */}
       {apontamentoAberto && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl bg-background p-5 space-y-4 shadow-xl">
+          <div data-validation-scope className="w-full max-w-md rounded-2xl bg-background p-5 space-y-4 shadow-xl">
             <div>
               <h2 className="font-semibold text-lg">Apontar produção</h2>
               <p className="text-sm text-muted-foreground mt-0.5">
@@ -262,8 +263,9 @@ export default function OrdemProducaoDetalhePage() {
               <label className="text-sm font-medium">
                 Unidades produzidas ({op.receita_rendimento_unidade || "un"})
               </label>
+              <ValidationFeedback error={mudar.error} />
               <DecimalInput
-                value={qtdProduzida}
+                name="qtd_produzida" aria-label="Quantidade produzida" value={qtdProduzida}
                 onChange={setQtdProduzida}
                 placeholder="0"
               />

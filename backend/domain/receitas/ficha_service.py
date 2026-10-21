@@ -5,6 +5,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.exceptions import ConflictError, NotFoundError, ValidationError
+from domain.receitas.historico import HistoricoReceita
 from domain.receitas.repository import ReceitaRepository
 from domain.receitas.composicao import converter_quantidade
 from domain.estoque.unidades import converter_para_principal
@@ -33,6 +34,7 @@ class FichaTecnicaService:
 
     async def salvar(
         self, receita_id: UUID, tenant_id: UUID, data: FichaTecnicaInput,
+        usuario_id: UUID | None = None,
     ) -> FichaTecnicaResponse:
         """Grava revisão apenas se ainda corresponder à versão recebida."""
         # Serializa alterações no grafo do tenant para impedir ciclos concorrentes.
@@ -69,6 +71,8 @@ class FichaTecnicaService:
                     converter_para_principal(passo.quantidade, passo.unidade, material.unidade, material.unidades_alternativas)
                     if (passo.tipo == "embalagem") != (material.tipo == "embalagem"):
                         raise ValidationError("O tipo da etapa deve corresponder ao cadastro da embalagem")
+        historico = HistoricoReceita(self._db)
+        await historico.inicial(receita_id, tenant_id, origem="base_anterior")
         documento = data.model_dump(mode="json", exclude={"revisao"})
         result = await self._db.execute(update(Receita).where(
             Receita.id == receita_id, Receita.tenant_id == tenant_id,
@@ -78,6 +82,7 @@ class FichaTecnicaService:
         revisao = result.scalar_one_or_none()
         if revisao is None:
             raise ConflictError("Esta ficha foi alterada. Recarregue antes de salvar novamente.")
+        await historico.registrar(receita_id, tenant_id, usuario_id, "ficha_tecnica")
         logger.info("ficha_tecnica_salva", tenant_id=str(tenant_id), entity="receita",
                     entity_id=str(receita_id), action="update", revisao=revisao)
         return FichaTecnicaResponse(**documento, revisao=revisao)

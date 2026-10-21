@@ -13,6 +13,8 @@ from pydantic import (
     model_validator,
 )
 
+from domain.validation import field_error
+
 TextoMarkdown = Annotated[str, StringConstraints(strip_whitespace=False)]
 
 
@@ -34,14 +36,19 @@ class PassoMontagem(BaseModel):
     def validar_faixa(self) -> "PassoMontagem":
         """Faixa deve ser completa e conter a quantidade nominal explícita."""
         if self.receita_base_id and self.ingrediente_id:
-            raise ValueError("Selecione uma receita-base ou um material, não os dois")
+            raise field_error(
+                ("receita_base_id",), "Selecione uma receita-base ou um material, não os dois"
+            )
         if self.receita_base_id and self.tipo != "componente":
-            raise ValueError("Receita-base deve ser uma etapa do tipo componente")
+            raise field_error(("tipo",), "Receita-base deve ser uma etapa do tipo componente")
         if (self.quantidade_minima is None) != (self.quantidade_maxima is None):
-            raise ValueError("Informe os dois limites da faixa de quantidade")
+            campo = "quantidade_minima" if self.quantidade_minima is None else "quantidade_maxima"
+            raise field_error((campo,), "Informe os dois limites da faixa de quantidade")
         if self.quantidade_minima is not None:
             if not self.quantidade_minima <= self.quantidade <= self.quantidade_maxima:
-                raise ValueError("A quantidade nominal deve estar dentro da faixa")
+                raise field_error(
+                    ("quantidade",), "A quantidade nominal deve estar dentro da faixa"
+                )
         return self
 
 
@@ -64,12 +71,14 @@ class FichaTecnicaInput(BaseModel):
 
     @model_validator(mode="after")
     def validar_vinculos(self) -> "FichaTecnicaInput":
-        if self.composicao_ativa and any(
-            not (p.receita_base_id or p.ingrediente_id) for p in self.passos
-        ):
-            raise ValueError(
-                "Vincule cada etapa a uma receita-base ou material para calcular a composição"
-            )
+        if self.composicao_ativa:
+            for index, passo in enumerate(self.passos):
+                if not (passo.receita_base_id or passo.ingrediente_id):
+                    raise field_error(
+                        ("passos", index, "receita_base_id"),
+                        "Vincule esta etapa a uma receita-base ou material "
+                        "para calcular a composição",
+                    )
         return self
 
 

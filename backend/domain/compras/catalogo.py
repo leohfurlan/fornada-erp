@@ -18,6 +18,7 @@ from domain.compras.comercial_schemas import (
     VinculoResponse,
 )
 from domain.compras.repository import ComprasRepository
+from domain.compras.review_errors import PurchaseReviewError
 from domain.estoque.service import EstoqueService
 from domain.estoque.unidades import converter_para_principal
 from domain.exceptions import ConflictError, ValidationError
@@ -45,12 +46,10 @@ class CatalogoCompras:
             )
         except ValidationError:
             if data.fator_para_principal is None:
-                raise ValidationError(
-                    "Informe a conversão do conteúdo para a unidade do material."
-                ) from None
+                raise PurchaseReviewError("content_conversion_required") from None
             return data.fator_para_principal
         if data.fator_para_principal is not None and data.fator_para_principal != exato:
-            raise ValidationError("A conversão informada difere da equivalência já confirmada.")
+            raise PurchaseReviewError("content_conversion_conflict")
         return exato
 
     async def produto_response(self, tenant: UUID, row: ProdutoCompra) -> ProdutoResponse:
@@ -122,7 +121,7 @@ class CatalogoCompras:
             setattr(row, field, value)
         if "aprovado" in changes:
             if changes["aprovado"] is None:
-                raise ValidationError("Informe a aprovação do produto.")
+                raise ValidationError("Informe a aprovação do produto.", field="aprovado")
             row.aprovado = changes["aprovado"]
         row.revisao += 1
         await self.repo.db.flush()
@@ -176,7 +175,7 @@ class CatalogoCompras:
             raise ConflictError("Já existe um fornecedor com este CNPJ.")
         for field, value in data.model_dump(exclude_unset=True, exclude={"revisao"}).items():
             if field == "nome" and value is None:
-                raise ValidationError("Informe o nome do fornecedor.")
+                raise ValidationError("Informe o nome do fornecedor.", field="nome")
             setattr(row, field, value)
         row.revisao += 1
         await self.repo.db.flush()
@@ -199,7 +198,7 @@ class CatalogoCompras:
         if row.revisao != data.revisao or product.revisao != data.produto_revisao:
             raise ConflictError("Vínculo ou produto alterado. Atualize antes de corrigir.")
         if not product.aprovado:
-            raise ValidationError("Aprove o produto antes de guardar o vínculo.")
+            raise ValidationError("Aprove o produto antes de guardar o vínculo.", field="produto_id")
         row.produto_id, row.produto_revisao_confirmada = product.id, product.revisao
         row.revisao += 1
         await self.repo.db.flush()

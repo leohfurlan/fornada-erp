@@ -8,6 +8,7 @@ interface UnidadeSelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectE
   /** "medida" para ingredientes/estoque, "venda" para rendimento de receita. */
   tipo: "medida" | "venda";
   placeholder?: string;
+  somenteBase?: boolean;
   className?: string;
 }
 
@@ -23,8 +24,9 @@ const labelByCategoria: Record<UnidadeOption["categoria"], string> = {
  * o matching de OCR e o custo médio.
  */
 export const UnidadeSelect = forwardRef<HTMLSelectElement, UnidadeSelectProps>(
-  ({ tipo, placeholder = "Selecione...", className, ...rest }, ref) => {
-    const opcoes = tipo === "medida" ? UNIDADES_MEDIDA : UNIDADES_VENDA;
+  ({ tipo, somenteBase = false, placeholder = "Selecione...", className, ...rest }, ref) => {
+    const todas = tipo === "medida" ? UNIDADES_MEDIDA : UNIDADES_VENDA;
+    const opcoes = somenteBase ? todas.filter((op) => ["kg", "L", "un"].includes(op.value)) : todas;
 
     // Agrupa por categoria preservando a ordem original
     const grupos = opcoes.reduce<Record<string, UnidadeOption[]>>((acc, op) => {

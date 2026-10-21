@@ -1,9 +1,11 @@
 "use client";
 
+import { ValidatedForm } from "@/components/shared/validation-feedback";
+
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, Plus, Trash2, Clock } from "lucide-react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller } from "@/lib/form";
 import { cn, formatMinutos } from "@/lib/utils";
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { MarkdownContent } from "@/components/shared/markdown-content";
@@ -72,7 +74,7 @@ export default function ConfiguracoesEtapasPage() {
       </div>
 
       {mostrandoForm && (
-        <form
+        <ValidatedForm errors={errors}
           onSubmit={handleSubmit(onSubmit)}
           className="rounded-xl border bg-card p-4 space-y-3"
         >
@@ -137,7 +139,7 @@ export default function ConfiguracoesEtapasPage() {
               {criar.isPending ? "Salvando..." : "Salvar"}
             </button>
           </div>
-        </form>
+        </ValidatedForm>
       )}
 
       {isLoading ? (

@@ -1,6 +1,7 @@
 import axios, { AxiosError } from "axios";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { getSupportSession } from "@/lib/admin-session";
+import { errorMessage, fieldIssues } from "@/lib/validation";
 
 /**
  * URL base do backend, resolvida dinamicamente.
@@ -51,6 +52,18 @@ api.interceptors.request.use((config) => {
 });
 
 let isRefreshing = false;
+
+// Every consumer receives a readable summary, without losing the field paths.
+api.interceptors.response.use(response => response, (error: AxiosError) => {
+  const issues = fieldIssues(error);
+  if (issues.length && error.response?.data && typeof error.response.data === "object") {
+    const data = error.response.data as { detail: unknown; field_errors?: unknown };
+    const message = errorMessage(error);
+    data.field_errors = issues;
+    data.detail = message;
+  }
+  return Promise.reject(error);
+});
 let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = [];
 
 const processQueue = (error: unknown, token: string | null = null) => {

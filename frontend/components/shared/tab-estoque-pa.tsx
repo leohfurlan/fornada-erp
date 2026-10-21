@@ -1,4 +1,5 @@
 "use client";
+import { ValidationScope } from "@/components/shared/validation-feedback";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -82,8 +83,7 @@ function CardSaldoPA({ saldo, editando, onEditar, onCancelar }: CardProps) {
   const [valor, setValor] = useState<number>(parseFloat(saldo.qtd_minima));
 
   const salvar = async () => {
-    await atualizar.mutateAsync({ qtd_minima: valor });
-    onCancelar();
+    try { await atualizar.mutateAsync({ qtd_minima: valor }); onCancelar(); } catch { /* Feedback remains next to the field. */ }
   };
 
   return (
@@ -133,13 +133,13 @@ function CardSaldoPA({ saldo, editando, onEditar, onCancelar }: CardProps) {
       </div>
 
       {editando && (
-        <div className="border-t pt-3 space-y-2">
+        <ValidationScope error={atualizar.error} className="border-t pt-3 space-y-2">
           <label className="text-xs text-muted-foreground">
             Quantidade mínima (alerta de baixo estoque)
           </label>
           <div className="flex gap-2">
             <div className="flex-1">
-              <DecimalInput value={valor} onChange={setValor} placeholder="0" />
+              <DecimalInput name="qtd_minima" aria-label="Quantidade mínima" value={valor} onChange={setValor} placeholder="0" />
             </div>
             <button
               type="button"
@@ -157,7 +157,7 @@ function CardSaldoPA({ saldo, editando, onEditar, onCancelar }: CardProps) {
               Cancelar
             </button>
           </div>
-        </div>
+        </ValidationScope>
       )}
     </div>
   );

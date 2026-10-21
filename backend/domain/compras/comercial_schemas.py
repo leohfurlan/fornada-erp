@@ -13,10 +13,13 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic_core import PydanticCustomError
 
 from domain.compras.identificadores import validar_cnpj, validar_gtin
 from domain.compras.schemas import ConfirmarCompraResponse
 from domain.estoque.schemas import TIPOS_VALIDOS
+from domain.nomes import nome_cadastro
+from domain.validation import field_error
 
 Texto = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Quantidade = Annotated[Decimal, Field(gt=0, max_digits=16, decimal_places=8)]
@@ -39,6 +42,7 @@ class ProdutoDados(Contrato):
     gtin: str | None = None
 
     _gtin = field_validator("gtin")(validar_gtin)
+    _nome = field_validator("nome")(nome_cadastro)
 
     @field_validator("unidade_conteudo")
     @classmethod
@@ -65,6 +69,7 @@ class ProdutoEditar(Contrato):
     aprovado: bool | None = None
     fornecedores_aprovados: list[UUID] | None = Field(default=None, max_length=200)
     _gtin = field_validator("gtin")(validar_gtin)
+    _nome = field_validator("nome")(nome_cadastro)
 
     @model_validator(mode="after")
     def campos_obrigatorios(self):
@@ -77,7 +82,7 @@ class ProdutoEditar(Contrato):
             "fornecedores_aprovados",
         ):
             if campo in self.model_fields_set and getattr(self, campo) is None:
-                raise ValueError(f"{campo} não pode ser nulo.")
+                raise field_error((campo,), f"{campo} não pode ser nulo.")
         return self
 
 
@@ -87,6 +92,12 @@ class ProdutoResponse(ProdutoCriar):
     revisao: int
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("nome")
+    @classmethod
+    def _nome(cls, value: str) -> str:
+        """Legacy reads remain available until the reviewed cleanup is applied."""
+        return value
 
 
 class FornecedorCriar(Contrato):
@@ -104,7 +115,7 @@ class FornecedorEditar(Contrato):
     @model_validator(mode="after")
     def nome_obrigatorio(self):
         if "nome" in self.model_fields_set and self.nome is None:
-            raise ValueError("nome não pode ser nulo.")
+            raise field_error(("nome",), "nome não pode ser nulo.")
         return self
 
 
@@ -181,13 +192,13 @@ class ItemRevisado(Contrato):
     @model_validator(mode="after")
     def modos_validos(self) -> "ItemRevisado":
         if self.tipo not in TIPOS_VALIDOS:
-            raise ValueError("Tipo de material inválido.")
+            raise field_error(("tipo",), "Tipo de material inválido.")
         if self.criar_novo == (self.ingrediente_id is not None):
-            raise ValueError("Escolha um material existente ou crie um novo.")
+            raise PydanticCustomError("material_selection_invalid", "Seleção de material inválida")
         if self.produto_id and (self.criar_novo or self.produto_novo or not self.produto_revisao):
-            raise ValueError("Escolha produto existente com revisão ou cadastre outro.")
+            raise PydanticCustomError("product_selection_invalid", "Seleção de produto inválida")
         if self.guardar_vinculo and self.aceitar_excecao:
-            raise ValueError("Compra excepcional não pode guardar uma aprovação permanente.")
+            raise PydanticCustomError("exception_link_conflict", "Vínculo excepcional inválido")
         return self
 
 
@@ -206,9 +217,9 @@ class CompraRevisada(Contrato):
     @model_validator(mode="after")
     def contexto_valido(self) -> "CompraRevisada":
         if self.fornecedor_id and self.fornecedor_novo:
-            raise ValueError("Escolha uma loja existente ou cadastre uma nova.")
+            raise PydanticCustomError("supplier_selection_invalid", "Seleção de loja inválida")
         if self.identidade_confirmada and not self.identidade_nota:
-            raise ValueError("Informe a identidade da nota para confirmá-la.")
+            raise PydanticCustomError("receipt_identity_required", "Identidade da nota ausente")
         return self
 
 
@@ -223,6 +234,7 @@ class ItemPrevia(BaseModel):
     custo_normalizado: Decimal
     preco_total: Decimal
     pendencias: list[str]
+    pendencias_codigos: list[str] = Field(default_factory=list)
 
 
 class Duplicidade(BaseModel):
@@ -247,12 +259,16 @@ class ResultadoCompra(ConfirmarCompraResponse):
 
 class ItemObservado(Contrato):
     indice: int = Field(ge=0)
+    linhas_origem: list[int] = Field(default_factory=list, max_length=100)
     descricao: str = Field(min_length=1, max_length=500)
     quantidade: Decimal | None = None
     unidade: str | None = None
     preco_unitario: Decimal | None = None
     preco_total: Decimal | None = None
     desconto_item: Decimal | None = None
+    tipo_observado: Literal["ingrediente", "embalagem", "insumo", "descartavel", "outro"] | None = (
+        None
+    )
     marca_observada: str | None = None
     fabricante_observado: str | None = None
     variante_observada: str | None = None
@@ -344,3 +360,4 @@ class CompraDetalhada(CompraResumo):
 class PaginaCompras(BaseModel):
     itens: list[CompraResumo]
     total: int
+    sugestoes: list[str] = Field(default_factory=list)
