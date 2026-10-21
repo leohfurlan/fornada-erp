@@ -45,9 +45,9 @@ function Historico() {
     </ValidationScope>
     {(inicio || fim) && <p className="text-xs text-muted-foreground">Compras sem data identificada ficam fora do filtro de período.</p>}
     {historico.isLoading && <p>Carregando compras...</p>}
-    {historico.data?.total === 0 && historico.data.sugestoes.length > 0 && <div className="text-sm">
+    {historico.data?.total === 0 && (historico.data.sugestoes?.length ?? 0) > 0 && <div className="text-sm">
       <p className="text-muted-foreground">Não encontrei essa marca. Você quis dizer:</p>
-      <div className="flex flex-wrap gap-2">{historico.data.sugestoes.map((suggestion) => <button key={suggestion}
+      <div className="flex flex-wrap gap-2">{historico.data.sugestoes?.map((suggestion) => <button key={suggestion}
         type="button" className="text-primary underline" onClick={() => filtrar(setMarca, suggestion)}>{suggestion}</button>)}</div>
     </div>}
     {historico.data?.itens.map((compra) => <button type="button" key={compra.id} onClick={() => setSelecionada(compra.id)}

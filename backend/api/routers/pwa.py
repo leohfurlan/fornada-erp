@@ -179,7 +179,13 @@ async def listar_adesao(
             ranked: list[tuple[int, str]] = []
             for nome, email, negocio in candidates.all():
                 for value in (nome, email, negocio):
-                    distance = edit_distance(term, value.lower())
+                    words = value.lower()
+                    for separator in ("@", ".", "_", "-"):
+                        words = words.replace(separator, " ")
+                    distance = min(
+                        (edit_distance(term, word) for word in words.split()),
+                        default=99,
+                    )
                     if 0 < distance <= (2 if len(term) >= 8 else 1):
                         ranked.append((distance, value))
             suggestions = [value for _, value in sorted(set(ranked))[:3]]
