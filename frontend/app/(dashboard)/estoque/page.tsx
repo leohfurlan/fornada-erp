@@ -13,6 +13,7 @@ import { TabelaEstoqueDesktop } from "@/components/shared/tabela-estoque-desktop
 import { TabEstoquePA } from "@/components/shared/tab-estoque-pa";
 import { cn, formatDataHora, formatQuantidade } from "@/lib/utils";
 import { custoReferencia } from "@/lib/custo-referencia";
+import { normalizeSearchText, suggestSimilarText } from "@/lib/text-search";
 import { TIPOS_PRODUTO } from "@/lib/unidades";
 import type { Ingrediente } from "@/types";
 
@@ -83,19 +84,26 @@ function TabIngredientes() {
 
   const filtrados = useMemo(() => {
     if (!ingredientes) return [];
-    const buscaLower = busca.trim().toLowerCase();
+    const buscaLower = normalizeSearchText(busca);
     return ingredientes.filter((i) => {
       if (filtroTipo && i.tipo !== filtroTipo) return false;
       if (filtroStatus && i.status_estoque !== filtroStatus) return false;
       if (
         buscaLower &&
-        !i.nome.toLowerCase().includes(buscaLower) &&
-        String(i.codigo) !== buscaLower
+        !normalizeSearchText(i.nome).includes(buscaLower) &&
+        !String(i.codigo).includes(buscaLower)
       )
         return false;
       return true;
     });
   }, [ingredientes, busca, filtroTipo, filtroStatus]);
+  const sugestoesBusca = useMemo(() => {
+    if (!busca.trim() || filtrados.length > 0 || !ingredientes) return [];
+    const candidatos = ingredientes
+      .filter(item => (!filtroTipo || item.tipo === filtroTipo) && (!filtroStatus || item.status_estoque === filtroStatus))
+      .flatMap(item => [item.nome, String(item.codigo)]);
+    return suggestSimilarText(busca, candidatos);
+  }, [busca, filtrados.length, ingredientes, filtroTipo, filtroStatus]);
 
   // Ordenação mobile aplicada sobre a lista filtrada
   const filtradosMobile = useMemo(() => {
@@ -144,6 +152,7 @@ function TabIngredientes() {
             className="min-h-12 w-full rounded-lg border py-2 pl-9 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
           {busca && <button type="button" aria-label="Limpar busca" onClick={() => { update({ busca: "" }); searchInput.current?.focus(); }} className="absolute right-0 top-0 flex h-full min-h-12 min-w-12 items-center justify-center rounded-r-lg text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"><XCircle aria-hidden="true" className="h-5 w-5" /></button>}
         </div>
+        {sugestoesBusca.length > 0 && <p className="text-sm text-muted-foreground">Você quis dizer: {sugestoesBusca.map((nome, index) => <span key={nome}>{index > 0 ? ", " : ""}<button type="button" className="font-medium text-primary underline underline-offset-2" onClick={() => update({ busca: nome })}>{nome}</button></span>)}</p>}
         <div className="flex flex-wrap gap-2">
           <button type="button" aria-expanded={filtersOpen} aria-controls="filtros-estoque" onClick={() => setFiltersOpen(current => !current)}
             className={cn("inline-flex min-h-12 items-center gap-2 rounded-lg border px-4 text-sm font-semibold hover:bg-muted", (filtersOpen || activeFilters > 0) && "border-primary text-primary")}>

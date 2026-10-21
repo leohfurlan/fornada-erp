@@ -122,7 +122,7 @@ export default function CozinhaPage() {
   const searchQuery = useQuery({
     queryKey: ["cozinha", usuarioId, "recipe-search", busca, offsetBusca],
     enabled: Boolean(busca),
-    queryFn: async () => (await api.get<{ items: SearchItem[]; next_offset: number | null }>("/cozinha/recipes/search", {
+    queryFn: async () => (await api.get<{ items: SearchItem[]; next_offset: number | null; suggestions?: SearchItem[] }>("/cozinha/recipes/search", {
       params: { q: busca, offset: offsetBusca },
     })).data,
     staleTime: 0,
@@ -439,10 +439,15 @@ export default function CozinhaPage() {
             </div>
             <button type="submit" disabled={!termo.trim() || remoteUnavailable} className="min-h-14 rounded-xl bg-primary px-7 text-lg font-semibold text-primary-foreground disabled:opacity-50">Buscar</button>
           </form>
-          <KitchenProductionQueue search={termo} recipeOpen={Boolean(station.projection)} disabled={loadingCommand || remoteUnavailable} onOpen={recipe_id => void sendCommand("open_recipe", { recipe_id })} />
+          <KitchenProductionQueue search={termo} recipeOpen={Boolean(station.projection)} disabled={loadingCommand || remoteUnavailable} onOpen={recipe_id => void sendCommand("open_recipe", { recipe_id })} onSearchChange={setTermo} />
           {busca && <div className="mt-5 space-y-2" aria-live="polite">
             {searchQuery.isFetching && <p className="text-base text-muted-foreground">Procurando receitas…</p>}
             {searchQuery.data?.items.length === 0 && !searchQuery.isFetching && <p className="rounded-xl bg-muted p-4 text-base">Nenhuma receita encontrada para “{busca}”.</p>}
+            {searchQuery.data?.items.length === 0 && (searchQuery.data?.suggestions?.length ?? 0) > 0 && <div className="rounded-xl border p-4">
+              <p className="text-base text-muted-foreground">Você quis dizer:</p>
+              <div className="mt-2 flex flex-wrap gap-2">{searchQuery.data?.suggestions?.map(item => <button type="button" key={item.recipe_id} disabled={loadingCommand || remoteUnavailable} onClick={() => void sendCommand("open_recipe", { recipe_id: item.recipe_id })} className="min-h-11 rounded-lg border px-3 font-medium text-primary hover:bg-muted disabled:opacity-50">{item.name}</button>)}</div>
+            </div>}
+
             {searchQuery.data && <h2 className="text-lg font-semibold">Outras receitas</h2>}
             {searchQuery.data?.items.map((item, index) => <button type="button" key={item.recipe_id} disabled={loadingCommand || remoteUnavailable} onClick={() => void sendCommand("open_recipe", { recipe_id: item.recipe_id })} className="flex min-h-14 w-full items-center justify-between rounded-xl border px-4 text-left text-lg font-medium hover:border-primary hover:bg-muted disabled:opacity-50">
               <span>{item.name}</span><span className="text-sm font-normal text-muted-foreground">Abrir</span>

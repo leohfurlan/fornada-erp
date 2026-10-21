@@ -119,7 +119,7 @@ async def search_recipes(
     query = q.strip()
     if not normalized(query):
         raise HTTPException(422, detail="Digite o nome de uma receita com letras ou números.")
-    result = await search(db, actor.tenant_id, query, offset, 5)
+    result = await search(db, actor.tenant_id, query, offset, 5, include_suggestions=True)
     return response_json(result, response)
 
 

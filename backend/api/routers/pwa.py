@@ -4,12 +4,13 @@ from uuid import UUID, uuid4
 
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import get_authenticated_actor, require_superuser
+from domain.text_search import edit_distance
 from infrastructure.database.models import Tenant, Usuario
 from infrastructure.database.pwa_models import PwaEvento
 from infrastructure.database.session import get_db
@@ -139,6 +140,7 @@ class PaginaPwaResponse(BaseModel):
     total: int
     limit: int
     offset: int
+    suggestions: list[str] = Field(default_factory=list)
 
 
 @router.get(
@@ -165,6 +167,22 @@ async def listar_adesao(
             | func.lower(Tenant.nome).contains(term, autoescape=True)
         )
     total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
+    suggestions: list[str] = []
+    if q.strip() and total == 0:
+        term = q.strip().lower()
+        if len(term) >= 3:
+            candidates = await db.execute(
+                select(Usuario.nome, Usuario.email, Tenant.nome)
+                .join(Tenant)
+                .where(Usuario.deleted_at.is_(None), Tenant.deleted_at.is_(None))
+            )
+            ranked: list[tuple[int, str]] = []
+            for nome, email, negocio in candidates.all():
+                for value in (nome, email, negocio):
+                    distance = edit_distance(term, value.lower())
+                    if 0 < distance <= (2 if len(term) >= 8 else 1):
+                        ranked.append((distance, value))
+            suggestions = [value for _, value in sorted(set(ranked))[:3]]
     rows = (
         await db.execute(query.order_by(Usuario.email, Usuario.id).limit(limit).offset(offset))
     ).all()
@@ -194,4 +212,6 @@ async def listar_adesao(
                 sinais=signals,
             )
         )
-    return PaginaPwaResponse(items=items, total=total, limit=limit, offset=offset)
+    return PaginaPwaResponse(
+        items=items, total=total, limit=limit, offset=offset, suggestions=suggestions
+    )

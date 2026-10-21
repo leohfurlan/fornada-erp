@@ -7,6 +7,7 @@ import { usePedidos } from "@/hooks/use-pedidos";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { PedidoStatusBadge, STATUS_LABEL } from "@/components/shared/pedido-status-badge";
 import type { StatusPedido } from "@/types";
+import { normalizeSearchText, suggestSimilarText } from "@/lib/text-search";
 
 const FILTROS_STATUS: { value: StatusPedido | ""; label: string }[] = [
   { value: "", label: "Todos" },
@@ -27,15 +28,20 @@ export default function PedidosPage() {
 
   const filtrados = useMemo(() => {
     if (!pedidos) return [];
-    const q = busca.trim().toLowerCase();
+    const q = normalizeSearchText(busca);
     if (!q) return pedidos;
     return pedidos.filter(
       (p) =>
-        p.cliente_nome?.toLowerCase().includes(q) ||
-        String(p.numero) === q ||
-        p.itens.some((i) => i.nome_receita.toLowerCase().includes(q))
+        normalizeSearchText(p.cliente_nome ?? "").includes(q) ||
+        String(p.numero).includes(q) ||
+        p.itens.some((i) => normalizeSearchText(i.nome_receita).includes(q))
     );
   }, [pedidos, busca]);
+  const sugestoesBusca = useMemo(() => {
+    if (!busca.trim() || filtrados.length > 0 || !pedidos) return [];
+    const valores = pedidos.flatMap(pedido => [pedido.cliente_nome ?? "", String(pedido.numero), ...pedido.itens.map(item => item.nome_receita)]).filter(Boolean);
+    return suggestSimilarText(busca, valores);
+  }, [pedidos, busca, filtrados.length]);
 
   if (error) {
     return (
@@ -68,6 +74,8 @@ export default function PedidosPage() {
           className="w-full rounded-lg border pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         />
       </div>
+
+      {sugestoesBusca.length > 0 && <p className="text-sm text-muted-foreground">Você quis dizer: {sugestoesBusca.map((valor, index) => <span key={valor}>{index > 0 ? ", " : ""}<button type="button" className="font-medium text-primary underline underline-offset-2" onClick={() => setBusca(valor)}>{valor}</button></span>)}</p>}
 
       <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
         {FILTROS_STATUS.map((f) => (

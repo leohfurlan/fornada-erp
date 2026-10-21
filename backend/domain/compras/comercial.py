@@ -26,6 +26,7 @@ from domain.compras.comercial_schemas import (
 )
 from domain.compras.identificadores import normalizar_descricao, validar_evidencia
 from domain.compras.repository import ComprasRepository
+from domain.text_search import edit_distance
 from domain.compras.review_errors import (
     PurchaseReviewConflict,
     PurchaseReviewError,
@@ -558,4 +559,20 @@ class ComprasComerciais:
             limit=limit,
             offset=offset,
         )
-        return PaginaCompras(itens=[await self.resumo(tenant, row) for row in rows], total=count)
+        suggestions: list[str] = []
+        if marca and count == 0:
+            term = marca.strip().lower()
+            if len(term) >= 3:
+                ranked = sorted(
+                    (
+                        (edit_distance(term, value.lower()), value)
+                        for value in await self.repo.marcas_historico(tenant)
+                    ),
+                    key=lambda item: (item[0], item[1].lower()),
+                )
+                suggestions = [value for distance, value in ranked if 0 < distance <= 2][:3]
+        return PaginaCompras(
+            itens=[await self.resumo(tenant, row) for row in rows],
+            total=count,
+            sugestoes=suggestions,
+        )

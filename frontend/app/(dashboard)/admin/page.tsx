@@ -46,6 +46,7 @@ export default function AdminPage() {
     {isLoading && <p>Carregando contas...</p>}
     {isError && <p role="alert">Não foi possível carregar as contas. Atualize a página.</p>}
     {data?.length === 0 && <p>Nenhuma conta encontrada.</p>}
+    {data?.similar && <p className="text-sm text-muted-foreground">Não encontrei uma correspondência para “{q}”. Você quis dizer uma destas contas?</p>}
     <div className="space-y-3">{data?.map((item) => <article key={item.id} className="rounded-lg border p-4 space-y-2">
       <h2 className="font-semibold break-words">{item.negocio}</h2>
       <p className="break-words">{item.nome} · {item.email}</p>
@@ -56,7 +57,7 @@ export default function AdminPage() {
       <button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))}>Anterior</button>
       <button disabled={!data || data.length < 50} onClick={() => setOffset(offset + 50)}>Próxima</button>
     </div>
-    <PwaAdmin q={q} offset={offset} />
+    <PwaAdmin q={q} offset={offset} onSearchChange={(value) => { setQ(value); setOffset(0); }} />
     <Dialog.Root open={conta !== null} onOpenChange={(open) => { if (!open && !busy) setConta(null); }}>
       {conta && <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />

@@ -14,9 +14,9 @@ const labels: Record<PwaTipo, string> = {
 };
 function usePwaContas(q: string, offset: number) {
   return useQuery({ queryKey: ["admin", "pwa", q, offset], queryFn: async () =>
-    (await api.get<{ items: PwaConta[]; total: number }>("/admin/pwa/usuarios", { params: { q, offset } })).data });
+    (await api.get<{ items: PwaConta[]; total: number; suggestions: string[] }>("/admin/pwa/usuarios", { params: { q, offset } })).data });
 }
-export function PwaAdmin({ q, offset }: { q: string; offset: number }) {
+export function PwaAdmin({ q, offset, onSearchChange }: { q: string; offset: number; onSearchChange: (value: string) => void }) {
   const query = usePwaContas(q, offset);
   return <section aria-label="Adesão ao aplicativo" className="space-y-3 rounded-lg border p-4">
     <h2 className="text-lg font-semibold">Adesão ao aplicativo</h2>
@@ -24,6 +24,11 @@ export function PwaAdmin({ q, offset }: { q: string; offset: number }) {
     {query.isLoading && <p>Carregando adesão...</p>}
     {query.isError && <p role="alert">Não foi possível carregar a adesão. <button className="underline" onClick={() => void query.refetch()}>Tentar novamente</button></p>}
     {query.data?.items.length === 0 && <p>Nenhuma conta encontrada.</p>}
+    {query.data?.items.length === 0 && query.data.suggestions.length > 0 && <div className="text-sm">
+      <p className="text-muted-foreground">Não encontrei uma correspondência. Você quis dizer:</p>
+      <div className="flex flex-wrap gap-2">{query.data.suggestions.map((suggestion) => <button key={suggestion}
+        type="button" className="text-primary underline" onClick={() => onSearchChange(suggestion)}>{suggestion}</button>)}</div>
+    </div>}
     {query.data?.items.map((item) => <article key={item.usuario_id} className="space-y-2 border-t pt-3">
       <h3 className="font-medium break-words">{item.nome} · {item.negocio}</h3><p className="text-sm break-words">{item.email}</p>
       {!item.sinais.instalacao_sinalizada.quantidade && !item.sinais.acesso_app.quantidade && <p className="text-sm">Sem confirmação de instalação ou uso pelo aplicativo.</p>}

@@ -9,6 +9,7 @@ import { getSupportSession } from "@/lib/admin-session";
 import { toDateKey, formatHora } from "@/lib/agenda";
 import { formatQuantidade, formatDataHora } from "@/lib/utils";
 import { errorMessage } from "@/lib/validation";
+import { suggestSimilarText } from "@/lib/text-search";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { OpStatusBadge } from "@/components/shared/op-status-badge";
@@ -92,8 +93,8 @@ export function KitchenDayOverview({ recipeOpen }: { recipeOpen: boolean }) {
   </details>;
 }
 
-export function KitchenProductionQueue({ search, recipeOpen, disabled, onOpen }: {
-  search: string; recipeOpen: boolean; disabled: boolean; onOpen: (recipeId: string) => void;
+export function KitchenProductionQueue({ search, recipeOpen, disabled, onOpen, onSearchChange }: {
+  search: string; recipeOpen: boolean; disabled: boolean; onOpen: (recipeId: string) => void; onSearchChange: (value: string) => void;
 }) {
   const orders = useKitchenResource<OrdemProducao[]>("ordens", "/producao/ordens");
   const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
@@ -101,12 +102,16 @@ export function KitchenProductionQueue({ search, recipeOpen, disabled, onOpen }:
   const open = (orders.data ?? []).filter(op => (op.status === "planejada" || op.status === "em_producao") &&
     (!term || normalize(`${op.nome_receita} OP #${op.numero}`).includes(term)))
     .sort((a, b) => (a.data_prevista ?? "9999").localeCompare(b.data_prevista ?? "9999") || a.numero - b.numero);
+  const suggestions = !term || open.length > 0 ? [] : suggestSimilarText(search, (orders.data ?? [])
+    .filter(op => op.status === "planejada" || op.status === "em_producao")
+    .map(op => `${op.nome_receita} OP #${op.numero}`));
   return <details open={!recipeOpen || Boolean(term)} className="mt-5 rounded-xl border p-4">
     <summary className="min-h-12 cursor-pointer text-lg font-semibold">Ordens de produção abertas{orders.data ? ` (${open.length})` : ""}</summary>
     <p className="mt-2 text-sm text-muted-foreground">Escolha primeiro uma OP ou busque outra receita abaixo. Abrir a receita não altera o status da produção.</p>
     {orders.isPending && <p role="status">Carregando ordens de produção…</p>}
     {orders.isError ? <p role="alert">Não foi possível atualizar as OPs. <Link className="underline" href="/producao">Consultar produção</Link></p> : <>
       {!orders.isPending && !open.length && <p className="mt-3 text-muted-foreground">Nenhuma OP aberta{term ? " para esta busca" : ""}.</p>}
+      {suggestions.length > 0 && <p className="mt-2 text-sm text-muted-foreground">Você quis dizer: {suggestions.map((value, index) => <span key={value}>{index > 0 ? ", " : ""}<button type="button" className="font-medium text-primary underline underline-offset-2" onClick={() => onSearchChange(value)}>{value}</button></span>)}</p>}
       <div className="mt-3 space-y-3">{open.map(op => <ProductionOrder key={op.id} op={op} disabled={disabled} onOpen={onOpen} />)}</div>
     </>}
   </details>;

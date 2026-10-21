@@ -360,3 +360,4 @@ class CompraDetalhada(CompraResumo):
 class PaginaCompras(BaseModel):
     itens: list[CompraResumo]
     total: int
+    sugestoes: list[str] = Field(default_factory=list)

@@ -4,12 +4,14 @@ import hashlib
 import json
 import unicodedata
 from decimal import Decimal, InvalidOperation
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import String, cast, func, select
 from sqlalchemy.orm import joinedload
 
 from domain.number_format import quantity_br
+from domain.text_search import edit_distance
 from infrastructure.database.models import Ingrediente, Receita, ReceitaIngrediente
 
 
@@ -25,6 +27,25 @@ def fingerprint(data):
     ).hexdigest()
 
 
+def _similar_names(query: str, rows: list[tuple[UUID, str]], limit: int = 3) -> list[dict[str, str]]:
+    query_words = normalized(query).split()
+    if not query_words or any(len(word) < 3 for word in query_words):
+        return []
+    ranked = []
+    for recipe_id, name in rows:
+        words = normalized(name).split()
+        distances = []
+        for query_word in query_words:
+            threshold = 2 if len(query_word) >= 8 else 1
+            distances.append(min((edit_distance(query_word, word) for word in words), default=99))
+            if distances[-1] > threshold:
+                break
+        if len(distances) == len(query_words) and any(distances):
+            ranked.append((sum(distances), normalized(name), str(recipe_id), recipe_id, name))
+    ranked.sort()
+    return [{"recipe_id": str(recipe_id), "name": name} for _, _, _, recipe_id, name in ranked[:limit]]
+
+
 def positive_quantity(value: object) -> None:
     """Reject invalid quantities even when nested content is rendered as text."""
     try:
@@ -35,7 +56,15 @@ def positive_quantity(value: object) -> None:
         raise ValueError("Quantidade inválida")
 
 
-async def search(db, tenant_id, query, offset, limit):
+async def search(
+    db,
+    tenant_id: UUID,
+    query: str,
+    offset: int,
+    limit: int,
+    *,
+    include_suggestions: bool = False,
+) -> dict[str, Any]:
     rows = (
         await db.execute(
             select(Receita.id, Receita.nome).where(
@@ -49,10 +78,13 @@ async def search(db, tenant_id, query, offset, limit):
         key=lambda item: (normalized(item[1]), str(item[0])),
     )
     page = matches[offset : offset + limit]
-    return {
+    result = {
         "items": [{"recipe_id": str(rid), "name": name} for rid, name in page],
         "next_offset": offset + limit if offset + limit < len(matches) else None,
     }
+    if include_suggestions and not matches:
+        result["suggestions"] = _similar_names(query, rows)
+    return result
 
 
 async def snapshot(db, tenant_id, recipe_id, *, include_steps: bool = False):
