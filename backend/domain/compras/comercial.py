@@ -53,7 +53,7 @@ from infrastructure.database.models import Ingrediente
 logger = structlog.get_logger(__name__)
 PRECISAO = Decimal("0.00000001")
 LIMITE_ESTOQUE = Decimal("99999999.9999")
-EMBALAGENS = {"un", "cx", "pct", "fardo"}
+EMBALAGENS = {"un", "cx", "pct", "fardo", "lata"}
 
 
 @dataclass
