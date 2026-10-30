@@ -63,7 +63,7 @@ export function KitchenChecklist({ blocks, completedIds, section, currentId, rec
           </span>
         </button>
         <div className={`transition-opacity duration-200 motion-reduce:transition-none ${completed ? "opacity-90" : "opacity-100"}`}>
-          <MarkdownContent className="mt-6 space-y-5 text-xl leading-relaxed sm:text-2xl">{step.markdown}</MarkdownContent>
+          <MarkdownContent variant="kitchen" className="mt-6 space-y-5 text-xl leading-relaxed sm:text-2xl">{step.markdown}</MarkdownContent>
         </div>
         <button type="button" aria-label={completed ? `Desfazer conclusão da etapa ${number}` : `Concluir etapa ${number}`} aria-pressed={completed} disabled={disabled} onClick={() => toggle(step)} className={`mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold disabled:opacity-50 ${completed ? "border border-success text-success" : "bg-primary text-primary-foreground"}`}>
           <Check aria-hidden="true" className="h-5 w-5" />

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 interface MarkdownContentProps {
   children: string;
   className?: string;
+  variant?: "default" | "kitchen";
 }
 
 const components: Components = {
@@ -29,8 +30,10 @@ const components: Components = {
   hr: () => <hr className="border-border" />,
 };
 
-export function MarkdownContent({ children, className }: MarkdownContentProps) {
-  return <div className={cn("min-w-0 space-y-3 break-words text-sm leading-relaxed", className)}>
+const kitchenTypography = "text-xl sm:text-2xl [&_h1]:text-[1.5em] [&_h2]:text-[1.25em] [&_h3]:text-[1.125em] [&_h4]:text-[1em] [&_h5]:text-[1em] [&_h6]:text-[1em] [&_h1]:leading-tight [&_h2]:leading-tight [&_h3]:leading-snug [&_table]:text-[1em] [&_code]:text-[0.875em] [&_ul]:pl-[1.4em] [&_ol]:pl-[1.6em]";
+
+export function MarkdownContent({ children, className, variant = "default" }: MarkdownContentProps) {
+  return <div className={cn("min-w-0 space-y-3 break-words text-sm leading-relaxed", variant === "kitchen" && kitchenTypography, className)}>
     <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={components}>
       {children}
     </ReactMarkdown>

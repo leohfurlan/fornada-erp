@@ -475,7 +475,7 @@ export default function CozinhaPage() {
           {showingPreparation && <section id="modo-de-preparo" aria-label="Modo de preparo" className="scroll-mt-6 space-y-5">
             <article className="rounded-2xl border bg-card p-5 sm:p-8">
               <h3 className="text-2xl font-bold sm:text-3xl">Modo de preparo</h3>
-              {preparationText ? <MarkdownContent className="mt-6 text-xl leading-relaxed sm:text-2xl">{preparationText.markdown}</MarkdownContent> : <p className="mt-4 text-lg text-muted-foreground">Acompanhe o preparo nas etapas abaixo.</p>}
+              {preparationText ? <MarkdownContent variant="kitchen" className="mt-6 text-xl leading-relaxed sm:text-2xl">{preparationText.markdown}</MarkdownContent> : <p className="mt-4 text-lg text-muted-foreground">Acompanhe o preparo nas etapas abaixo.</p>}
             </article>
           <KitchenChecklist recipeId={station.projection.recipe_id} blocks={station.projection.blocks} completedIds={optimisticCompleted ?? station.projection.completed_block_ids ?? []} section="preparation" currentId={currentBlock?.id} disabled={loadingCommand || remoteUnavailable} onComplete={(block_id, completed) => void sendCommand("set_step_completed", { block_id, completed })} onReset={() => void sendCommand("reset_steps")} />
             <a href="#modo-de-preparo" className="inline-flex min-h-12 items-center rounded-xl px-4 font-semibold text-primary hover:bg-muted">Voltar ao início do modo de preparo</a>
@@ -483,7 +483,7 @@ export default function CozinhaPage() {
           {!showingPreparation && (currentBlock ? <article className="min-h-64 rounded-2xl border bg-card p-5 sm:p-8" aria-live="polite">
             <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">{station.section === "ingredients" ? "Lista da receita" : "Leitura da receita"}</p>
             <h3 className="mt-2 text-2xl font-bold sm:text-3xl">{currentBlock.title}</h3>
-            {station.section === "ingredients" ? <KitchenIngredients ingredients={station.projection.ingredients} checkedIds={optimisticIngredients ?? station.projection.checked_ingredient_ids ?? []} disabled={loadingCommand || remoteUnavailable} onCheck={(block_id, completed) => void sendCommand("set_ingredient_checked", { block_id, completed })} /> : <MarkdownContent className="mt-6 text-xl leading-relaxed sm:text-2xl">{currentBlock.markdown}</MarkdownContent>}
+            {station.section === "ingredients" ? <KitchenIngredients ingredients={station.projection.ingredients} checkedIds={optimisticIngredients ?? station.projection.checked_ingredient_ids ?? []} disabled={loadingCommand || remoteUnavailable} onCheck={(block_id, completed) => void sendCommand("set_ingredient_checked", { block_id, completed })} /> : <MarkdownContent variant="kitchen" className="mt-6 text-xl leading-relaxed sm:text-2xl">{currentBlock.markdown}</MarkdownContent>}
           </article> : <article className="rounded-2xl border border-dashed bg-card p-8 text-center"><p className="text-xl font-semibold">Esta receita ainda não tem conteúdo nesta seção.</p><p className="mt-2 text-base text-muted-foreground">Você pode continuar consultando as outras seções.</p></article>)}
 
           <nav aria-label="Navegação da receita" className="flex flex-wrap items-center justify-between gap-3 pb-6">
