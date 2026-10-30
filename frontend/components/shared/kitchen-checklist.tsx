@@ -1,6 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
+import Link from "next/link";
 import { MarkdownContent } from "@/components/shared/markdown-content";
 
 export type KitchenStep = { id: string; section: string; title: string; markdown: string; checkable?: boolean };
@@ -10,12 +11,13 @@ interface KitchenChecklistProps {
   completedIds: string[];
   section: string;
   currentId?: string;
+  recipeId?: string;
   disabled: boolean;
   onComplete: (id: string, completed: boolean) => void;
   onReset: () => void;
 }
 
-export function KitchenChecklist({ blocks, completedIds, section, currentId, disabled, onComplete, onReset }: KitchenChecklistProps) {
+export function KitchenChecklist({ blocks, completedIds, section, currentId, recipeId, disabled, onComplete, onReset }: KitchenChecklistProps) {
   const steps = blocks.filter(block => block.checkable === true);
   const done = steps.filter(step => completedIds.includes(step.id)).length;
   const progress = steps.length ? done / steps.length * 100 : 0;
@@ -63,9 +65,16 @@ export function KitchenChecklist({ blocks, completedIds, section, currentId, dis
         <div className={`transition-opacity duration-200 motion-reduce:transition-none ${completed ? "opacity-90" : "opacity-100"}`}>
           <MarkdownContent className="mt-6 space-y-5 text-xl leading-relaxed sm:text-2xl">{step.markdown}</MarkdownContent>
         </div>
+        <button type="button" aria-label={completed ? `Desfazer conclusão da etapa ${number}` : `Concluir etapa ${number}`} aria-pressed={completed} disabled={disabled} onClick={() => toggle(step)} className={`mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold disabled:opacity-50 ${completed ? "border border-success text-success" : "bg-primary text-primary-foreground"}`}>
+          <Check aria-hidden="true" className="h-5 w-5" />
+          {completed ? "Etapa concluída · Desfazer" : "Concluir etapa"}
+        </button>
       </article>;
     })}
-    {(section === "steps" || section === "preparation") && !steps.length && <p className="rounded-2xl border border-dashed p-8 text-lg">Esta receita ainda não tem etapas cadastradas.</p>}
+    {(section === "steps" || section === "preparation") && !steps.length && <div className="space-y-3 rounded-2xl border border-dashed p-8 text-lg">
+      <p>Esta receita ainda não tem etapas cadastradas.</p>
+      {recipeId && <Link href={`/receitas/${encodeURIComponent(recipeId)}/editar`} className="inline-flex min-h-12 items-center rounded-xl border px-4 py-3 font-semibold text-primary">Cadastrar etapas na receita</Link>}
+    </div>}
     {steps.length > 0 && <button type="button" disabled={disabled || done === 0} onClick={() => {
       if (window.confirm("Reiniciar etapas? Todas as marcações deste preparo serão apagadas.")) onReset();
     }} className="min-h-12 rounded-xl border px-5 text-base font-semibold hover:bg-muted disabled:opacity-40">Reiniciar etapas</button>}

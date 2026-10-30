@@ -26,6 +26,20 @@ function Checklist({ steps = blocks }: { steps?: KitchenStep[] }) {
     onReset={() => setIds([])} />;
 }
 
+it("oferece botão explícito para concluir e desfazer cada etapa", () => {
+  render(<Checklist />);
+  fireEvent.click(screen.getByRole("button", { name: "Concluir etapa 1" }));
+  expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "50");
+  fireEvent.click(screen.getByRole("button", { name: "Desfazer conclusão da etapa 1" }));
+  expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
+});
+
+it("direciona ao cadastro quando a receita tem somente texto de preparo", () => {
+  render(<KitchenChecklist recipeId="receita" blocks={[{ id: "texto", section: "preparation", title: "Preparo", markdown: "Misture e asse." }]} section="preparation" completedIds={[]} disabled={false} onComplete={vi.fn()} onReset={vi.fn()} />);
+  expect(screen.getByRole("link", { name: "Cadastrar etapas na receita" })).toHaveAttribute("href", "/receitas/receita/editar");
+  expect(screen.queryByRole("button", { name: /Concluir etapa/ })).not.toBeInTheDocument();
+});
+
 it("marca fora de ordem, mantém dimensões/classes estruturais, calcula e reverte conclusão total", () => {
   render(<Checklist />);
   const card = screen.getByRole("article", { name: "Etapa 2" });

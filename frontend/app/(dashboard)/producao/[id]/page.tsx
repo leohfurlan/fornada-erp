@@ -4,7 +4,7 @@ import { ValidationFeedback } from "@/components/shared/validation-feedback";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, Calendar, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Calendar, Trash2 } from "lucide-react";
 import {
   useDeletarOrdemProducao,
   useMudarStatusOP,
@@ -107,6 +107,14 @@ export default function OrdemProducaoDetalhePage() {
 
   return (
     <div className="space-y-5 pb-8">
+      <nav aria-label="Ações da ordem de produção" className="flex flex-wrap items-center justify-between gap-3">
+        <Link href="/producao" className="flex min-h-12 items-center gap-1 text-sm text-muted-foreground">
+          <ArrowLeft className="h-4 w-4" /> Voltar
+        </Link>
+        <Link href={`/receitas/${encodeURIComponent(op.receita_id)}`} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground">
+          <BookOpen className="h-5 w-5" /> Ir para a receita
+        </Link>
+      </nav>
       {op.ficha_snapshot?.ficha.passos?.length ? <section className="space-y-3 rounded-xl border p-4">
         <h2 className="font-semibold">Ficha de montagem desta produção</h2>
         <MarkdownContent>{op.ficha_snapshot.ficha.descricao_produto}</MarkdownContent>
@@ -118,11 +126,6 @@ export default function OrdemProducaoDetalhePage() {
           {passo.especificacao && <MarkdownContent>{passo.especificacao}</MarkdownContent>}{passo.instrucao && <MarkdownContent>{passo.instrucao}</MarkdownContent>}
         </li>)}</ol>
       </section> : null}
-      <Link href="/producao" className="flex items-center gap-1 text-sm text-muted-foreground">
-        <ArrowLeft className="h-4 w-4" />
-        Voltar
-      </Link>
-
       <div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-sm text-muted-foreground">

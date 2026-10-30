@@ -57,7 +57,7 @@ it("marca imediatamente, bloqueia eventos duplicados e recupera do servidor ao r
     });
     return Promise.resolve({ data: { lease_id: "lease", station: structuredClone(station), rendered_revision: station.revision } });
   });
-  fireEvent.click(screen.getByRole("button", { name: "Marcar etapa 1 como concluída" }));
+  fireEvent.click(screen.getByRole("button", { name: "Concluir etapa 1" }));
   fireEvent.click(screen.getByRole("article", { name: "Etapa 1" }));
   expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
   expect(mocks.post.mock.calls.filter(([path]) => path.endsWith("/commands"))).toHaveLength(1);

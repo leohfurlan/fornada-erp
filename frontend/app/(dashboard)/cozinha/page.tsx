@@ -477,7 +477,7 @@ export default function CozinhaPage() {
               <h3 className="text-2xl font-bold sm:text-3xl">Modo de preparo</h3>
               {preparationText ? <MarkdownContent className="mt-6 text-xl leading-relaxed sm:text-2xl">{preparationText.markdown}</MarkdownContent> : <p className="mt-4 text-lg text-muted-foreground">Acompanhe o preparo nas etapas abaixo.</p>}
             </article>
-          <KitchenChecklist blocks={station.projection.blocks} completedIds={optimisticCompleted ?? station.projection.completed_block_ids ?? []} section="preparation" currentId={currentBlock?.id} disabled={loadingCommand || remoteUnavailable} onComplete={(block_id, completed) => void sendCommand("set_step_completed", { block_id, completed })} onReset={() => void sendCommand("reset_steps")} />
+          <KitchenChecklist recipeId={station.projection.recipe_id} blocks={station.projection.blocks} completedIds={optimisticCompleted ?? station.projection.completed_block_ids ?? []} section="preparation" currentId={currentBlock?.id} disabled={loadingCommand || remoteUnavailable} onComplete={(block_id, completed) => void sendCommand("set_step_completed", { block_id, completed })} onReset={() => void sendCommand("reset_steps")} />
             <a href="#modo-de-preparo" className="inline-flex min-h-12 items-center rounded-xl px-4 font-semibold text-primary hover:bg-muted">Voltar ao início do modo de preparo</a>
           </section>}
           {!showingPreparation && (currentBlock ? <article className="min-h-64 rounded-2xl border bg-card p-5 sm:p-8" aria-live="polite">
