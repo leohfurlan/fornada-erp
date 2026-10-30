@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import CompraPage from "@/components/shared/compra-comercial";
 import { dataCompra, precoPeloTotal, totalItem } from "@/lib/compras";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 const mocks = vi.hoisted(() => ({ ler: vi.fn(), prever: vi.fn(), salvar: vi.fn(), reconhecer: vi.fn() }));
 vi.mock("@/hooks/use-estoque", () => ({ useIngredientes: () => ({
@@ -28,6 +29,7 @@ const observado = {
 };
 beforeEach(() => {
   cleanup(); Object.values(mocks).forEach((mock) => mock.mockReset());
+  localStorage.clear(); useAuthStore.setState({ usuario: null });
   mocks.ler.mockResolvedValue({ itens: [observado], estabelecimento: "EMPORIO PONTO X",
     fornecedor_id: "loja", data_compra: "2026-10-03", total_nota: "35.99", fonte: "gemma4" });
   mocks.prever.mockResolvedValue({ pode_confirmar: true, duplicidade: [], itens: [{
@@ -50,6 +52,82 @@ function selecionar() {
   fireEvent.click(screen.getByLabelText("Registrar apenas esta compra, sem aprovação permanente"));
 }
 describe("conferência comercial de compras", () => {
+  it("recupera a compra manual após recarregar e exige nova conferência", async () => {
+    useAuthStore.setState({ usuario: { id: "user", tenant_id: "tenant", nome: "Teste", email: "teste@example.com", valor_hora: "0" } });
+    const view = render(<CompraPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Registrar compra manualmente" }));
+    fireEvent.change(screen.getByLabelText("Embalagem comercial (opcional)"), { target: { value: "produto" } });
+    fireEvent.change(screen.getByLabelText("Quantidade comprada *"), { target: { value: "4" } });
+    fireEvent.change(screen.getByLabelText("Preço por unidade comprada (R$) *"), { target: { value: "8,99" } });
+    expect(localStorage.getItem("fornada:rascunho:v1:tenant:user:compra:nova")).toContain('"quantidade":"4"');
+    fireEvent.click(screen.getByRole("button", { name: "Conferir entrada no estoque" }));
+    await screen.findByRole("heading", { name: "Revise a entrada no estoque" });
+    view.unmount(); render(<CompraPage />);
+    expect(screen.getByLabelText("Quantidade comprada *")).toHaveValue("4");
+    expect(screen.getByLabelText("Total da linha (R$) *")).toHaveValue("35,96");
+    expect(screen.queryByRole("button", { name: "Salvar compra" })).not.toBeInTheDocument();
+    expect(mocks.salvar).not.toHaveBeenCalled();
+  });
+  it("recupera itens de nota e acréscimos manuais com desconto, sem repetir o OCR", async () => {
+    const scroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    useAuthStore.setState({ usuario: { id: "user", tenant_id: "tenant", nome: "Teste", email: "teste@example.com", valor_hora: "0" } });
+    await foto();
+    fireEvent.click(screen.getByText("Desconto (opcional)"));
+    fireEvent.change(screen.getByLabelText("Desconto total do item (R$)"), { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar item" }));
+    cleanup(); render(<CompraPage />);
+    expect(screen.getByText(observado.descricao)).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Material que recebe o estoque *")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Desconto total do item (R$)")[0]).toHaveValue("2");
+    expect(mocks.ler).toHaveBeenCalledOnce();
+    scroll.mockRestore();
+  });
+  it("mantém a chave da tentativa após recarregar e limpa o rascunho só após salvar", async () => {
+    useAuthStore.setState({ usuario: { id: "user", tenant_id: "tenant", nome: "Teste", email: "teste@example.com", valor_hora: "0" } });
+    mocks.salvar.mockRejectedValueOnce(new Error("Resposta perdida"));
+    await foto(); selecionar();
+    fireEvent.click(screen.getByRole("button", { name: "Conferir entrada no estoque" }));
+    await screen.findByRole("button", { name: "Salvar compra" });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar compra" }));
+    await screen.findAllByRole("alert");
+    const key = "fornada:rascunho:v1:tenant:user:compra:nova";
+    expect(JSON.parse(localStorage.getItem(key)!).value.tentativa.chave).toBe(mocks.salvar.mock.calls[0][0].chave);
+    cleanup(); render(<CompraPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Conferir entrada no estoque" }));
+    await screen.findByRole("button", { name: "Salvar compra" });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar compra" }));
+    await screen.findByText("Compra registrada!");
+    expect(mocks.salvar.mock.calls[1][0].chave).toBe(mocks.salvar.mock.calls[0][0].chave);
+    expect(localStorage.getItem(key)).toBeNull();
+    cleanup(); render(<CompraPage />);
+    expect(screen.getByText("Entrada de compra")).toBeInTheDocument();
+  });
+  it("separa os rascunhos ao trocar de conta sem copiar os dados da compra anterior", () => {
+    const user = { id: "user", tenant_id: "tenant", nome: "Teste", email: "teste@example.com", valor_hora: "0" };
+    useAuthStore.setState({ usuario: user });
+    render(<CompraPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Registrar compra manualmente" }));
+    fireEvent.change(screen.getByLabelText("Produto comprado *"), { target: { value: "CORANTE PRIVADO" } });
+    fireEvent.click(screen.getByRole("button", { name: "← Refazer ou cancelar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Salvar rascunho e sair" }));
+    cleanup();
+    useAuthStore.setState({ usuario: { ...user, tenant_id: "outra-conta" } });
+    render(<CompraPage />);
+    expect(screen.getByText("Entrada de compra")).toBeInTheDocument();
+    expect(localStorage.getItem("fornada:rascunho:v1:outra-conta:user:compra:nova")).toBeNull();
+    cleanup(); useAuthStore.setState({ usuario: user }); render(<CompraPage />);
+    expect(screen.getByLabelText("Produto comprado *")).toHaveValue("CORANTE PRIVADO");
+  });
+  it("explica 25 g por embalagem separadamente da conversão por grama", async () => {
+    await foto();
+    fireEvent.change(screen.getByLabelText("Material que recebe o estoque *"), { target: { value: "material" } });
+    fireEvent.change(screen.getByLabelText("Conteúdo de cada embalagem *"), { target: { value: "25" } });
+    fireEvent.change(screen.getByLabelText("Unidade do conteúdo *"), { target: { value: "g" } });
+    expect(screen.getByText("Cada embalagem comprada contém 25 g.")).toBeInTheDocument();
+    expect(screen.getByText(/Unidade de estoque do material:/)).toHaveTextContent("kg");
+    expect(screen.getByLabelText("1 g de conteúdo equivale a quantos kg no estoque?")).toHaveValue("");
+    expect(mocks.salvar).not.toHaveBeenCalled();
+  });
   it("permite acrescentar um item à nota lida e preserva a posição da janela", async () => {
     const scroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
     await foto();

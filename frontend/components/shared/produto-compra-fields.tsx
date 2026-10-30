@@ -4,13 +4,15 @@ import { DecimalInput } from "@/components/shared/decimal-input";
 import { UnidadeCompraSelect } from "@/components/shared/unidade-compra-select";
 import type { ProdutoDados } from "@/types/compras";
 import { erroNome, nomeMaiusculo } from "@/lib/nomes";
+import { decimalCompra } from "@/lib/compras";
 
 const input = "w-full rounded-lg border bg-background px-3 py-2.5 text-sm";
-export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "", compacto = false, detalhesProdutoVisiveis = false, unidadesCadastradas = [], mostrarNomeProduto = true }: {
+export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "", compacto = false, detalhesProdutoVisiveis = false, unidadesCadastradas = [], mostrarNomeProduto = true, unidadeEstoque }: {
   value: ProdutoDados; onChange: (value: ProdutoDados) => void; prefix: string; fieldPrefix?: string; compacto?: boolean;
   unidadesCadastradas?: string[];
   mostrarNomeProduto?: boolean;
   detalhesProdutoVisiveis?: boolean;
+  unidadeEstoque?: string;
 }) {
   const field = (key: string) => fieldPrefix ? `${fieldPrefix}.${key}` : key;
   const set = (patch: Partial<ProdutoDados>) => onChange({ ...value, ...patch });
@@ -44,6 +46,8 @@ export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "",
         <UnidadeCompraSelect name={field("unidade_conteudo")} id={prefix + "unidade"} value={value.unidade_conteudo}
           unidadesCadastradas={unidadesCadastradas} required onChange={(unidade_conteudo) => set({ unidade_conteudo })} /></div>
     </div>
+    {Number(value.conteudo_embalagem) > 0 && <p className="text-sm font-medium">Cada embalagem comprada contém {decimalCompra(value.conteudo_embalagem)} {value.unidade_conteudo}.</p>}
+    {unidadeEstoque && <p className="text-xs text-muted-foreground">Unidade de estoque do material: <strong>{unidadeEstoque}</strong>. O conteúdo da embalagem não altera essa unidade.</p>}
     <details open={!compacto}><summary className="cursor-pointer text-xs">Código de barras (opcional)</summary>
       <label htmlFor={prefix + "gtin"} className="text-xs">GTIN/EAN confirmado (opcional)</label>
       <input name={field("gtin")} id={prefix + "gtin"} className={input} inputMode="numeric" value={value.gtin ?? ""}
@@ -51,7 +55,8 @@ export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "",
       <p className="text-xs text-muted-foreground">Use o código de barras da embalagem. Código da loja fica separado.</p>
     </details>
     <details className="text-xs"><summary>Conversão específica do conteúdo</summary>
-      <label htmlFor={prefix + "fator"}>1 unidade do conteúdo equivale a quantas unidades do material?</label>
+      <p className="text-muted-foreground">Este campo não é o conteúdo do frasco. Use apenas para relacionar a unidade do conteúdo à unidade de estoque; conversões entre g e kg ou mL e L são automáticas.</p>
+      <label htmlFor={prefix + "fator"}>{unidadeEstoque ? `1 ${value.unidade_conteudo} de conteúdo equivale a quantos ${unidadeEstoque} no estoque?` : `1 ${value.unidade_conteudo} de conteúdo equivale a quantas unidades de estoque?`}</label>
       <DecimalInput name={field("fator_para_principal")} id={prefix + "fator"} value={value.fator_para_principal ?? ""}
         onChange={(v) => set({ fator_para_principal: v > 0 ? String(v) : null })} />
       <p className="text-muted-foreground">Preencha apenas se não houver conversão métrica ou alternativa cadastrada.</p>

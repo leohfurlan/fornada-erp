@@ -100,7 +100,7 @@ export function ProdutosAprovados({ ingredienteId }: { ingredienteId: string }) 
     }}>Adicionar produto aprovado</button>
     {aberto && <ValidationScope error={erroProduto} className="rounded-xl border p-3 space-y-3">
       <h3 className="font-medium">{editando ? "Editar produto" : "Novo produto para compra"}</h3>
-      <ProdutoCompraFields prefix="cadastro-produto-" value={produto} unidadesCadastradas={unidadesCadastradas} onChange={setProduto} />
+      <ProdutoCompraFields prefix="cadastro-produto-" value={produto} unidadeEstoque={ingredientes.data?.find((m) => m.id === ingredienteId)?.unidade} unidadesCadastradas={unidadesCadastradas} onChange={setProduto} />
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={aprovado} onChange={(e) => setAprovado(e.target.checked)} />Produto aprovado para este material</label>
       <fieldset className="space-y-2"><legend className="text-sm font-medium">Lojas aprovadas para este produto</legend>
         {fornecedores.data?.map((f) => <label className="flex items-center gap-2 text-sm" key={f.id}>

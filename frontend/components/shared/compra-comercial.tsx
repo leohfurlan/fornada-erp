@@ -3,7 +3,9 @@
 import { ValidationScope } from "@/components/shared/validation-feedback";
 import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useRascunho } from "@/hooks/use-rascunho";
+import { RascunhoFeedback } from "@/components/shared/rascunho-feedback";
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { ProdutoCompraFields } from "@/components/shared/produto-compra-fields";
 import { erroNome, nomeMaiusculo } from "@/lib/nomes";
@@ -70,6 +72,23 @@ function itemManual(): ItemLido {
     score: 0, explicacao: "Escolha o ingrediente ou a embalagem que você comprou.", pendencias: [], candidatos: [],
     vinculo_id: null, vinculo_revisao: null, tipo_sugerido: "ingrediente", unidade_sugerida: "kg" };
 }
+interface CompraRascunho {
+  ativo: boolean;
+  itens: ItemEdicao[];
+  leitura: LeituraCompra | null;
+  loja: string;
+  fornecedor: string;
+  cnpj: string;
+  data: string;
+  identidade: string;
+  identidadeConfirmada: boolean;
+  duplicidadeConfirmada: boolean;
+  tentativa: { assinatura: string; chave: string } | null;
+}
+const compraInicial: CompraRascunho = {
+  ativo: false, itens: [], leitura: null, loja: "", fornecedor: "", cnpj: "", data: "",
+  identidade: "", identidadeConfirmada: false, duplicidadeConfirmada: false, tentativa: null,
+};
 export default function CompraComercialPage() {
   const [etapa, setEtapa] = useState<"captura" | "revisao" | "concluido">("captura");
   const [itens, setItens] = useState<ItemEdicao[]>([]);
@@ -104,6 +123,27 @@ export default function CompraComercialPage() {
   const prever = usePreverCompra();
   const reconhecer = useReconhecerCompra();
   const salvar = useSalvarCompra();
+  const restaurando = useRef(false);
+  const rascunho = useRascunho("compra:nova", compraInicial, (draft) => {
+    restaurando.current = true;
+    sequenciaLeitura.current += 1; sequenciaLoja.current += 1;
+    versao.current += 1;
+    setItens(draft.itens); setLeitura(draft.leitura);
+    setLoja(draft.loja); setFornecedor(draft.fornecedor); setCnpj(draft.cnpj); setData(draft.data);
+    setIdentidade(draft.identidade); setIdentidadeConfirmada(draft.identidadeConfirmada);
+    setDuplicidadeConfirmada(draft.duplicidadeConfirmada); tentativa.current = draft.tentativa;
+    setPrevia(null); setEstoqueDialogOpen(false); setFalha(undefined); setErro("");
+    setEtapa(draft.ativo ? "revisao" : "captura");
+  });
+  const dadosRascunho = useMemo<CompraRascunho>(() => ({
+    ativo: etapa === "revisao", itens, leitura, loja, fornecedor, cnpj, data,
+    identidade, identidadeConfirmada, duplicidadeConfirmada, tentativa: tentativa.current,
+  }), [etapa, itens, leitura, loja, fornecedor, cnpj, data, identidade, identidadeConfirmada, duplicidadeConfirmada]);
+  useEffect(() => {
+    // Restoration updates several states together; never write the previous account's render.
+    if (restaurando.current) { restaurando.current = false; return; }
+    if (dadosRascunho.ativo) rascunho.persist(dadosRascunho);
+  }, [dadosRascunho, rascunho.persist]);
 
   const unidadesCadastradas = [...new Set([
     ...(ingredientes.data ?? []).flatMap((material) => [
@@ -225,8 +265,11 @@ export default function CompraComercialPage() {
     if (tentativa.current?.assinatura !== assinatura) {
       tentativa.current = { assinatura, chave: crypto.randomUUID() };
     }
+    // Keep the same idempotency key if the server saves but the response is lost.
+    rascunho.persist({ ...dadosRascunho, tentativa: tentativa.current });
     try {
       const result = await salvar.mutateAsync({ payload, chave: tentativa.current.chave });
+      rascunho.complete();
       setResumo(result); setEtapa("concluido");
     } catch (e) { setFalha(e); }
   }
@@ -238,6 +281,7 @@ export default function CompraComercialPage() {
     <button className={botao} onClick={() => { invalidar(); setEtapa("captura"); setResumo(null); tentativa.current = null; }}>Registrar outra compra</button>
   </div>;
   if (etapa === "captura") return <ValidationScope error={falha} className="space-y-5">
+    <RascunhoFeedback {...rascunho} />
     <Link className="text-sm text-muted-foreground" href="/estoque">← Voltar</Link>
     <h1 className="text-xl font-bold">Entrada de compra</h1>
     <p className="text-sm text-muted-foreground">Fotografe o cupom ou escolha uma imagem ou PDF e confira os produtos, quantidades e preços antes de salvar.</p>
@@ -260,8 +304,9 @@ export default function CompraComercialPage() {
     <Link href="/compras/lista" className="block text-primary">Lista de compras</Link>
   </ValidationScope>;
   return <ValidationScope error={falha} className="space-y-5 pb-8">
-    <button className={botao} disabled={salvar.isPending} onClick={() => { invalidar(); sequenciaLoja.current += 1; setEtapa("captura"); }}>← Refazer ou cancelar</button>
+    <button data-rascunho-sair className={botao} disabled={salvar.isPending} onClick={() => { invalidar(); sequenciaLoja.current += 1; setEtapa("captura"); }}>← Refazer ou cancelar</button>
     <h1 className="text-xl font-bold">Conferir itens</h1>
+    <RascunhoFeedback {...rascunho} />
     <p className="text-sm text-muted-foreground">Confira o que foi comprado. Quantidade comprada conta unidades da nota; o conteúdo informa quanto cada embalagem acrescenta ao estoque.</p>
     <p className="text-xs text-muted-foreground">Campos com * são obrigatórios. Preencha o total ou o preço por unidade; o outro valor será calculado.</p>
     <p className="rounded-lg bg-muted/30 p-3 text-sm">Nada entra no estoque antes de você conferir o resumo e salvar. Por padrão, as escolhas valem apenas para esta compra.</p>
@@ -342,7 +387,7 @@ export default function CompraComercialPage() {
               <label className="text-xs" htmlFor={"unidade-material-" + idx}>Unidade principal do estoque *</label>
               <input id={"unidade-material-" + idx} name={`itens.${incluidos.indexOf(it)}.unidade_principal`} aria-label={"Unidade principal do material " + (idx + 1)} className={input} required value={it.unidade_principal} placeholder="kg, g, ml, l ou un" onChange={(e) => atualizar(idx, { unidade_principal: e.target.value })} />
             </div>}
-            {it.modo_produto === "novo" && <ProdutoCompraFields compacto detalhesProdutoVisiveis mostrarNomeProduto={!!leitura} unidadesCadastradas={unidadesCadastradas} fieldPrefix={`itens.${incluidos.indexOf(it)}.produto_novo`} prefix={"compra-" + idx + "-"} value={it.produto_novo} onChange={(v) => atualizar(idx, { produto_novo: v,
+            {it.modo_produto === "novo" && <ProdutoCompraFields compacto detalhesProdutoVisiveis mostrarNomeProduto={!!leitura} unidadeEstoque={it.criar_novo ? it.unidade_principal : ingredientes.data?.find((m) => m.id === it.ingrediente_id)?.unidade} unidadesCadastradas={unidadesCadastradas} fieldPrefix={`itens.${incluidos.indexOf(it)}.produto_novo`} prefix={"compra-" + idx + "-"} value={it.produto_novo} onChange={(v) => atualizar(idx, { produto_novo: v,
               aprovar_produto: false, aprovar_fornecedor: false, guardar_vinculo: false, aceitar_excecao: true })} />}
           </section>
           <div className="grid grid-cols-2 gap-2">
