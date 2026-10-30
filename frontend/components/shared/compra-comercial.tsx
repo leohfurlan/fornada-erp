@@ -362,17 +362,20 @@ export default function CompraComercialPage() {
             <div><label htmlFor={"custo-" + idx} className="text-xs">Preço por unidade comprada (R$) *</label>
               <DecimalInput name={`itens.${incluidos.indexOf(it)}.custo_unitario`} id={"custo-" + idx} value={it.custo_unitario} required
                 onChange={(v) => atualizar(idx, { custo_unitario: v > 0 ? String(v) : "", preco_total: v > 0 ? totalItem(it.quantidade, String(v), it.desconto_item) : "" })} /></div>
-            <div><label htmlFor={"desconto-" + idx} className="text-xs">Desconto deste item (R$)</label>
+            <div><label htmlFor={"total-" + idx} className="text-xs">Total da linha (R$) *</label>
+              <DecimalInput name={`itens.${incluidos.indexOf(it)}.preco_total`} id={"total-" + idx} value={it.preco_total} required
+                onChange={(v) => atualizar(idx, { preco_total: v > 0 ? String(v) : "", custo_unitario: precoPeloTotal(it.quantidade, v > 0 ? String(v) : "", it.desconto_item) })} /></div>
+          </div>
+          <details className="space-y-2">
+            <summary className="cursor-pointer text-sm">Desconto (opcional)</summary>
+            <div><label htmlFor={"desconto-" + idx} className="text-xs">Desconto total do item (R$)</label>
               <DecimalInput name={`itens.${incluidos.indexOf(it)}.desconto_item`} id={"desconto-" + idx} value={it.desconto_item} onChange={(v) => {
                 const desconto_item = String(v);
                 const custo_unitario = it.custo_unitario || precoPeloTotal(it.quantidade, it.preco_total, it.desconto_item);
                 atualizar(idx, { desconto_item, custo_unitario,
                   preco_total: custo_unitario ? totalItem(it.quantidade, custo_unitario, desconto_item) : it.preco_total });
               }} /></div>
-          </div>
-          <div><label htmlFor={"total-" + idx} className="text-xs">Total da linha (R$) *</label>
-            <DecimalInput name={`itens.${incluidos.indexOf(it)}.preco_total`} id={"total-" + idx} value={it.preco_total} required
-              onChange={(v) => atualizar(idx, { preco_total: v > 0 ? String(v) : "", custo_unitario: precoPeloTotal(it.quantidade, v > 0 ? String(v) : "", it.desconto_item) })} /></div>
+          </details>
           <details><summary className="text-xs">Código e identificação lidos</summary>
             <input className={input} name={`itens.${incluidos.indexOf(it)}.codigo_loja`} aria-label={"Código da loja item " + (idx + 1)} value={it.origem.codigo_loja ?? ""} onChange={(e) => atualizar(idx, { origem: { ...it.origem, codigo_loja: e.target.value || null } })} />
             {it.origem.gtin && <label className="flex gap-2 text-xs"><input type="checkbox" checked={it.origem.gtin_confirmado} onChange={(e) => atualizar(idx, { origem: { ...it.origem, gtin_confirmado: e.target.checked } })} />Conferi que {it.origem.gtin} é o código universal da embalagem</label>}

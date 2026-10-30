@@ -234,7 +234,7 @@ describe("preços e datas", () => {
 });
 
 describe("compra simplificada", () => {
-  it.each(["manual", "nota"])("coleta identificação, quantidade, unidade, preço e desconto nessa ordem: %s", async (origem) => {
+  it.each(["manual", "nota"])("coleta identificação, quantidade, unidade, preço e total nessa ordem: %s", async (origem) => {
     if (origem === "nota") await foto();
     else {
       render(<CompraPage />);
@@ -248,7 +248,6 @@ describe("compra simplificada", () => {
       screen.getByLabelText("Quantidade comprada *"),
       screen.getByLabelText("Unidade comprada *"),
       screen.getByLabelText("Preço por unidade comprada (R$) *"),
-      screen.getByLabelText("Desconto deste item (R$)"),
       screen.getByLabelText("Total da linha (R$) *"),
     ];
     campos.forEach((campo, index) => {
@@ -268,11 +267,19 @@ describe("compra simplificada", () => {
     expect(mocks.salvar).not.toHaveBeenCalled();
   });
 
-  it("mantém identificação e desconto visíveis e códigos e preferências recolhidos", async () => {
+  it("mantém identificação visível e desconto, códigos e preferências recolhidos", async () => {
     await foto();
     expect(screen.getByRole("region", { name: "Produto e material" })).toBeVisible();
     expect(screen.getByLabelText("Variante (opcional)")).toBeVisible();
-    expect(screen.getByLabelText("Desconto deste item (R$)")).toBeVisible();
+    const desconto = screen.getByLabelText("Desconto total do item (R$)");
+    expect(desconto).not.toBeVisible();
+    fireEvent.click(screen.getByText("Desconto (opcional)"));
+    expect(desconto.closest("details")).toHaveAttribute("open");
+    expect(desconto).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Quantidade comprada *"), { target: { value: "4" } });
+    fireEvent.change(screen.getByLabelText("Preço por unidade comprada (R$) *"), { target: { value: "8,99" } });
+    fireEvent.change(desconto, { target: { value: "2" } });
+    expect(screen.getByLabelText("Total da linha (R$) *")).toHaveValue("33,96");
     expect(screen.getByText("Código e identificação lidos").closest("details")).not.toHaveAttribute("open");
     expect(screen.getByText("Usar somente nesta compra").closest("details")).not.toHaveAttribute("open");
   });
