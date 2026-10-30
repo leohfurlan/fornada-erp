@@ -234,11 +234,33 @@ describe("preços e datas", () => {
 });
 
 describe("compra simplificada", () => {
+  it.each(["manual", "nota"])("coleta identificação, quantidade, unidade, preço e desconto nessa ordem: %s", async (origem) => {
+    if (origem === "nota") await foto();
+    else {
+      render(<CompraPage />);
+      fireEvent.click(screen.getByRole("button", { name: "Registrar compra manualmente" }));
+    }
+    const campos = [
+      screen.getByLabelText("Embalagem comercial (opcional)"),
+      screen.getByLabelText("Material que recebe o estoque *"),
+      screen.getByLabelText("Marca *"),
+      screen.getByLabelText("Variante (opcional)"),
+      screen.getByLabelText("Quantidade comprada *"),
+      screen.getByLabelText("Unidade comprada *"),
+      screen.getByLabelText("Preço por unidade comprada (R$) *"),
+      screen.getByLabelText("Desconto deste item (R$)"),
+      screen.getByLabelText("Total da linha (R$) *"),
+    ];
+    campos.forEach((campo, index) => {
+      expect(campo).toBeVisible();
+      if (index) expect(campos[index - 1].compareDocumentPosition(campo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+  });
   it("seleciona produto e classifica sem uma segunda escolha de material", async () => {
     await foto();
     fireEvent.change(screen.getByLabelText("Embalagem comercial (opcional)"), { target: { value: "produto" } });
     expect(screen.getByLabelText("Material que recebe o estoque *")).toHaveValue("material");
-    expect(screen.getByText("Classificação: Chocolate branco").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByRole("region", { name: "Produto e material" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Conferir entrada no estoque" }));
     await waitFor(() => expect(mocks.prever).toHaveBeenCalledOnce());
     expect(mocks.prever.mock.calls[0][0].itens[0]).toMatchObject({ ingrediente_id: "material",
@@ -246,11 +268,12 @@ describe("compra simplificada", () => {
     expect(mocks.salvar).not.toHaveBeenCalled();
   });
 
-  it("mantém classificação incerta aberta e detalhes opcionais recolhidos", async () => {
+  it("mantém identificação e desconto visíveis e códigos e preferências recolhidos", async () => {
     await foto();
-    expect(screen.getByText("O que você comprou? Escolha a classificação").closest("details")).toHaveAttribute("open");
-    expect(screen.getByText("Fabricante e variante (opcional)").closest("details")).not.toHaveAttribute("open");
-    expect(screen.getByText("Desconto e códigos (opcionais)").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByRole("region", { name: "Produto e material" })).toBeVisible();
+    expect(screen.getByLabelText("Variante (opcional)")).toBeVisible();
+    expect(screen.getByLabelText("Desconto deste item (R$)")).toBeVisible();
+    expect(screen.getByText("Código e identificação lidos").closest("details")).not.toHaveAttribute("open");
     expect(screen.getByText("Usar somente nesta compra").closest("details")).not.toHaveAttribute("open");
   });
 

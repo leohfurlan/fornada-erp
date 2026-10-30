@@ -6,10 +6,11 @@ import type { ProdutoDados } from "@/types/compras";
 import { erroNome, nomeMaiusculo } from "@/lib/nomes";
 
 const input = "w-full rounded-lg border bg-background px-3 py-2.5 text-sm";
-export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "", compacto = false, unidadesCadastradas = [], mostrarNomeProduto = true }: {
+export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "", compacto = false, detalhesProdutoVisiveis = false, unidadesCadastradas = [], mostrarNomeProduto = true }: {
   value: ProdutoDados; onChange: (value: ProdutoDados) => void; prefix: string; fieldPrefix?: string; compacto?: boolean;
   unidadesCadastradas?: string[];
   mostrarNomeProduto?: boolean;
+  detalhesProdutoVisiveis?: boolean;
 }) {
   const field = (key: string) => fieldPrefix ? `${fieldPrefix}.${key}` : key;
   const set = (patch: Partial<ProdutoDados>) => onChange({ ...value, ...patch });
@@ -31,7 +32,7 @@ export function ProdutoCompraFields({ value, onChange, prefix, fieldPrefix = "",
   return <div className="space-y-3">
     {mostrarNomeProduto && campoTexto("nome")}
     {campoTexto("marca")}
-    {compacto ? <details className="space-y-3"><summary className="cursor-pointer text-xs">Fabricante e variante (opcional)</summary>
+    {compacto && !detalhesProdutoVisiveis ? <details className="space-y-3"><summary className="cursor-pointer text-xs">Fabricante e variante (opcional)</summary>
       {(["fabricante", "variante"] as const).map(campoTexto)}
     </details> : (["fabricante", "variante"] as const).map(campoTexto)}
     <p className="text-xs text-muted-foreground">Quantidade comprada conta embalagens; este conteúdo informa quanto cada uma acrescenta ao estoque.</p>
