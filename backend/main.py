@@ -139,7 +139,13 @@ app.include_router(alexa.link_router, prefix="/api/v1")
 # Tratamento de erros de domínio — mensagens em português, sem jargão técnico
 def error_detail(exc: FornadaError) -> dict:
     content = {"detail": exc.message}
-    if field := getattr(exc, "field", None):
+    review_issue = getattr(exc, "issue", None)
+    field = getattr(exc, "field", None)
+    if review_issue:
+        field = review_issue["field"]
+        if review_issue["item_index"] is not None:
+            field = f"itens.{review_issue['item_index']}.{field}"
+    if field:
         content["field_errors"] = [{"path": field, "message": exc.message}]
     return content
 

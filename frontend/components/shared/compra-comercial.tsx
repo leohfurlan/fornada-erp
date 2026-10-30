@@ -3,7 +3,7 @@
 import { ValidationScope } from "@/components/shared/validation-feedback";
 import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { DecimalInput } from "@/components/shared/decimal-input";
 import { ProdutoCompraFields } from "@/components/shared/produto-compra-fields";
 import { erroNome, nomeMaiusculo } from "@/lib/nomes";
@@ -91,6 +91,12 @@ export default function CompraComercialPage() {
   const sequenciaLoja = useRef(0);
   const sequenciaLeitura = useRef(0);
   const arquivo = useRef<HTMLInputElement>(null);
+  const posicaoAoAdicionar = useRef<{ top: number; left: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!posicaoAoAdicionar.current) return;
+    window.scrollTo({ ...posicaoAoAdicionar.current, behavior: "instant" });
+    posicaoAoAdicionar.current = null;
+  }, [itens.length]);
   const ingredientes = useIngredientes();
   const produtos = useProdutosCompra();
   const fornecedores = useFornecedoresCompra();
@@ -281,7 +287,7 @@ export default function CompraComercialPage() {
           <label className="flex gap-2 text-xs"><input type="checkbox" checked={identidadeConfirmada} onChange={(e) => { invalidar(); setIdentidadeConfirmada(e.target.checked); }} />Conferi a chave de 44 dígitos na nota</label>
         </details>
       </details>
-      {itens.map((it, idx) => <article data-validation-label={`Item ${idx + 1}`} className="space-y-3 rounded-xl border p-3" key={idx}>
+      {itens.map((it, idx) => <article data-validation-label={`Item ${idx + 1} — ${it.origem.descricao || it.produto_novo.nome || it.nome || "Item manual"}`} className="space-y-3 rounded-xl border p-3" key={idx}>
         <div className="flex justify-between gap-2"><p className="min-w-0 break-words font-medium">{it.origem.descricao || produtos.data?.find((p) => p.id === it.produto_id)?.nome || it.produto_novo.nome || "Item manual"}</p>
           <label className="shrink-0 text-xs"><input type="checkbox" checked={it.incluir} onChange={(e) => atualizar(idx, { incluir: e.target.checked })} /> Incluir</label></div>
         {it.incluir && <>
@@ -402,9 +408,10 @@ export default function CompraComercialPage() {
           </details>
         </>}
       </article>)}
-      {!leitura && <button className={botao} type="button" onClick={() => {
+      <button className={botao} type="button" style={{ overflowAnchor: "none" }} onClick={() => {
+        posicaoAoAdicionar.current = { top: window.scrollY, left: window.scrollX };
         invalidar(); const next = editarItem(itemManual()); next.origem.indice = itens.length; setItens([...itens, next]);
-      }}>Adicionar item</button>}
+      }}>Adicionar item</button>
       {duplicidadeConfirmada && <p className="text-xs text-amber-800">Confirmação de nota repetida marcada. Confira novamente a entrada no estoque antes de salvar.</p>}
     </fieldset>
     {erro && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{erro}</p>}

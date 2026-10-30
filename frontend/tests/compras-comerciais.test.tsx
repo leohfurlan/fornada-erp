@@ -50,6 +50,42 @@ function selecionar() {
   fireEvent.click(screen.getByLabelText("Registrar apenas esta compra, sem aprovação permanente"));
 }
 describe("conferência comercial de compras", () => {
+  it("permite acrescentar um item à nota lida e preserva a posição da janela", async () => {
+    const scroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    await foto();
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar item" }));
+    expect(screen.getAllByLabelText("Material que recebe o estoque *")).toHaveLength(2);
+    expect(scroll).toHaveBeenCalledWith({ top: window.scrollY, left: window.scrollX, behavior: "instant" });
+    scroll.mockRestore();
+  });
+  it("preserva a posição também ao adicionar itens na compra manual", () => {
+    const scroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    vi.spyOn(window, "scrollY", "get").mockReturnValue(720);
+    render(<CompraPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Registrar compra manualmente" }));
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar item" }));
+    expect(screen.getAllByLabelText("Produto comprado *")).toHaveLength(2);
+    expect(scroll).toHaveBeenCalledWith({ top: 720, left: window.scrollX, behavior: "instant" });
+    vi.restoreAllMocks();
+  });
+  it("identifica a conversão do quinto item mesmo com outro item excluído", async () => {
+    mocks.ler.mockResolvedValue({ itens: Array.from({ length: 5 }, (_, indice) => ({
+      ...observado, indice, descricao: `PRODUTO ${indice + 1}`,
+      ingrediente_id: "material", produto_id: "produto", produto_revisao: 1,
+    })) });
+    mocks.prever.mockRejectedValue({ response: { data: { field_errors: [{
+      path: "itens.3.produto_id", message: "A unidade do conteúdo não tem conversão para a unidade de estoque do material.",
+    }] } } });
+    render(<CompraPage />);
+    fireEvent.change(screen.getByLabelText("Imagem ou PDF do cupom"), {
+      target: { files: [new File(["receipt"], "cupom.jpeg", { type: "image/jpeg" })] },
+    });
+    await screen.findByText("PRODUTO 5");
+    fireEvent.click(screen.getAllByRole("checkbox", { name: "Incluir" })[1]);
+    fireEvent.click(screen.getByRole("button", { name: "Conferir entrada no estoque" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Item 5 — PRODUTO 5 — Embalagem comercial (opcional)");
+    expect(screen.getAllByLabelText("Embalagem comercial (opcional)")[3]).toHaveAttribute("aria-invalid", "true");
+  });
   it("mantém o arquivo da câmera até terminar de ler e permite escolher novamente após falha", async () => {
     let reject: (error: unknown) => void = () => {};
     mocks.ler.mockImplementation(() => new Promise((_, fail) => { reject = fail; }));
@@ -75,7 +111,7 @@ describe("conferência comercial de compras", () => {
     const conteudo = screen.getByLabelText(/Conteúdo de cada embalagem/, { selector: "input" });
     await waitFor(() => expect(marca).toHaveAttribute("aria-invalid", "true"));
     expect(conteudo).toHaveAttribute("aria-invalid", "true");
-    expect(screen.getByRole("alert")).toHaveTextContent("Item 1 — Marca *");
+    expect(screen.getByRole("alert")).toHaveTextContent(`Item 1 — ${observado.descricao} — Marca *`);
     expect(screen.getByRole("alert")).not.toHaveTextContent("String should");
     fireEvent.change(marca, { target: { value: "Marca corrigida" } });
     await waitFor(() => expect(marca).not.toHaveAttribute("aria-invalid", "true"));

@@ -69,8 +69,9 @@ ISSUES = {
     "content_conversion_required": (
         "produto_novo.unidade_conteudo",
         "configure_conversion",
-        "Confira a unidade do conteúdo e configure sua conversão para a unidade de "
-        "estoque no Fornada.",
+        "A unidade do conteúdo não tem conversão para a unidade de estoque do material. "
+        "Confira o material e a unidade selecionados. Se estiverem corretos, abra "
+        "Conversão específica do conteúdo e informe a equivalência.",
     ),
     "content_conversion_conflict": (
         "produto_novo.fator_para_principal",
