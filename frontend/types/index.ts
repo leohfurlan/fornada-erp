@@ -48,7 +48,10 @@ export interface EtapaReceita {
 
 export interface IngredienteReceita {
   id: string;
-  ingrediente_id: string;
+  ingrediente_id: string | null;
+  receita_componente_id: string | null;
+  tipo_origem: "material" | "receita_base";
+  tipo_material?: TipoIngrediente | null;
   nome_ingrediente: string;
   quantidade: string;
   unidade: string;

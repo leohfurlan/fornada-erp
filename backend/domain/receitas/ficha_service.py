@@ -53,6 +53,9 @@ class FichaTecnicaService:
                     raise ValidationError("Receita-base não encontrada nesta loja")
                 if base.rendimento <= 0:
                     raise ValidationError("Informe um rendimento positivo para a receita-base")
+                for item in base.ingredientes:
+                    if item.receita_componente_id:
+                        await validar_base(item.receita_componente_id, caminho | {base_id})
                 ficha = base.ficha_tecnica or {}
                 if ficha.get("composicao_ativa"):
                     for item in ficha.get("passos", []):

@@ -18,6 +18,12 @@ export default function NovaReceitaPage() {
       // 0 no input significa "não informado" — envia null pra API.
       preco_de_venda_real: data.preco_de_venda_real > 0 ? data.preco_de_venda_real : null,
       modo_preparo: data.modo_preparo || null,
+      ingredientes: data.ingredientes.map((item) => ({
+        ingrediente_id: item.origem_tipo === "material" ? item.ingrediente_id : null,
+        receita_componente_id: item.origem_tipo === "receita_base" ? item.receita_componente_id : null,
+        quantidade: item.quantidade,
+        unidade: item.unidade,
+      })),
       etapas: data.etapas.map((e, i) => ({ ...e, ordem: i })),
     };
     const receita = await criar.mutateAsync(payload);

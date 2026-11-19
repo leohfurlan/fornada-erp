@@ -22,7 +22,7 @@ export function CustoCard({ custo }: CustoCardProps) {
       {/* Breakdown de custos */}
       <div className="space-y-2 text-sm">
         <div className="flex justify-between text-muted-foreground">
-          <span>Ingredientes</span>
+          <span>Ingredientes, insumos e receitas-base</span>
           <MoneyDisplay value={custo.custo_ingredientes} />
         </div>
         {temEmbalagem && (

@@ -37,6 +37,24 @@ async def montar_snapshot(receita: Receita, repo: ReceitaRepository, tenant_id: 
                 detalhes[alvo] = {"tipo": "material", "id": alvo, "nome": material.nome, "unidade": material.unidade}
     else:
         for item in receita.ingredientes:
+            if item.receita_componente_id:
+                alvo = str(item.receita_componente_id)
+                base = await repo.buscar_por_id(item.receita_componente_id, tenant_id)
+                if not base:
+                    raise ValidationError("Receita-base removida; revise os ingredientes")
+                convertido = converter_quantidade(
+                    item.quantidade, item.unidade, base.rendimento_unidade
+                )
+                bases[alvo] = bases.get(alvo, Decimal("0")) + convertido
+                detalhes[alvo] = {
+                    "tipo": "receita_base",
+                    "id": alvo,
+                    "nome": base.nome,
+                    "unidade": base.rendimento_unidade,
+                }
+                continue
+            if not item.ingrediente_id or not item.ingrediente:
+                raise ValidationError("Material removido; revise os ingredientes")
             alvo = str(item.ingrediente_id)
             materiais[alvo] = materiais.get(alvo, Decimal("0")) + converter_para_principal(item.quantidade, item.unidade, item.ingrediente.unidade, item.ingrediente.unidades_alternativas)
             detalhes[alvo] = {"tipo": "material", "id": alvo, "nome": item.ingrediente.nome, "unidade": item.ingrediente.unidade}

@@ -1,8 +1,9 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from domain.nomes import nome_cadastro
 
@@ -29,9 +30,16 @@ class EtapaInput(BaseModel):
 
 
 class IngredienteInput(BaseModel):
-    ingrediente_id: UUID
+    ingrediente_id: UUID | None = None
+    receita_componente_id: UUID | None = None
     quantidade: Decimal
     unidade: str
+
+    @model_validator(mode="after")
+    def origem_unica(self) -> "IngredienteInput":
+        if (self.ingrediente_id is None) == (self.receita_componente_id is None):
+            raise ValueError("Selecione um material ou uma receita-base")
+        return self
 
     @field_validator("quantidade")
     @classmethod
@@ -103,7 +111,10 @@ class EtapaResponse(BaseModel):
 
 class IngredienteReceitaResponse(BaseModel):
     id: UUID
-    ingrediente_id: UUID
+    ingrediente_id: UUID | None
+    receita_componente_id: UUID | None = None
+    tipo_origem: Literal["material", "receita_base"]
+    tipo_material: str | None = None
     nome_ingrediente: str
     quantidade: Decimal
     unidade: str

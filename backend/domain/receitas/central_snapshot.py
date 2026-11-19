@@ -102,6 +102,7 @@ async def snapshot(db, tenant_id, recipe_id, *, include_steps: bool = False):
                 .where(Receita.tenant_id == tenant_id, Receita.deleted_at.is_(None))
                 .options(
                     joinedload(Receita.ingredientes).joinedload(ReceitaIngrediente.ingrediente),
+                    joinedload(Receita.ingredientes).joinedload(ReceitaIngrediente.receita_componente),
                     joinedload(Receita.etapas),
                 )
                 .execution_options(populate_existing=True)
@@ -125,6 +126,20 @@ async def snapshot(db, tenant_id, recipe_id, *, include_steps: bool = False):
         result = []
         for item in sorted(row.ingredientes, key=lambda item: str(item.id)):
             if item.deleted_at:
+                continue
+            if item.receita_componente_id:
+                componente = catalog.get(item.receita_componente_id)
+                if not componente or componente.tenant_id != tenant_id or componente.deleted_at:
+                    warnings.append(f"{row.nome}: receita-base vinculada indisponível")
+                    continue
+                positive_quantity(item.quantidade)
+                result.append(
+                    {
+                        "name": f"{componente.nome} (receita-base)",
+                        "quantity": format(item.quantidade, "f"),
+                        "unit": item.unidade,
+                    }
+                )
                 continue
             material = item.ingrediente
             if not material or material.tenant_id != tenant_id or material.deleted_at:
@@ -181,6 +196,15 @@ async def snapshot(db, tenant_id, recipe_id, *, include_steps: bool = False):
                 f"{step.nome}\nDuração: {step.duracao_minutos} min\nTipo: {step.tipo_mao_obra}",
             )
         sheet = row.ficha_tecnica or {}
+        if not sheet.get("composicao_ativa"):
+            for item in row.ingredientes:
+                if not item.receita_componente_id:
+                    continue
+                component = catalog.get(item.receita_componente_id)
+                if not component or component.tenant_id != tenant_id or component.deleted_at:
+                    warnings.append(f"{row.nome}: sub-receita vinculada indisponível")
+                else:
+                    visit(component, path | {row.id}, depth + 1)
         section(prefix + "Descrição do produto", sheet.get("descricao_produto"))
         section(prefix + "Apresentação final", sheet.get("especificacao_final"))
         for index, step in enumerate(sheet.get("passos", []), 1):

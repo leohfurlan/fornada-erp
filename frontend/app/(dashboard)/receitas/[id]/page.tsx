@@ -104,12 +104,21 @@ export default function ReceitaPage() {
 
       {/* Ingredientes */}
       <section className="space-y-2">
-        <h2 className="font-semibold">Ingredientes</h2>
+        <h2 className="font-semibold">Ingredientes e componentes</h2>
         <div className="divide-y rounded-xl border">
           {receita.ingredientes.map((item) => (
             <div key={item.id} className="flex items-center justify-between px-4 py-3 text-sm">
               <div>
                 <p className="font-medium">{item.nome_ingrediente}</p>
+                <p className="text-xs text-muted-foreground">
+                  {item.tipo_origem === "receita_base"
+                    ? "Receita-base · massa, recheio ou componente"
+                    : item.tipo_material === "embalagem"
+                      ? "Embalagem"
+                      : item.tipo_material === "insumo"
+                        ? "Insumo"
+                        : "Ingrediente ou material"}
+                </p>
                 <p className="text-muted-foreground">
                   {formatQuantidade(item.quantidade)} {item.unidade}
                 </p>

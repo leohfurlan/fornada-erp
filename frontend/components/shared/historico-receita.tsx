@@ -14,7 +14,7 @@ interface Versao {
   snapshot: {
     nome: string; categoria: string; rendimento: string; rendimento_unidade: string;
     modo_preparo: string | null;
-    ingredientes: { nome: string; quantidade: string; unidade: string }[];
+    ingredientes: { nome: string; quantidade: string; unidade: string; tipo_origem?: "material" | "receita_base" }[];
     etapas: { nome: string; duracao_minutos: number }[];
     ficha_tecnica: { descricao_produto?: string; especificacao_final?: string;
       passos?: { descricao: string; quantidade?: string; unidade: string; instrucao?: string; especificacao?: string }[] } | null;
@@ -42,7 +42,7 @@ export function HistoricoReceita({ id }: { id: string }) {
         <p className="font-medium">{item.snapshot.nome}</p>
         <p>{item.snapshot.categoria} · Rendimento: {formatQuantidade(item.snapshot.rendimento)} {item.snapshot.rendimento_unidade}</p>
         <h3 className="font-medium">Ingredientes</h3>
-        <ul>{item.snapshot.ingredientes.map((i, n) => <li key={n}>{formatQuantidade(i.quantidade)} {i.unidade} — {i.nome}</li>)}</ul>
+        <ul>{item.snapshot.ingredientes.map((i, n) => <li key={n}>{formatQuantidade(i.quantidade)} {i.unidade} — {i.nome}{i.tipo_origem === "receita_base" ? " (receita-base)" : ""}</li>)}</ul>
         <h3 className="font-medium">Preparo</h3>
         <MarkdownContent children={item.snapshot.modo_preparo ?? ""} />
         <ol>{item.snapshot.etapas.map((e, n) => <li key={n}>{n + 1}. {e.nome} · {formatQuantidade(e.duracao_minutos)} min</li>)}</ol>

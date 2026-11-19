@@ -18,6 +18,12 @@ export default function EditarReceitaPage() {
       margem_desejada: data.margem_desejada / 100,
       preco_de_venda_real: data.preco_de_venda_real > 0 ? data.preco_de_venda_real : null,
       modo_preparo: data.modo_preparo || null,
+      ingredientes: data.ingredientes.map((item) => ({
+        ingrediente_id: item.origem_tipo === "material" ? item.ingrediente_id : null,
+        receita_componente_id: item.origem_tipo === "receita_base" ? item.receita_componente_id : null,
+        quantidade: item.quantidade,
+        unidade: item.unidade,
+      })),
       etapas: data.etapas.map((e, i) => ({ ...e, ordem: i })),
     };
     await atualizar.mutateAsync(payload);
@@ -46,7 +52,9 @@ export default function EditarReceitaPage() {
       : 0,
     modo_preparo: receita.modo_preparo ?? "",
     ingredientes: receita.ingredientes.map((ri) => ({
-      ingrediente_id: ri.ingrediente_id,
+      origem_tipo: ri.tipo_origem,
+      ingrediente_id: ri.ingrediente_id ?? "",
+      receita_componente_id: ri.receita_componente_id ?? "",
       quantidade: parseFloat(ri.quantidade),
       unidade: ri.unidade,
     })),
@@ -69,6 +77,7 @@ export default function EditarReceitaPage() {
 
       <FormReceita
         rascunhoId={`receita:${id}`}
+        receitaAtualId={id}
         key={id} /* força remount com novos defaultValues quando trocar de id */
         valoresIniciais={valoresIniciais}
         onSubmit={onSubmit}

@@ -23,6 +23,7 @@ class HistoricoReceita:
             .where(Receita.id == receita_id, Receita.tenant_id == tenant_id,
                    Receita.deleted_at.is_(None))
             .options(joinedload(Receita.ingredientes).joinedload(ReceitaIngrediente.ingrediente),
+                     joinedload(Receita.ingredientes).joinedload(ReceitaIngrediente.receita_componente),
                      joinedload(Receita.etapas))
             .execution_options(populate_existing=True)
         )
@@ -44,9 +45,18 @@ class HistoricoReceita:
             "modo_preparo": row.modo_preparo, "foto_url": row.foto_url,
             "ficha_tecnica": deepcopy(row.ficha_tecnica), "ficha_revisao": row.ficha_revisao,
             "ingredientes": [
-                {"ingrediente_id": str(item.ingrediente_id),
-                 "nome": item.ingrediente.nome if item.ingrediente and
-                         item.ingrediente.tenant_id == row.tenant_id else "Indisponível",
+                {"ingrediente_id": str(item.ingrediente_id) if item.ingrediente_id else None,
+                 "receita_componente_id": (
+                     str(item.receita_componente_id) if item.receita_componente_id else None
+                 ),
+                 "tipo_origem": "receita_base" if item.receita_componente_id else "material",
+                 "nome": (
+                     item.receita_componente.nome
+                     if item.receita_componente and item.receita_componente.tenant_id == row.tenant_id
+                     else item.ingrediente.nome
+                     if item.ingrediente and item.ingrediente.tenant_id == row.tenant_id
+                     else "Indisponível"
+                 ),
                  "quantidade": str(item.quantidade), "unidade": item.unidade}
                 for item in sorted(row.ingredientes, key=lambda item: (item.created_at, str(item.id)))
                 if not item.deleted_at

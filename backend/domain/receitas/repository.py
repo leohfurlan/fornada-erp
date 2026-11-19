@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from domain.receitas.schemas import CriarReceitaRequest
+from domain.receitas.schemas import CriarReceitaRequest, EtapaInput, IngredienteInput
 from domain.nomes import nome_cadastro
 from infrastructure.database.models import Ingrediente, Receita, ReceitaEtapa, ReceitaIngrediente, Tenant, OrdemProducao, EstoqueProdutoAcabado
 
@@ -20,6 +20,19 @@ class ReceitaRepository:
 
     async def referencia_em_uso(self, alvo: UUID, tenant_id: UUID, campo: str) -> bool:
         """Procura vínculos em fichas ativas e snapshots ainda não concluídos."""
+        if campo == "receita_base_id":
+            ingrediente = await self._db.execute(
+                select(ReceitaIngrediente.id)
+                .join(Receita, ReceitaIngrediente.receita_id == Receita.id)
+                .where(
+                    Receita.tenant_id == tenant_id,
+                    Receita.deleted_at.is_(None),
+                    ReceitaIngrediente.receita_componente_id == alvo,
+                )
+                .limit(1)
+            )
+            if ingrediente.first():
+                return True
         ficha = await self._db.execute(select(Receita.id).where(
             Receita.tenant_id == tenant_id, Receita.deleted_at.is_(None),
             Receita.ficha_tecnica["passos"].contains([{campo: str(alvo)}]),
@@ -68,6 +81,7 @@ class ReceitaRepository:
             ri = ReceitaIngrediente(
                 receita_id=receita.id,
                 ingrediente_id=item.ingrediente_id,
+                receita_componente_id=item.receita_componente_id,
                 quantidade=item.quantidade,
                 unidade=item.unidade,
             )
@@ -92,6 +106,7 @@ class ReceitaRepository:
             select(Receita)
             .options(
                 selectinload(Receita.ingredientes).selectinload(ReceitaIngrediente.ingrediente),
+                selectinload(Receita.ingredientes).selectinload(ReceitaIngrediente.receita_componente),
                 selectinload(Receita.etapas),
             )
             .where(
@@ -108,6 +123,7 @@ class ReceitaRepository:
             select(Receita)
             .options(
                 selectinload(Receita.ingredientes).selectinload(ReceitaIngrediente.ingrediente),
+                selectinload(Receita.ingredientes).selectinload(ReceitaIngrediente.receita_componente),
                 selectinload(Receita.etapas),
             )
             .where(Receita.tenant_id == tenant_id, Receita.deleted_at.is_(None))
@@ -119,8 +135,8 @@ class ReceitaRepository:
         self,
         receita: Receita,
         campos_simples: dict,
-        ingredientes: list | None,
-        etapas: list | None,
+        ingredientes: list[IngredienteInput] | None,
+        etapas: list[EtapaInput] | None,
     ) -> Receita:
         """
         Atualiza campos da receita. Se ingredientes/etapas forem passados,
@@ -141,6 +157,7 @@ class ReceitaRepository:
                     ReceitaIngrediente(
                         receita_id=receita.id,
                         ingrediente_id=item.ingrediente_id,
+                        receita_componente_id=item.receita_componente_id,
                         quantidade=item.quantidade,
                         unidade=item.unidade,
                     )
@@ -199,6 +216,7 @@ class ReceitaRepository:
                 ReceitaIngrediente(
                     receita_id=nova.id,
                     ingrediente_id=ri.ingrediente_id,
+                    receita_componente_id=ri.receita_componente_id,
                     quantidade=ri.quantidade,
                     unidade=ri.unidade,
                 )

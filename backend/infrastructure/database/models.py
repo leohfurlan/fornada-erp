@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import (
     DECIMAL,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -181,7 +182,8 @@ class Receita(TenantMixin, TimestampMixin, Base):
     versao: Mapped[int] = mapped_column(Integer, server_default="1", nullable=False)
 
     ingredientes: Mapped[list["ReceitaIngrediente"]] = relationship(
-        back_populates="receita", cascade="all, delete-orphan"
+        back_populates="receita", cascade="all, delete-orphan",
+        foreign_keys="ReceitaIngrediente.receita_id",
     )
     etapas: Mapped[list["ReceitaEtapa"]] = relationship(
         back_populates="receita", cascade="all, delete-orphan", order_by="ReceitaEtapa.ordem"
@@ -203,19 +205,34 @@ class ReceitaVersao(TenantMixin, TimestampMixin, Base):
 
 class ReceitaIngrediente(TimestampMixin, Base):
     __tablename__ = "receita_ingredientes"
+    __table_args__ = (
+        CheckConstraint(
+            "(ingrediente_id IS NOT NULL AND receita_componente_id IS NULL) OR "
+            "(ingrediente_id IS NULL AND receita_componente_id IS NOT NULL)",
+            name="ck_receita_ingredientes_uma_origem",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     receita_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("receitas.id"), nullable=False, index=True
     )
-    ingrediente_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("ingredientes.id"), nullable=False
+    ingrediente_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("ingredientes.id"), nullable=True
+    )
+    receita_componente_id: Mapped[UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("receitas.id"), nullable=True, index=True
     )
     quantidade: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
     unidade: Mapped[str] = mapped_column(String(20), nullable=False)
 
-    receita: Mapped["Receita"] = relationship(back_populates="ingredientes")
-    ingrediente: Mapped["Ingrediente"] = relationship()
+    receita: Mapped["Receita"] = relationship(
+        back_populates="ingredientes", foreign_keys=[receita_id]
+    )
+    ingrediente: Mapped["Ingrediente | None"] = relationship()
+    receita_componente: Mapped["Receita | None"] = relationship(
+        foreign_keys=[receita_componente_id]
+    )
 
 
 class EtapaPadrao(TenantMixin, TimestampMixin, Base):

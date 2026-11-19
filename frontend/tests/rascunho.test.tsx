@@ -6,7 +6,11 @@ import { useRascunho } from "@/hooks/use-rascunho";
 import { RascunhoFeedback } from "@/components/shared/rascunho-feedback";
 import { FormReceita } from "@/components/shared/form-receita";
 
-vi.mock("@/hooks/use-estoque", () => ({ useIngredientes: () => ({ data: [] }) }));
+vi.mock("@/hooks/use-estoque", () => ({
+  useIngredientes: () => ({ data: [] }),
+  useCriarIngrediente: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+vi.mock("@/hooks/use-receitas", () => ({ useReceitas: () => ({ data: [] }) }));
 vi.mock("@/hooks/use-configuracoes", () => ({ useEtapasPadrao: () => ({ data: [] }) }));
 
 const exit = vi.fn();
@@ -107,14 +111,14 @@ describe("rascunhos locais", () => {
     render(<FormReceita {...props} />);
     await waitFor(() => expect(screen.getByPlaceholderText("Ex: Bolo de chocolate")).toHaveValue("BOLO DE CHOCOLATE"));
     expect(screen.getByLabelText("Modo de preparo")).toHaveValue("1. Misture **bem**.");
-    expect(screen.getByText("Ingrediente 2")).toBeInTheDocument();
+    expect(screen.getByText("Item 2")).toBeInTheDocument();
   });
 
   it("mantém a receita recuperável quando a API falha e limpa após salvar definitivamente", async () => {
     const onSubmit = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue(undefined);
     render(<FormReceita textoBotao="Salvar receita" textoBotaoLoading="Salvando" onSubmit={onSubmit} valoresIniciais={{
       nome: "BOLO", categoria: "Bolos", rendimento: 1, rendimento_unidade: "un",
-      ingredientes: [{ ingrediente_id: "ingrediente-1", quantidade: 2, unidade: "g" }],
+      ingredientes: [{ origem_tipo: "material", ingrediente_id: "ingrediente-1", receita_componente_id: "", quantidade: 2, unidade: "g" }],
       etapas: [{ nome: "Misturar", duracao_minutos: 5, tipo_mao_obra: "direta", ordem: 0 }],
     }} />);
     fireEvent.change(screen.getByLabelText("Modo de preparo"), { target: { value: "Misture bem" } });
