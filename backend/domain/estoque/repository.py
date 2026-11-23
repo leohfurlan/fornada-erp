@@ -85,7 +85,15 @@ class EstoqueRepository:
 
     async def unidades_receitas(self, ingrediente_id: UUID, tenant_id: UUID) -> list[str]:
         """Unidades usadas em receitas/fichas ativas do mesmo tenant."""
-        result = await self._db.execute(select(ReceitaIngrediente.unidade).join(Receita).where(Receita.tenant_id == tenant_id, Receita.deleted_at.is_(None), ReceitaIngrediente.ingrediente_id == ingrediente_id))
+        result = await self._db.execute(
+            select(ReceitaIngrediente.unidade)
+            .join(Receita, ReceitaIngrediente.receita_id == Receita.id)
+            .where(
+                Receita.tenant_id == tenant_id,
+                Receita.deleted_at.is_(None),
+                ReceitaIngrediente.ingrediente_id == ingrediente_id,
+            )
+        )
         unidades = list(result.scalars().all())
         fichas = await self._db.execute(select(Receita.ficha_tecnica).where(Receita.tenant_id == tenant_id, Receita.deleted_at.is_(None)))
         for ficha in fichas.scalars():
