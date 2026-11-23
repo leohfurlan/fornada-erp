@@ -4,9 +4,10 @@ import type { CustoDetalhado } from "@/types";
 
 interface CustoCardProps {
   custo: CustoDetalhado;
+  rendimento: string;
 }
 
-export function CustoCard({ custo }: CustoCardProps) {
+export function CustoCard({ custo, rendimento }: CustoCardProps) {
   const temEmbalagem = parseFloat(custo.custo_embalagem) > 0;
   const temResultado =
     custo.lucro_estimado !== null ||
@@ -52,17 +53,27 @@ export function CustoCard({ custo }: CustoCardProps) {
           <MoneyDisplay value={custo.custo_por_unidade} />
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Preço mínimo</span>
+          <span className="text-muted-foreground">Preço mínimo por unidade/porção</span>
           <MoneyDisplay value={custo.preco_minimo} />
         </div>
         <div className="flex justify-between font-semibold text-primary">
-          <span>Preço recomendado</span>
+          <span>Preço recomendado por unidade/porção</span>
           <MoneyDisplay value={custo.preco_recomendado} size="lg" />
         </div>
+        <div className="flex justify-between gap-3 font-semibold text-primary">
+          <span>Preço recomendado para o rendimento completo</span>
+          <MoneyDisplay value={Number(custo.preco_recomendado) * Number(rendimento)} size="lg" />
+        </div>
         {custo.preco_recomendado_ifood !== null && (
-          <div className="flex justify-between text-sm pt-1 border-t">
-            <span className="text-muted-foreground">Preço sugerido p/ iFood</span>
+          <div className="space-y-1 pt-1 border-t">
+          <div className="flex justify-between gap-3 text-sm">
+            <span className="text-muted-foreground">Preço sugerido para iFood por unidade/porção</span>
             <MoneyDisplay value={custo.preco_recomendado_ifood} />
+          </div>
+          <div className="flex justify-between gap-3 text-sm font-medium">
+            <span>Preço sugerido para iFood para o rendimento completo</span>
+            <MoneyDisplay value={Number(custo.preco_recomendado_ifood) * Number(rendimento)} />
+          </div>
           </div>
         )}
       </div>

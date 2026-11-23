@@ -91,7 +91,7 @@ export default function ReceitaPage() {
         </p>
       </div>
 
-      {receita.custo && <CustoCard custo={receita.custo} />}
+      {receita.custo && <CustoCard custo={receita.custo} rendimento={receita.rendimento} />}
       {ficha?.descricao_produto && <section className="space-y-2">
         <h2 className="font-semibold">Descrição do produto</h2>
         <MarkdownContent className="rounded-xl border bg-card p-4">{ficha.descricao_produto}</MarkdownContent>
